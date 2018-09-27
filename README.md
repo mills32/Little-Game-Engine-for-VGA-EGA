@@ -16,5 +16,5 @@ Little Game Engine for MCGA/VGA and 8086/286
 	
 	The "BAD" things
 		- An 8086 can only draw 4 or 5 sprites without flickering.
-		- You have to update the map at the visible borders of the screen.	
+		- It uses 304x184 resolution, some monitors will fail, windows 95, 98 will fail(use only in pure DOS)	
 	                          
