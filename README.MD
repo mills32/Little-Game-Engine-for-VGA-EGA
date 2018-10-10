@@ -37,11 +37,11 @@ Little Game Engine for MCGA/VGA and 8086/286
 	- Cargar sprites de 8x8, 16x16 y 32x32, con transparencia y con animaciones.
 	- Cargar mapas TMX, creados con el programa tiled: https://www.mapeditor.org/
 	- Scroll de los mapas a 70 fps.
-	- Animaciones de paleta, puedes cambiar 8 primeros colores de la paleta para hacer animaciones.
+	- Animaciones de paleta, puedes cambiar los 8 primeros colores de la paleta para hacer animaciones.
 	- Cargar y reproducir música en formato IMF para el chip ym3812, OPL2, o Adlib, o cualquier Sound Blaster conpatible. 
 
 	Las cosas "MALAS":
-	- Un 8088 con VGA cargará el motor, pero no podrá dibujar mas de un sprite sin que haya ralentizaciones y paradeos.
+	- Un 8088 con VGA cargará el motor, pero no podrá dibujar mas de un sprite sin que haya ralentizaciones y parpadeos.
 	- Un 8086 solo podrá dibujar 3 o 4 sprites de 16x16 sin parpadear. Si añades más, pues pardadearán bastante.
 	- La resolución de 304x176 oculta los bordes que son actualizados para el scroll, pero algunos monitores antiguos no funcionarán.	
 	
