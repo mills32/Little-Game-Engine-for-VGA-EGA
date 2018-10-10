@@ -9,7 +9,7 @@ Little Game Engine for MCGA/VGA and 8086/286
 
 	This program is intended to work on MS-DOS, 8086/286, and MCGA (or VGA) video.     
 	Yes you read well, an 8086 with an MCGA is capable of:
-	- Load and draw bmp.
+	- Load and draw 256 colours bmp.
 	- Load and draw sprites (8x8, 16x16 and 32x32),with transparency and animations.
 	- Load and draw TMX maps, created with tiled: https://www.mapeditor.org/
 	- Hardware scroll (70 fps).
@@ -33,7 +33,7 @@ Little Game Engine for MCGA/VGA and 8086/286
 
 	Este programa está optimizado para funcionar en MS-DOS, con un procesador 8086, y una tarjeta MCGA (o VGA).     
 	Si, has leído bien, un 8086 con una MCGA is capaz de:
-	- Cargar bmp y dibujarlos.
+	- Cargar archivos bmp de 256 colores y dibujarlos.
 	- Cargar sprites de 8x8, 16x16 y 32x32, con transparencia y con animaciones.
 	- Cargar mapas TMX, creados con el programa tiled: https://www.mapeditor.org/
 	- Scroll de los mapas a 70 fps.
