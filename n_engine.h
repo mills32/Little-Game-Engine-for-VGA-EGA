@@ -143,7 +143,7 @@ void draw_map_row(MAP map, TILE *t, word x, word y, word map_offset);
 void unload_map(MAP *map);
 
 //update screen
-void scroll_map(MAP map, TILE *t, int dir);
+void scroll_map(MAP map, TILE *t);
 
 void load_sprite(char *file,SPRITE *s, byte size);
 void draw_sprite(SPRITE *b, word x, word y, byte frame);

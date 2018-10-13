@@ -40,8 +40,10 @@ word start;
 byte scr_delay = 0; //copy tile data in several frames to avoid slowdown
 int SCR_X = 0;
 int SCR_Y = 0;
-int scroll_x = 0;
-int scroll_y = 0;
+int current_x = 0;
+int last_x = 0;
+int current_y = 0;
+int last_y = 0;
 int scrollU_posy = 0;
 int scrollD_posy = 0;
 int scrollL_posx = 0;
@@ -386,12 +388,11 @@ void set_map(MAP map, TILE *t, int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
-	scroll_x = x & 15;
-	scroll_y = y & 15;
 	scrollR_posx = x+304;
 	scrollD_posy = y+174;
 	map_offset = (map.width*y)+x;
-
+	SCR_X = x<<4;
+	SCR_Y = y<<4;
 	//draw map 
 	for (i = 0;i<320;i+=16){draw_map_column(map,t,i,0,map_offset+j);j++;}	
 }
@@ -529,50 +530,27 @@ void draw_map_row(MAP map, TILE *t, word x, word y, word map_offset){
 }
 
 //update rows and colums
-void scroll_map(MAP map, TILE *t, int dir){
-	switch (dir){
-		case 0: //UP
-			scrollU_posy = SCR_Y-16;
-			if (scroll_y == 0) {
-				scroll_y = 16; 
-				draw_map_row(map,t,SCR_X-(SCR_X & 15),scrollU_posy,map_offset-map.width);
-				map_offset -= map.width;
-			}
-			scroll_y--;
-			SCR_Y--;
-		break;
-		case 1: //DOWN
-			scrollD_posy = SCR_Y+176;
-			if (scroll_y == 16) {
-				scroll_y = 0; 	
-				draw_map_row(map,t,SCR_X-(SCR_X & 15),scrollD_posy,map_offset+(12*map.width));
-				map_offset += map.width;
-			}
-			scroll_y++;
-			SCR_Y++;
-		break;
-		case 2: //LEFT
-			scrollL_posx = SCR_X-16;
-			if (scroll_x == 0) {
-				scroll_x = 16; 
-				draw_map_column(map,t,scrollL_posx,SCR_Y-(SCR_Y & 15),map_offset-1); 
-				map_offset--;
-			}
-			scroll_x--;
-			SCR_X--;	
-		break;
-		case 3: //RIGHT
-			scrollR_posx = SCR_X+304;
-			if (scroll_x == 16){
-				scroll_x = 0; 	
-				draw_map_column(map,t,scrollR_posx,SCR_Y-(SCR_Y & 15),map_offset+20);
-				map_offset++;
-			}
-			scroll_x++;
-			SCR_X++;
-		break;
+void scroll_map(MAP map, TILE *t){
+	current_x = SCR_X-(SCR_X & 15);
+	current_y = SCR_Y-(SCR_Y & 15);
+	if (current_y < last_y) {
+		draw_map_row(map,t,current_x,current_y,map_offset-map.width);
+		map_offset -= map.width;
 	}
-
+	if (current_y > last_y) { 
+		draw_map_row(map,t,current_x,current_y+176,map_offset+(12*map.width));
+		map_offset += map.width;
+	}
+	if (current_x < last_x) { 
+		draw_map_column(map,t,current_x,current_y,map_offset-1); 
+		map_offset--;
+	}
+	if (current_x > last_x) { 	
+		draw_map_column(map,t,current_x+304,current_y,map_offset+20);
+		map_offset++;
+	}
+	last_x = current_x;
+	last_y = current_y;
 }
 
 //load RLE sprites with transparency (size = 8,16,32)

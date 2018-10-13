@@ -79,10 +79,10 @@ void main(){
 	j = 0;
 	
 	//load_tiles("GFX/stileset.bmp",&tileset_space);
-	load_map("GFX/map.tmx",&map_level);
-	load_tiles("GFX/tileset.bmp",&tileset_level);
+	load_map("GFX/slevel1.tmx",&map_level);
+	load_tiles("GFX/stileset.bmp",&tileset_level);
 	//load_sprite("GFX/player.bmp",&sprite_player,16);
-	//load_sprite("GFX/ship1.bmp",&sprite_ship1,32);
+	load_sprite("GFX/ship1.bmp",&sprite_ship1,32);
 	
 	set_mode(0x13);
 	set_palette(tileset_level.palette);
@@ -125,12 +125,13 @@ void main(){
 		if (read_keys() == 3){sprite_player.pos_x++; Speed++; update_tilesD(map_level,&tileset_level);} 
 		*/
 
-		//scroll_map function updates the SCR_X and SCR_Y variables
-		if (read_keys() == 0) scroll_map(map_level,&tileset_level,0);
-		if (read_keys() == 1) scroll_map(map_level,&tileset_level,1);
-		if (read_keys() == 2) scroll_map(map_level,&tileset_level,2);
-		if (read_keys() == 3) scroll_map(map_level,&tileset_level,3);
-		//draw_sprite(&sprite_ship1,SCR_X+130,SCR_Y+80,0);
+		//scroll_map 
+		scroll_map(map_level,&tileset_level);
+		if (read_keys() == 0) SCR_Y--;
+		if (read_keys() == 1) SCR_Y++;
+		if (read_keys() == 2) SCR_X--;
+		if (read_keys() == 3) SCR_X++;
+		draw_sprite(&sprite_ship1,SCR_X+130,SCR_Y+80,frame);
 		
 		cycle_palette(&cycle_water,2);
 		
@@ -138,13 +139,13 @@ void main(){
 		//MCGA_Scroll(sprite_player.pos_x-130,sprite_player.pos_y-70);
 		
 		if(Speed == 4){Speed = 0; frame++;}
-		
+		Speed++;
 		//move sprite
 
 		if (read_keys() == 6) Scene = -1; //esc exit
 		//if (j == 600) Scene = -1; //esc exit
 		i+=3;
-		if(frame == 6) frame = 0;
+		if(frame == 4) frame = 0;
 		if (i > 360) i = 0;
 		
 	}
