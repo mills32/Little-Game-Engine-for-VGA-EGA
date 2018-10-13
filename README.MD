@@ -1,5 +1,6 @@
 
 LITTLE GAME ENGINE for MCGA/VGA and 8086/286
+--------------------------------------------
 
 A lot of code from David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
@@ -24,6 +25,7 @@ The "BAD" things:
 Please feel free to copy this source code.
 	
 LITTLE GAME ENGINE para MCGA/VGA y 8086/286
+-------------------------------------------
 
 Un montón de código copiado de David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
