@@ -1,22 +1,10 @@
 /*##########################################################################
-	Original bitmap.c by David Brackeen                                   
+	A lot of code from David Brackeen                                   
 	http://www.brackeen.com/home/vga/                                     
 
 	This is a 16-bit program.                     
 	Remember to compile in the LARGE memory model!                        
 
-	This program is intended to work on MS-DOS, 8086, MCGA (or VGA) video.     
-	Yes you read well, an 8086 with an MCGA is capable of:
-		- Store and display tiles to fill the entire screen (64 Kb of VRAM)
-		- Hardware scrolling (yes, just 3 or 4 games used that).
-		- Copy tiles from ram to the borders of the VRAM (very fast) to scroll around big maps.
-		- Draw around 4 sprites (16x16 pixels) on top of the map.
-		- Do all this keeping 60 FPS!!
-	
-	The "BAD" things
-		- An 8086 can only draw 4 or 5 sprites without flickering
-		- 304x184 resolution to hide the borders being updated, some monitors may not work.	
-	
 	Please feel free to copy this source code.                            
 
 ##########################################################################*/
@@ -58,10 +46,7 @@ int scrollU_posy = 0;
 int scrollD_posy = 0;
 int scrollL_posx = 0;
 int scrollR_posx = 0;
-int map_offsetU = 0;
-int map_offsetD = 0;
-int map_offsetR = 0;
-int map_offsetL = 0;
+int map_offset = 0;
 int fixD = 0;
 int fixL = 0;
 
@@ -164,14 +149,15 @@ void MCGA_WaitVBL(){
 
 //Hardware scrolling
 void MCGA_Scroll(word x, word y){
-	byte pix = x & 7; 	//pixel panning 
+	byte p[4] = {0,2,4,6};
+	byte pix = x & 3; 	//pixel panning 
 	x=x>>2;				//x/4
 	y=(y<<6)+(y<<4);	//(y*64)+(y*16) = y*80;
 
 	//change pixel panning register 
 	inp(0x3da);
 	outp(0x3c0, 0x33);		
-	outp(0x3c0, pix<<1);
+	outp(0x3c0, p[pix]);
 	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
 	outport(0x03d4, 0x0C | (x+y & 0xff00));
 	outport(0x03d4, 0x0D | (x+y << 8));
@@ -191,7 +177,7 @@ void set_mode(byte mode){
 	// turn off write protect */
     word_out(0x03d4, V_RETRACE_END, 0x2c);
     outp(MISC_OUTPUT, 0xe7);
-	
+	//do not touch... working on old crts!
 	/*word_out(0x03d4,H_TOTAL, 80);  /**/             
 	word_out(0x03d4,H_DISPLAY_END, (304>>2)-1);   //HORIZONTAL RESOLUTION = 304   
 	//word_out(0x03d4,H_BLANK_START, 0);        
@@ -203,7 +189,7 @@ void set_mode(byte mode){
 	/*word_out(0x03d4,MAX_SCAN_LINE,0);/**/         
 	//word_out(0x03d4,V_RETRACE_START, 0x0f); /**/      
 	//word_out(0x03d4,V_RETRACE_END, 200); /**/        
-	word_out(0x03d4,V_DISPLAY_END, 0x159); //VERTICAL RESOLUTION = 176
+	word_out(0x03d4,V_DISPLAY_END, 176<<1);  //VERTICAL RESOLUTION = 176
 	/*word_out(0x03d4,UNDERLINE_LOCATION, 80); /**/   
 	/*word_out(0x03d4,V_BLANK_START, 80);   /**/      
 	/*word_out(0x03d4,V_BLANK_END, 80);    /**/      
@@ -400,18 +386,14 @@ void set_map(MAP map, TILE *t, int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
-	scroll_x = x % 16;
-	scroll_y = y % 16;
+	scroll_x = x & 15;
+	scroll_y = y & 15;
 	scrollR_posx = x+304;
 	scrollD_posy = y+174;
-	map_offsetU = 0;
-	map_offsetD = 12*map.width;
-	map_offsetR = 20;
-	map_offsetL = 0;
-	map_offsetU = 0;
+	map_offset = (map.width*y)+x;
 
 	//draw map 
-	for (i = 0;i<320;i+=16){draw_map_column(map,t,i,0,j);j++;}	
+	for (i = 0;i<320;i+=16){draw_map_column(map,t,i,0,map_offset+j);j++;}	
 }
 
 void draw_map_column(MAP map, TILE *t, word x, word y, word map_offset){
@@ -548,61 +530,47 @@ void draw_map_row(MAP map, TILE *t, word x, word y, word map_offset){
 
 //update rows and colums
 void scroll_map(MAP map, TILE *t, int dir){
-	
 	switch (dir){
 		case 0: //UP
-			scrollU_posy = (SCR_Y-(SCR_Y & 15)) -16;
-			if (SCR_Y > 0){
-				if (scroll_y == 0) {
-					scroll_y = 16; 
-					map_offsetU = map_offsetD-(13*map.width);
-					//if (map_offsetU == map.height*) map_offsetU = 0; 		
-					draw_map_row(map,t,(SCR_X-(SCR_X & 15)-1),scrollU_posy,map_offsetU+map_offsetR-20);
-					map_offsetD-=map.width;
-				}
-				scroll_y--;
-				SCR_Y--;
+			scrollU_posy = SCR_Y-16;
+			if (scroll_y == 0) {
+				scroll_y = 16; 
+				draw_map_row(map,t,SCR_X-(SCR_X & 15),scrollU_posy,map_offset-map.width);
+				map_offset -= map.width;
 			}
-		break; 
+			scroll_y--;
+			SCR_Y--;
+		break;
 		case 1: //DOWN
-			scrollD_posy = (SCR_Y-(SCR_Y & 15)) +176;
-			if (scrollD_posy < (map.height<<4)-1){
-				if (scroll_y == 16) {
-					scroll_y = 0; 
-					//if (map_offsetD == map.height*) map_offsetD = 0; 		
-					draw_map_row(map,t,(SCR_X-(SCR_X & 15)),scrollD_posy,map_offsetD+map_offsetR-20);
-					map_offsetD += map.width;
-				}
-				scroll_y++;
-				SCR_Y++;
+			scrollD_posy = SCR_Y+176;
+			if (scroll_y == 16) {
+				scroll_y = 0; 	
+				draw_map_row(map,t,SCR_X-(SCR_X & 15),scrollD_posy,map_offset+(12*map.width));
+				map_offset += map.width;
 			}
-		break; 
+			scroll_y++;
+			SCR_Y++;
+		break;
 		case 2: //LEFT
-			scrollL_posx = (SCR_X-(SCR_X & 15)) -16;
-			if (SCR_X > 0){
-				if (scroll_x == 0) {
-					scroll_x = 16; 
-					map_offsetL = map_offsetR - 21;	
-					draw_map_column(map,t,scrollL_posx,0,map_offsetL); 
-					map_offsetR--;
-				}
-				scroll_x--;
-				SCR_X--;
-			}		
-		break; 
+			scrollL_posx = SCR_X-16;
+			if (scroll_x == 0) {
+				scroll_x = 16; 
+				draw_map_column(map,t,scrollL_posx,SCR_Y-(SCR_Y & 15),map_offset-1); 
+				map_offset--;
+			}
+			scroll_x--;
+			SCR_X--;	
+		break;
 		case 3: //RIGHT
-			scrollR_posx = (SCR_X-(SCR_X & 15)) +304;
-			if (scrollR_posx < (map.width<<4)-1){
-				if (scroll_x == 16) {
-					scroll_x = 0; 
-					//if (map_offsetR == map.width) map_offsetR = 0; 		
-					draw_map_column(map,t,scrollR_posx,0,map_offsetR);
-					map_offsetR++;
-				}
-				scroll_x++;
-				SCR_X++;
-			}		
-		break; 
+			scrollR_posx = SCR_X+304;
+			if (scroll_x == 16){
+				scroll_x = 0; 	
+				draw_map_column(map,t,scrollR_posx,SCR_Y-(SCR_Y & 15),map_offset+20);
+				map_offset++;
+			}
+			scroll_x++;
+			SCR_X++;
+		break;
 	}
 
 }
@@ -1011,9 +979,7 @@ void unload_song(IMFsong *song){
 	free(song->sdata); song->sdata = NULL;
 }
 
-
 ///////////////////////////////////////
-
 int SIN[720] = {
  9,  9,  9,  9, 10, 10, 10, 10, 10, 10,
 11, 11, 11, 11, 11, 11, 12, 12, 12, 12,
