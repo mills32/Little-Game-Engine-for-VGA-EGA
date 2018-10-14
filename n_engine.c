@@ -290,13 +290,14 @@ void load_tiles(char *file,TILE *b){
 		b->palette[(int)(index*3+0)] = fgetc(fp) >> 2;
 		fgetc(fp);
 	}
-
-	if ((b->tdata = malloc(b->width*b->height)) == NULL){
+	
+	if ((b->tdata = malloc(b->width*b->height*sizeof(byte))) == NULL){
 		fclose(fp);
-		printf("Error allocating memory tile data %s.\n",file);
+		printf("Error allocating memory for tile data %s.\n",file);
 		exit(1);
 	}	
-	if ((tile_datatemp = malloc(b->width*b->height)) == NULL){
+
+	if ((tile_datatemp = malloc(b->width*b->height*sizeof(byte))) == NULL){
 		fclose(fp);
 		printf("Error allocating memory for temp data %s.\n",file);
 		exit(1);
@@ -319,6 +320,7 @@ void load_tiles(char *file,TILE *b){
 			}
 		}
 	}
+
 	free(tile_datatemp);
 	tile_datatemp = NULL;
 	
@@ -340,7 +342,7 @@ void load_map(char *file, MAP *map){
 	FILE *f = fopen(file, "rb");
 	word start_data = 0;
 	word end_data = 0;
-	byte tile = 0;
+	word tile = 0;
 	word index = 0;
 	char line[64];
 	char name[64]; //name of the layer in TILED
@@ -358,7 +360,7 @@ void load_map(char *file, MAP *map){
 			start_data = 1;
 		}
 	}
-	if ((map->data = (byte *) malloc(map->width*map->height)) == NULL){
+	if ((map->data = malloc(map->width*map->height*sizeof(byte))) == NULL){
 		fclose(f);
 		printf("Error allocating memory for map\n");
 		exit(1);
@@ -367,7 +369,11 @@ void load_map(char *file, MAP *map){
 		memset(line, 0, 64);
 		fgets(line, 64, f);
 		if ((line[3] == '<')&&(line[4] == 't')){
-			sscanf(line,"   <tile gid=\"%i\"/>",&tile);
+			sscanf(line,"   <tile gid=\"%d\"/>",&tile);
+			if (!tile){
+				printf("Error. tile number too big\n");
+				exit(1);
+			}
 			map->data[index] = tile -1;
 			index++;
 		}
@@ -542,10 +548,11 @@ void scroll_map(MAP map, TILE *t){
 		map_offset += map.width;
 	}
 	if (current_x < last_x) { 
+		if (current_x < 0) map_offset = map_offset - map.width;
 		draw_map_column(map,t,current_x,current_y,map_offset-1); 
 		map_offset--;
 	}
-	if (current_x > last_x) { 	
+	if (current_x > last_x) { 
 		draw_map_column(map,t,current_x+304,current_y,map_offset+20);
 		map_offset++;
 	}
@@ -615,7 +622,7 @@ void load_sprite(char *file,SPRITE *s, byte size){
 
 	for(index=(s->height-1)*s->width;index>=0;index-=s->width)
 		for(x=0;x<s->width;x++)
-		sprite_datatemp[(word)index+x]=(byte)fgetc(fp);
+		sprite_datatemp[index+x]=(byte)fgetc(fp);
 	fclose(fp);
 
 	index = 0;
@@ -636,7 +643,7 @@ void load_sprite(char *file,SPRITE *s, byte size){
 	free(sprite_datatemp);
 
 	//calculate frames size
-	s->rle_frames = (SPRITEFRAME*) malloc(s->nframes);
+	s->rle_frames = malloc(s->nframes*sizeof(SPRITEFRAME));
 	//CONVERT AND STORE EVERY FRAME IN RLE FORMAT
 	for(j=0;j<s->nframes;j++){
 		offset = 0;
@@ -685,8 +692,8 @@ void load_sprite(char *file,SPRITE *s, byte size){
 		frame_size = 2; //word "number of runs"
 		for(i = 0; i < number_of_runs; i++) 
 			frame_size+= (4 + run_length[i]); //word skip + word number of pixels + length
-		s->rle_frames[j].rle_data = malloc(frame_size);
-		
+		s->rle_frames[j].rle_data = (byte*) malloc(frame_size);
+
 		//copy RLE data to struct
 		memcpy(&s->rle_frames[j].rle_data[0],&number_of_runs,2);
 		foffset+=2;

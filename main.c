@@ -36,7 +36,7 @@ int Scene = 0;
 
 void main(){
 	MAP map_logo,map_level,map_space;
-	TILE tileset_logo,tileset_level,tileset_space;			
+	TILE image,tileset_logo,tileset_level,tileset_space;			
 	SPRITE sprite_player,sprite_ship0,sprite_ship1,sprite_enemy1,sprite_enemy2,sprite_enemy3;
 	COLORCYCLE cycle_water;
 	
@@ -78,11 +78,10 @@ void main(){
 	i = 0;
 	j = 0;
 	
-	//load_tiles("GFX/stileset.bmp",&tileset_space);
-	load_map("GFX/slevel1.tmx",&map_level);
-	load_tiles("GFX/stileset.bmp",&tileset_level);
-	//load_sprite("GFX/player.bmp",&sprite_player,16);
-	load_sprite("GFX/ship1.bmp",&sprite_ship1,32);
+	load_map("GFX/mario.tmx",&map_level);
+	load_tiles("GFX/mariotil.bmp",&tileset_level);
+	load_sprite("GFX/s_mario.bmp",&sprite_ship1,16);
+	load_sprite("GFX/player.bmp",&sprite_player,16);
 	
 	set_mode(0x13);
 	set_palette(tileset_level.palette);
@@ -105,7 +104,7 @@ void main(){
 	//opl2_clear();
 	
 	//animate colours
-	cycle_init(&cycle_water,palette_cycle_water);
+	//cycle_init(&cycle_water,palette_cycle_water);
 
 	i = 0;
 	j = 0;
@@ -133,19 +132,18 @@ void main(){
 		if (read_keys() == 3) SCR_X++;
 		draw_sprite(&sprite_ship1,SCR_X+130,SCR_Y+80,frame);
 		
-		cycle_palette(&cycle_water,2);
-		
+		//cycle_palette(&cycle_water,2);
 
 		//MCGA_Scroll(sprite_player.pos_x-130,sprite_player.pos_y-70);
 		
-		if(Speed == 4){Speed = 0; frame++;}
+		if(Speed == 8){Speed = 0; frame++;}
 		Speed++;
 		//move sprite
 
 		if (read_keys() == 6) Scene = -1; //esc exit
 		//if (j == 600) Scene = -1; //esc exit
 		i+=3;
-		if(frame == 4) frame = 0;
+		if(frame == 3) frame = 0;
 		if (i > 360) i = 0;
 		
 	}
