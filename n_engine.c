@@ -11,8 +11,16 @@
 
 #include "n_engine.h"
 
-//Predefined struct:
-IMFsong song;	//Ok... 1 song in memory. 
+//Predefined structs
+/*******************
+OK let's do this console style, (of course You can do whatever you want).
+At any moment there will only be:
+You'll have to unload a music/map/tilset before loading another.
+********************/
+IMFsong LT_music;	// One song in ram stored at "LT_music"
+MAP LT_map;			// One map in ram stored at "LT_map"
+TILE LT_tileset;	// One tileset in ram stored at "LT_tileset"
+SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2, lt_gpnumber3; // 4 sprites for debug printing
 
 //GLOBAL VARIABLES
 
@@ -44,13 +52,8 @@ int current_x = 0;
 int last_x = 0;
 int current_y = 0;
 int last_y = 0;
-int scrollU_posy = 0;
-int scrollD_posy = 0;
-int scrollL_posx = 0;
-int scrollR_posx = 0;
 int map_offset = 0;
-int fixD = 0;
-int fixL = 0;
+int LT_follow = 0;
 
 //end of global variables
 
@@ -258,7 +261,7 @@ void load_plain_bmp(char *file,TILE *b){
 }
 
 /* load_16x16 tiles */
-void load_tiles(char *file,TILE *b){
+void load_tiles(char *file){
 	FILE *fp;
 	long index,offset;
 	word num_colors;
@@ -276,46 +279,46 @@ void load_tiles(char *file,TILE *b){
 	fgetc(fp);
 
 	fskip(fp,16);
-	fread(&b->width, sizeof(word), 1, fp);
+	fread(&LT_tileset.width, sizeof(word), 1, fp);
 	fskip(fp,2);
-	fread(&b->height,sizeof(word), 1, fp);
+	fread(&LT_tileset.height,sizeof(word), 1, fp);
 	fskip(fp,22);
 	fread(&num_colors,sizeof(word), 1, fp);
 	fskip(fp,6);
 
 	if (num_colors==0) num_colors=256;
 	for(index=0;index<num_colors;index++){
-		b->palette[(int)(index*3+2)] = fgetc(fp) >> 2;
-		b->palette[(int)(index*3+1)] = fgetc(fp) >> 2;
-		b->palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+		LT_tileset.palette[(int)(index*3+2)] = fgetc(fp) >> 2;
+		LT_tileset.palette[(int)(index*3+1)] = fgetc(fp) >> 2;
+		LT_tileset.palette[(int)(index*3+0)] = fgetc(fp) >> 2;
 		fgetc(fp);
 	}
 	
-	if ((b->tdata = malloc(b->width*b->height*sizeof(byte))) == NULL){
+	if ((LT_tileset.tdata = malloc(LT_tileset.width*LT_tileset.height*sizeof(byte))) == NULL){
 		fclose(fp);
 		printf("Error allocating memory for tile data %s.\n",file);
 		exit(1);
 	}	
 
-	if ((tile_datatemp = malloc(b->width*b->height*sizeof(byte))) == NULL){
+	if ((tile_datatemp = malloc(LT_tileset.width*LT_tileset.height*sizeof(byte))) == NULL){
 		fclose(fp);
 		printf("Error allocating memory for temp data %s.\n",file);
 		exit(1);
 	}
 
-	for(index=(b->height-1)*b->width;index>=0;index-=b->width)
-		for(x=0;x<b->width;x++)
+	for(index=(LT_tileset.height-1)*LT_tileset.width;index>=0;index-=LT_tileset.width)
+		for(x=0;x<LT_tileset.width;x++)
 			tile_datatemp[index+x]=(byte)fgetc(fp);
 	fclose(fp);
 
 	index = 0;
 	
 	//Rearrange tiles one after another in memory (in a column)
-	for (tileY=0;tileY<b->height;tileY+=16){
-		for (tileX=0;tileX<b->width;tileX+=16){
-			offset = (tileY*b->width)+tileX;
+	for (tileY=0;tileY<LT_tileset.height;tileY+=16){
+		for (tileX=0;tileX<LT_tileset.width;tileX+=16){
+			offset = (tileY*LT_tileset.width)+tileX;
 			for(x=0;x<16;x++){
-				memcpy(&b->tdata[index],&tile_datatemp[offset+(x*b->width)],16);
+				memcpy(&LT_tileset.tdata[index],&tile_datatemp[offset+(x*LT_tileset.width)],16);
 				index+=16;
 			}
 		}
@@ -324,21 +327,21 @@ void load_tiles(char *file,TILE *b){
 	free(tile_datatemp);
 	tile_datatemp = NULL;
 	
-	b->ntiles = (b->width>>4) * (b->height>>4);
-	b->width = 16;
-	b->height = 200;
+	LT_tileset.ntiles = (LT_tileset.width>>4) * (LT_tileset.height>>4);
+	LT_tileset.width = 16;
+	LT_tileset.height = 200;
 }
 
-void unload_tiles(TILE *t){
-	t->width = NULL;
-	t->height = NULL;
-	t->ntiles = NULL;
-	*t->palette = NULL;
-	free(t->tdata); t->tdata = NULL;
+void LT_unload_tileset(){
+	LT_tileset.width = NULL;
+	LT_tileset.height = NULL;
+	LT_tileset.ntiles = NULL;
+	*LT_tileset.palette = NULL;
+	free(LT_tileset.tdata); LT_tileset.tdata = NULL;
 }
 
 //Load tiled TMX map in XML format
-void load_map(char *file, MAP *map){ 
+void load_map(char *file){ 
 	FILE *f = fopen(file, "rb");
 	word start_data = 0;
 	word end_data = 0;
@@ -356,11 +359,11 @@ void load_map(char *file, MAP *map){
 		memset(line, 0, 64);
 		fgets(line, 64, f);
 		if((line[1] == '<')&&(line[2] == 'l')){
-			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&map->width,&map->height);
+			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&LT_map.width,&LT_map.height);
 			start_data = 1;
 		}
 	}
-	if ((map->data = malloc(map->width*map->height*sizeof(byte))) == NULL){
+	if ((LT_map.data = malloc(LT_map.width*LT_map.height*sizeof(byte))) == NULL){
 		fclose(f);
 		printf("Error allocating memory for map\n");
 		exit(1);
@@ -374,40 +377,40 @@ void load_map(char *file, MAP *map){
 				printf("Error. tile number too big\n");
 				exit(1);
 			}
-			map->data[index] = tile -1;
+			LT_map.data[index] = tile -1;
 			index++;
 		}
 		if((line[2] == '<')&&(line[3] == '/'))end_data = 1;
 	}
-	map->ntiles = map->width*map->height;
+	LT_map.ntiles = LT_map.width*LT_map.height;
 	fclose(f);
 }
 
-void unload_map(MAP *map){
-	map->width = NULL;
-	map->height = NULL;
-	map->ntiles = NULL;
-	free(map->data); map->data = NULL;
+void LT_unload_map(){
+	LT_map.width = NULL;
+	LT_map.height = NULL;
+	LT_map.ntiles = NULL;
+	free(LT_map.data); LT_map.data = NULL;
 }
 
-void set_map(MAP map, TILE *t, int x, int y){
+void set_map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
-	scrollR_posx = x+304;
-	scrollD_posy = y+174;
-	map_offset = (map.width*y)+x;
+	current_x = x;
+	current_y = y;
+	map_offset = (LT_map.width*y)+x;
 	SCR_X = x<<4;
 	SCR_Y = y<<4;
 	//draw map 
-	for (i = 0;i<320;i+=16){draw_map_column(map,t,i,0,map_offset+j);j++;}	
+	for (i = 0;i<320;i+=16){draw_map_column(i,0,map_offset+j);j++;}	
 }
 
-void draw_map_column(MAP map, TILE *t, word x, word y, word map_offset){
-	unsigned char *tiledata = (unsigned char *) &t->tdata;
-	unsigned char *mapdata = map.data;
+void draw_map_column(word x, word y, word map_offset){
+	unsigned char *tiledata = (unsigned char *) &LT_tileset.tdata;
+	unsigned char *mapdata = LT_map.data;
 	word tile_offset = 0;
-	word width = map.width;
+	word width = LT_map.width;
 	word screen_offset = (y<<8)+(y<<6)+x;
 	asm{
 		push ds
@@ -468,9 +471,9 @@ void draw_map_column(MAP map, TILE *t, word x, word y, word map_offset){
 	}
 }
 
-void draw_map_row(MAP map, TILE *t, word x, word y, word map_offset){
-	unsigned char *tiledata = (unsigned char *) &t->tdata;
-	unsigned char *mapdata = map.data;
+void draw_map_row( word x, word y, word map_offset){
+	unsigned char *tiledata = (unsigned char *) &LT_tileset.tdata;
+	unsigned char *mapdata = LT_map.data;
 	word tile_offset = 0;
 	//word width = map.width;
 	word screen_offset = (y<<8)+(y<<6)+x;
@@ -536,28 +539,49 @@ void draw_map_row(MAP map, TILE *t, word x, word y, word map_offset){
 }
 
 //update rows and colums
-void scroll_map(MAP map, TILE *t){
+void LT_scroll_map(){
 	current_x = SCR_X-(SCR_X & 15);
 	current_y = SCR_Y-(SCR_Y & 15);
 	if (current_y < last_y) {
-		draw_map_row(map,t,current_x,current_y,map_offset-map.width);
-		map_offset -= map.width;
+		draw_map_row(current_x,current_y,map_offset-LT_map.width);
+		map_offset -= LT_map.width;
 	}
 	if (current_y > last_y) { 
-		draw_map_row(map,t,current_x,current_y+176,map_offset+(12*map.width));
-		map_offset += map.width;
+		draw_map_row(current_x,current_y+176,map_offset+(12*LT_map.width));
+		map_offset += LT_map.width;
 	}
 	if (current_x < last_x) { 
-		if (current_x < 0) map_offset = map_offset - map.width;
-		draw_map_column(map,t,current_x,current_y,map_offset-1); 
+		if (current_x < 0) map_offset = map_offset - LT_map.width;
+		draw_map_column(current_x,current_y,map_offset-1); 
 		map_offset--;
 	}
 	if (current_x > last_x) { 
-		draw_map_column(map,t,current_x+304,current_y,map_offset+20);
+		draw_map_column(current_x+304,current_y,map_offset+20);
 		map_offset++;
 	}
 	last_x = current_x;
 	last_y = current_y;
+}
+
+void LT_scroll_follow(SPRITE *s){
+	//LIMITS
+	int y_limU = SCR_Y + 64;
+	int y_limD = SCR_Y + 120;
+	int x_limL = SCR_X + 80;
+	int x_limR = SCR_X + 200;
+	int wmap = LT_map.width<<4;
+	int hmap = LT_map.height<<4;
+	//clamp limits
+	if ((SCR_X > -1) && ((SCR_X+303)<wmap) && (SCR_Y > -1) && ((SCR_Y+175)<hmap)){
+		if (s->pos_y > y_limD) SCR_Y++;
+		if (s->pos_y < y_limU) SCR_Y--;
+		if (s->pos_x < x_limL) SCR_X--;
+		if (s->pos_x > x_limR) SCR_X++;
+	}
+	if (SCR_X < 0) SCR_X = 0; 
+	if ((SCR_X+304) > wmap) SCR_X = wmap-304;
+	if (SCR_Y < 0) SCR_Y = 0; 
+	if ((SCR_Y+176) > hmap) SCR_Y = hmap-176; 
 }
 
 //load RLE sprites with transparency (size = 8,16,32)
@@ -812,7 +836,21 @@ void draw_sprite(SPRITE *s, word x, word y, byte frame){
 	s->last_y = y;
 }
 
-void unload_sprite(SPRITE *s){
+void LT_load_font(char *file){
+	load_sprite(file,&lt_gpnumber0,16);
+	load_sprite(file,&lt_gpnumber1,16);
+	load_sprite(file,&lt_gpnumber2,16);
+}
+
+void LT_gprint(int var, word x, word y){
+	draw_sprite(&lt_gpnumber0,SCR_X+x+34,SCR_Y+y,var % 10);
+	var /= 10;
+	draw_sprite(&lt_gpnumber1,SCR_X+x+17,SCR_Y+y,var % 10);
+	var /= 10;
+	draw_sprite(&lt_gpnumber2,SCR_X+x,SCR_Y+y,var % 10);
+}
+	
+void LT_unload_sprite(SPRITE *s){
 	int i;
 	s->width = NULL;
 	s->height = NULL;
@@ -830,6 +868,12 @@ void unload_sprite(SPRITE *s){
 		s->rle_frames[i].rle_data = NULL;
 	}
 	s->nframes = NULL;
+}
+
+void LT_unload_font(){
+	LT_unload_sprite(&lt_gpnumber0);
+	LT_unload_sprite(&lt_gpnumber1);
+	LT_unload_sprite(&lt_gpnumber2);
 }
 
 /*set_palette*/                                                           
@@ -890,10 +934,10 @@ void opl2_clear(void){
 
 void interrupt play_music(void){
 	if (time_ctr > next_event){
-		opl2_out(song.sdata[song.offset], song.sdata[song.offset+1]);
-		next_event += (song.sdata[song.offset+2] | (song.sdata[song.offset+3]) << 8);
-		song.offset+=4;
-		if (song.offset > song.size)song.offset = 0;
+		opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
+		next_event += (LT_music.sdata[LT_music.offset+2] | (LT_music.sdata[LT_music.offset+3]) << 8);
+		LT_music.offset+=4;
+		if (LT_music.offset > LT_music.size)LT_music.offset = 0;
 	}
 	time_ctr++;
 	//outportb(0x20, 0x20);	//PIC, EOI
@@ -934,34 +978,34 @@ void Load_Song(char *fname){
 	
 	//IMF
 	if (rb[0] == 0 && rb[1] == 0){
-		song.filetype = 0;
-		song.offset = 0L;
+		LT_music.filetype = 0;
+		LT_music.offset = 0L;
 	}
 	else {
-		song.filetype = 1;
-		song.offset = 2L;
+		LT_music.filetype = 1;
+		LT_music.offset = 2L;
 	}
 	//get file size:
 	fstat(fileno(imfile),&filestat);
-    song.size = filestat.st_size;
+    LT_music.size = filestat.st_size;
     fseek(imfile, 0, SEEK_SET);
 	
-	free(song.sdata);
-	if ((song.sdata = (unsigned char *) malloc(song.size)) == NULL){
+	free(LT_music.sdata);
+	if ((LT_music.sdata = (unsigned char *) malloc(LT_music.size)) == NULL){
 		fclose(imfile);
 		set_mode(TEXT_MODE);
 		printf("Error allocating memory for music data %s.\n",fname);
 		exit(1);
 	}
-	fread(song.sdata, 1, song.size,imfile);
+	fread(LT_music.sdata, 1, LT_music.size,imfile);
 	fclose(imfile);
 }
 
-void unload_song(IMFsong *song){
-	song->size = NULL;
-	song->offset = NULL;
-	song->filetype = NULL;
-	free(song->sdata); song->sdata = NULL;
+void unload_song(){
+	LT_music.size = NULL;
+	LT_music.offset = NULL;
+	LT_music.filetype = NULL;
+	free(LT_music.sdata); LT_music.sdata = NULL;
 }
 
 ///////////////////////////////////////

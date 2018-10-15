@@ -112,11 +112,12 @@ typedef struct tagIMFsong{
 	byte *sdata;
 } IMFsong;
 
-extern IMFsong song;	//just one song in memory at a time
+extern IMFsong LT_music;	
+extern MAP LT_map;			
+extern TILE LT_tileset;	
 
-void check_hardware();
 void ADLIB_Detect();
-
+void check_hardware();
 int read_keys();
 
 /*MCGA/VGA Hardware scroll*/
@@ -132,22 +133,27 @@ void reset_mode(byte mode);
 void load_plain_bmp(char *file,TILE *b);
 
 /* load_16x16 tiles */
-void load_tiles(char *file,TILE *b);
-void unload_tiles(TILE *t);
+void load_tiles(char *file);
+void LT_unload_tileset();
 
 //Load tiled TMX map in XML format
-void load_map(char *file, MAP *map);
-void set_map(MAP map, TILE *t, int x, int y);
-void draw_map_column(MAP map, TILE *t, word x, word y, word map_offset);
-void draw_map_row(MAP map, TILE *t, word x, word y, word map_offset);
-void unload_map(MAP *map);
+void load_map(char *file);
+void set_map(int x, int y);
+void draw_map_column( word x, word y, word map_offset);
+void draw_map_row( word x, word y, word map_offset);
+void LT_unload_map();
 
 //update screen
-void scroll_map(MAP map, TILE *t);
+void LT_scroll_map();
 
+//sprite
 void load_sprite(char *file,SPRITE *s, byte size);
 void draw_sprite(SPRITE *b, word x, word y, byte frame);
-void unload_sprite(SPRITE *s);
+void LT_load_font(char *file);
+void LT_gprint(int var, word x, word y);
+void LT_unload_sprite(SPRITE *s);
+void LT_unload_font();
+void LT_scroll_follow(SPRITE *s);
 
 //set_palette                                                           
 void set_palette(unsigned char *palette);
@@ -160,12 +166,9 @@ void draw_plain_bitmap(TILE *bmp, word x, word y);
 /*wait*/
 void wait(word ticks);
 
+//MUSIC
 void opl2_clear(void);
-
 void set_timer(word freq_div);
-
 void reset_timer();
-
 void Load_Song(char *fname);
-
-void unload_song(IMFsong *song);
+void unload_song();

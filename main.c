@@ -30,27 +30,31 @@ int i = 0;
 int j = 0;
 
 int frame = 0;
-int frame1 = 0;
+byte number = 0;
 int Speed = 0;
 int Scene = 0;
 
-void main(){
-	MAP map_logo,map_level,map_space;
-	TILE image,tileset_logo,tileset_level,tileset_space;			
+/*
+    int r = num % 10;
+    r /= 10;
+*/
+
+
+void main(){		
 	SPRITE sprite_player,sprite_ship0,sprite_ship1,sprite_enemy1,sprite_enemy2,sprite_enemy3;
 	COLORCYCLE cycle_water;
 	
-	//system("cls");
+	system("cls");
 	//check_hardware(); //causes garbage
 	//ADLIB_Detect(); 
 	
 	printf("Loading...\n");
-	
-	/*load_map("GFX/logo.tmx",&map_logo);
-	load_tiles("GFX/logo.bmp",&tileset_logo);
+/*	
+	load_map("GFX/logo.tmx");
+	load_tiles("GFX/logo.bmp");
 	
 	set_mode(0x13);
-	set_palette(tileset_logo.palette);
+	set_palette(LT_tileset.palette);
 	
 	//draw map 
 	for (i = 0;i<304;i+=16){
@@ -67,26 +71,21 @@ void main(){
 		while(!(inportb(0x3DA)&8)); 
 		j++;
 	}
-
-	free(tileset_logo.tdata);
-	tileset_logo.tdata = NULL;
-	free(map_logo.data);
-	map_logo.data = NULL;
-	*/
+	unload_tiles();
+	unload_map();
+*/
 	Scene = 1;
 
 	i = 0;
 	j = 0;
 	
-	load_map("GFX/mario.tmx",&map_level);
-	load_tiles("GFX/mariotil.bmp",&tileset_level);
-	load_sprite("GFX/s_mario.bmp",&sprite_ship1,16);
-	load_sprite("GFX/player.bmp",&sprite_player,16);
+	load_map("GFX/mario.tmx");
+	load_tiles("GFX/mariotil.bmp");
+	load_sprite("GFX/s_mario.bmp",&sprite_player,16);
+	LT_load_font("GFX/font.bmp");
 	
 	set_mode(0x13);
-	set_palette(tileset_level.palette);
-
-	set_map(map_level,&tileset_level,0,0);
+	set_palette(LT_tileset.palette);
 	
 	/*
 	start=*my_clock;
@@ -109,43 +108,41 @@ void main(){
 	i = 0;
 	j = 0;
 	
-	//sprite_player.pos_x = 130;
-	//sprite_player.pos_y = 70;
-	//draw_sprite(&sprite_player,0,0,0);
+	sprite_player.pos_x = 130;
+	sprite_player.pos_y = 70;
+
+	set_map(0,0);
+	
 	/*MAIN LOOP SCROLL X*/
 	while(Scene == 1){
 	
 		//SCR_X and SCR_Y are global variables predefined
 		MCGA_Scroll(SCR_X,SCR_Y);  
 		MCGA_WaitVBL(); //Draw everything just after VBL!!
-		/*if (read_keys() == 0){sprite_player.pos_y--; Speed++;}
-		if (read_keys() == 1){sprite_player.pos_y++; Speed++;}
-		if (read_keys() == 2){sprite_player.pos_x--; Speed++; update_tilesL(map_level,&tileset_level);}
-		if (read_keys() == 3){sprite_player.pos_x++; Speed++; update_tilesD(map_level,&tileset_level);} 
-		*/
 
 		//scroll_map 
-		scroll_map(map_level,&tileset_level);
-		if (read_keys() == 0) SCR_Y--;
-		if (read_keys() == 1) SCR_Y++;
-		if (read_keys() == 2) SCR_X--;
-		if (read_keys() == 3) SCR_X++;
-		draw_sprite(&sprite_ship1,SCR_X+130,SCR_Y+80,frame);
+		LT_scroll_follow(&sprite_player);
+		LT_scroll_map();
+		draw_sprite(&sprite_player,sprite_player.pos_x,sprite_player.pos_y,frame);
+		
+		//PRINT TILE POS
+		number = LT_map.data[((sprite_player.pos_y>>4) * LT_map.width) + (sprite_player.pos_x>>4)];
+		LT_gprint(SCR_Y,240,160);
 		
 		//cycle_palette(&cycle_water,2);
-
-		//MCGA_Scroll(sprite_player.pos_x-130,sprite_player.pos_y-70);
+		
+		if (read_keys() == 0) sprite_player.pos_y--;
+		if (read_keys() == 1) sprite_player.pos_y++;
+		if (read_keys() == 2) sprite_player.pos_x--;
+		if (read_keys() == 3) sprite_player.pos_x++;
 		
 		if(Speed == 8){Speed = 0; frame++;}
 		Speed++;
 		//move sprite
 
 		if (read_keys() == 6) Scene = -1; //esc exit
-		//if (j == 600) Scene = -1; //esc exit
-		i+=3;
-		if(frame == 3) frame = 0;
-		if (i > 360) i = 0;
-		
+		//if (j == 1200) Scene = -1; //esc exit
+		if(frame == 15) frame = 0;
 	}
 	reset_mode(TEXT_MODE); 
 	
@@ -153,11 +150,11 @@ void main(){
 	//reset_timer();
 	
 	//free ram, if not, program it will crash a lot
-	//unload_song(&song);
-	//unload_tiles(&tileset_space);
-	unload_tiles(&tileset_level);
-	unload_map(&map_level);
-	//unload_sprite(&sprite_player);
+	//unload_song();
+	LT_unload_tileset();
+	LT_unload_map();
+	LT_unload_sprite(&sprite_player);
+	LT_unload_font();
 	
 	//debug
 	printf("Copy rle odd = %f\n",t1);
