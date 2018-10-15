@@ -48,6 +48,7 @@
 #define word_out(port,register,value) \
   outport(port,(((word)value<<8) + register))
 
+extern int Free_RAM;
 extern int SCR_X;
 extern int SCR_Y;
 extern float t1,t2; //debug
@@ -126,8 +127,8 @@ void MCGA_WaitVBL();
 
 void MCGA_ClearScreen();
 
-void set_mode(byte mode);
-void reset_mode(byte mode);
+void LT_Init();
+void LT_ExitDOS();
 
 /* load plain bmp */
 void load_plain_bmp(char *file,TILE *b);
@@ -138,7 +139,7 @@ void LT_unload_tileset();
 
 //Load tiled TMX map in XML format
 void load_map(char *file);
-void set_map(int x, int y);
+void LT_Set_Map(int x, int y);
 void draw_map_column( word x, word y, word map_offset);
 void draw_map_row( word x, word y, word map_offset);
 void LT_unload_map();
@@ -149,6 +150,7 @@ void LT_scroll_map();
 //sprite
 void load_sprite(char *file,SPRITE *s, byte size);
 void draw_sprite(SPRITE *b, word x, word y, byte frame);
+void LT_move_player(SPRITE *s);
 void LT_load_font(char *file);
 void LT_gprint(int var, word x, word y);
 void LT_unload_sprite(SPRITE *s);
@@ -171,4 +173,4 @@ void opl2_clear(void);
 void set_timer(word freq_div);
 void reset_timer();
 void Load_Song(char *fname);
-void unload_song();
+void LT_Unload_Music();

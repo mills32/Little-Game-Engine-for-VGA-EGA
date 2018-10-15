@@ -30,15 +30,8 @@ int i = 0;
 int j = 0;
 
 int frame = 0;
-byte number = 0;
 int Speed = 0;
 int Scene = 0;
-
-/*
-    int r = num % 10;
-    r /= 10;
-*/
-
 
 void main(){		
 	SPRITE sprite_player,sprite_ship0,sprite_ship1,sprite_enemy1,sprite_enemy2,sprite_enemy3;
@@ -48,32 +41,15 @@ void main(){
 	//check_hardware(); //causes garbage
 	//ADLIB_Detect(); 
 	
+	LT_Init();
+	
 	printf("Loading...\n");
-/*	
 	load_map("GFX/logo.tmx");
 	load_tiles("GFX/logo.bmp");
+	LT_Set_Map(0,0);
 	
-	set_mode(0x13);
-	set_palette(LT_tileset.palette);
+	wait(20);
 	
-	//draw map 
-	for (i = 0;i<304;i+=16){
-		draw_map_column(map_logo,&tileset_logo,i,0,j);
-		j++;
-	}
-	
-	j = 0;
-	while(Scene == 0){
-	
-		if (read_keys() == 6) Scene = 1;
-		if (j == 100) Scene = 1;
-		while(inportb(0x3DA)&8);
-		while(!(inportb(0x3DA)&8)); 
-		j++;
-	}
-	unload_tiles();
-	unload_map();
-*/
 	Scene = 1;
 
 	i = 0;
@@ -82,19 +58,8 @@ void main(){
 	load_map("GFX/mario.tmx");
 	load_tiles("GFX/mariotil.bmp");
 	load_sprite("GFX/s_mario.bmp",&sprite_player,16);
+	load_sprite("GFX/ship1.bmp",&sprite_ship1,32);
 	LT_load_font("GFX/font.bmp");
-	
-	set_mode(0x13);
-	set_palette(LT_tileset.palette);
-	
-	/*
-	start=*my_clock;
-	for (i = 0;i<100;i++) draw_RLE_sprite(&sprite_ship0,0,0,0);
-	t1=(*my_clock-start)/18.2;
-	start=*my_clock;
-	for (i = 0;i<100;i++) draw_RLE_sprite(&sprite_ship1,0,0,0);
-	t2=(*my_clock-start)/18.2;	
-	*/
 
 	//open IMF
 	//"music/64style.imf" "music/fox.imf" "music/game.imf" "music/luna.imf" "music/menu.imf" "music/riddle.imf" "music/space.imf"
@@ -111,7 +76,7 @@ void main(){
 	sprite_player.pos_x = 130;
 	sprite_player.pos_y = 70;
 
-	set_map(0,0);
+	LT_Set_Map(0,0);
 	
 	/*MAIN LOOP SCROLL X*/
 	while(Scene == 1){
@@ -123,18 +88,13 @@ void main(){
 		//scroll_map 
 		LT_scroll_follow(&sprite_player);
 		LT_scroll_map();
-		draw_sprite(&sprite_player,sprite_player.pos_x,sprite_player.pos_y,frame);
 		
-		//PRINT TILE POS
-		number = LT_map.data[((sprite_player.pos_y>>4) * LT_map.width) + (sprite_player.pos_x>>4)];
-		LT_gprint(SCR_Y,240,160);
+		draw_sprite(&sprite_player,sprite_player.pos_x,sprite_player.pos_y,frame);
+		LT_gprint(SCR_X,240,160);
+		
+		LT_move_player(&sprite_player);
 		
 		//cycle_palette(&cycle_water,2);
-		
-		if (read_keys() == 0) sprite_player.pos_y--;
-		if (read_keys() == 1) sprite_player.pos_y++;
-		if (read_keys() == 2) sprite_player.pos_x--;
-		if (read_keys() == 3) sprite_player.pos_x++;
 		
 		if(Speed == 8){Speed = 0; frame++;}
 		Speed++;
@@ -144,17 +104,18 @@ void main(){
 		//if (j == 1200) Scene = -1; //esc exit
 		if(frame == 15) frame = 0;
 	}
-	reset_mode(TEXT_MODE); 
 	
 	//opl2_clear();
 	//reset_timer();
 	
 	//free ram, if not, program it will crash a lot
-	//unload_song();
+	LT_Unload_Music();
 	LT_unload_tileset();
 	LT_unload_map();
 	LT_unload_sprite(&sprite_player);
 	LT_unload_font();
+	
+	LT_ExitDOS();
 	
 	//debug
 	printf("Copy rle odd = %f\n",t1);
@@ -162,3 +123,13 @@ void main(){
 	
 	return;
 }
+
+
+	/*
+	start=*my_clock;
+	for (i = 0;i<100;i++) draw_RLE_sprite(&sprite_ship0,0,0,0);
+	t1=(*my_clock-start)/18.2;
+	start=*my_clock;
+	for (i = 0;i<100;i++) draw_RLE_sprite(&sprite_ship1,0,0,0);
+	t2=(*my_clock-start)/18.2;	
+	*/

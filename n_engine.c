@@ -20,6 +20,7 @@ You'll have to unload a music/map/tilset before loading another.
 IMFsong LT_music;	// One song in ram stored at "LT_music"
 MAP LT_map;			// One map in ram stored at "LT_map"
 TILE LT_tileset;	// One tileset in ram stored at "LT_tileset"
+unsigned char *LT_tile_datatemp; //Temp storage of non tiled data.
 SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2, lt_gpnumber3; // 4 sprites for debug printing
 
 //GLOBAL VARIABLES
@@ -43,6 +44,7 @@ long next_event;
 // this points to the 18.2hz system clock. 
 word *my_clock=(word *)0x0000046C;    		
 word start;
+int Free_RAM;
 
 //Map Scrolling
 byte scr_delay = 0; //copy tile data in several frames to avoid slowdown
@@ -55,6 +57,12 @@ int last_y = 0;
 int map_offset = 0;
 int LT_follow = 0;
 
+//Player
+byte tile_number = 0;		//Tile a sprite is on
+byte tile_number_UDR = 0;	//Tile up or down R
+byte tile_number_UDL = 0;	//Tile up or down L
+byte tile_number_LRU = 0;	//Tile left or right U
+byte tile_number_LRD = 0;	//Tile left or right D
 //end of global variables
 
 int read_keys(){
@@ -173,10 +181,10 @@ void MCGA_ClearScreen(){
 	memset(&MCGA[0],0,(320*200)/4);
 }
 
-void set_mode(byte mode){
+void LT_Init(){
 	union REGS regs;
 	regs.h.ah = 0x00;
-	regs.h.al = mode;
+	regs.h.al = VGA_256_COLOR_MODE;
 	int86(0x10, &regs, &regs);
 	//320x200
 	// turn off write protect */
@@ -203,12 +211,38 @@ void set_mode(byte mode){
 	
     // set vertical retrace back to normal
     word_out(0x03d4, V_RETRACE_END, 0x8e);
+	
+	
+	//Allocate 256kb RAM for:
+	// 64kb Tileset
+	// 64kb Temp Tileset
+	// 64kb Map
+	// 64kb Music
+	if ((LT_tileset.tdata = malloc(65535*sizeof(byte))) == NULL){
+		LT_ExitDOS();
+		printf("Error allocating 64kb for tile data\n");
+	}	
+
+	if ((LT_tile_datatemp = malloc(65535*sizeof(byte))) == NULL){
+		LT_ExitDOS();
+		printf("Error allocating 64kb for temp data\n");
+	}
+	
+	if ((LT_map.data = malloc(65535*sizeof(byte))) == NULL){
+		LT_ExitDOS();
+		printf("Error allocating 64kb for map\n");
+	}
+	
+	if ((LT_music.sdata = malloc(65535*sizeof(byte))) == NULL){
+		LT_ExitDOS();
+		printf("Error allocating 64kb for music data\n");
+	}
 }
 
-void reset_mode(byte mode){
+void LT_ExitDOS(){
 	union REGS regs;
 	regs.h.ah = 0x00;
-	regs.h.al = mode;
+	regs.h.al = TEXT_MODE;
 	int86(0x10, &regs, &regs);
 }
 
@@ -225,6 +259,7 @@ void load_plain_bmp(char *file,TILE *b){
 
 	fp = fopen(file,"rb");
 	if(!fp){
+		LT_ExitDOS();
 		printf("can't find %s.\n",file);
 		exit(1);
 	}
@@ -242,6 +277,7 @@ void load_plain_bmp(char *file,TILE *b){
 	if (num_colors==0) num_colors=256;
 	if ((b->tdata = (byte *) malloc(b->width*b->height)) == NULL){
 		fclose(fp);
+		LT_ExitDOS();
 		printf("Error allocating memory for file %s.\n",file);
 		exit(1);
 	}
@@ -268,10 +304,10 @@ void load_tiles(char *file){
 	word x;
 	word tileX;
 	word tileY;
-	unsigned char *tile_datatemp; //Temp storage of non tiled data.
 	
 	fp = fopen(file,"rb");
 	if(!fp){
+		LT_ExitDOS();
 		printf("can't find %s.\n",file);
 		exit(1);
 	} 
@@ -293,22 +329,10 @@ void load_tiles(char *file){
 		LT_tileset.palette[(int)(index*3+0)] = fgetc(fp) >> 2;
 		fgetc(fp);
 	}
-	
-	if ((LT_tileset.tdata = malloc(LT_tileset.width*LT_tileset.height*sizeof(byte))) == NULL){
-		fclose(fp);
-		printf("Error allocating memory for tile data %s.\n",file);
-		exit(1);
-	}	
-
-	if ((tile_datatemp = malloc(LT_tileset.width*LT_tileset.height*sizeof(byte))) == NULL){
-		fclose(fp);
-		printf("Error allocating memory for temp data %s.\n",file);
-		exit(1);
-	}
 
 	for(index=(LT_tileset.height-1)*LT_tileset.width;index>=0;index-=LT_tileset.width)
 		for(x=0;x<LT_tileset.width;x++)
-			tile_datatemp[index+x]=(byte)fgetc(fp);
+			LT_tile_datatemp[index+x]=(byte)fgetc(fp);
 	fclose(fp);
 
 	index = 0;
@@ -318,14 +342,11 @@ void load_tiles(char *file){
 		for (tileX=0;tileX<LT_tileset.width;tileX+=16){
 			offset = (tileY*LT_tileset.width)+tileX;
 			for(x=0;x<16;x++){
-				memcpy(&LT_tileset.tdata[index],&tile_datatemp[offset+(x*LT_tileset.width)],16);
+				memcpy(&LT_tileset.tdata[index],&LT_tile_datatemp[offset+(x*LT_tileset.width)],16);
 				index+=16;
 			}
 		}
 	}
-
-	free(tile_datatemp);
-	tile_datatemp = NULL;
 	
 	LT_tileset.ntiles = (LT_tileset.width>>4) * (LT_tileset.height>>4);
 	LT_tileset.width = 16;
@@ -350,6 +371,7 @@ void load_map(char *file){
 	char line[64];
 	char name[64]; //name of the layer in TILED
 	if(!f){
+		LT_ExitDOS();
 		printf("can't find %s.\n",file);
 		exit(1);
 	}
@@ -363,17 +385,14 @@ void load_map(char *file){
 			start_data = 1;
 		}
 	}
-	if ((LT_map.data = malloc(LT_map.width*LT_map.height*sizeof(byte))) == NULL){
-		fclose(f);
-		printf("Error allocating memory for map\n");
-		exit(1);
-	}
+
 	while(end_data == 0){
 		memset(line, 0, 64);
 		fgets(line, 64, f);
 		if ((line[3] == '<')&&(line[4] == 't')){
 			sscanf(line,"   <tile gid=\"%d\"/>",&tile);
 			if (!tile){
+				LT_ExitDOS();
 				printf("Error. tile number too big\n");
 				exit(1);
 			}
@@ -393,7 +412,7 @@ void LT_unload_map(){
 	free(LT_map.data); LT_map.data = NULL;
 }
 
-void set_map(int x, int y){
+void LT_Set_Map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
@@ -404,6 +423,7 @@ void set_map(int x, int y){
 	SCR_Y = y<<4;
 	//draw map 
 	for (i = 0;i<320;i+=16){draw_map_column(i,0,map_offset+j);j++;}	
+	set_palette(LT_tileset.palette);
 }
 
 void draw_map_column(word x, word y, word map_offset){
@@ -613,6 +633,7 @@ void load_sprite(char *file,SPRITE *s, byte size){
 	
 	fp = fopen(file,"rb");
 	if(!fp){
+		LT_ExitDOS();
 		printf("can't find %s.\n",file);
 		exit(1);
 	} 
@@ -635,12 +656,14 @@ void load_sprite(char *file,SPRITE *s, byte size){
 	
 	if ((sprite_datatemp = (byte *) malloc(s->width*s->height)) == NULL){
 		fclose(fp);
-		printf("Error allocating memory for temp data %s.\n",file);
+		LT_ExitDOS();
+		printf("Error allocating memory for sprite temp data %s.\n",file);
 		exit(1);
 	}
 	if ((sprite_tiledatatemp = (byte *) malloc(s->width*s->height)) == NULL){
 		fclose(fp);
-		printf("Error allocating memory tile data %s.\n",file);
+		LT_ExitDOS();
+		printf("Error allocating memory for sprite data %s.\n",file);
 		exit(1);
 	}
 
@@ -836,6 +859,31 @@ void draw_sprite(SPRITE *s, word x, word y, byte frame){
 	s->last_y = y;
 }
 
+void LT_move_player(SPRITE *s){
+	//GET TILE POS
+	tile_number = LT_map.data[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
+	if (read_keys() == 0){	//UP
+		tile_number_UDR = LT_map.data[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_UDL = LT_map.data[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if ((tile_number_UDR != 40) && (tile_number_UDL != 40)) s->pos_y--;
+	}
+	if (read_keys() == 1){	//DOWN
+		tile_number_UDR = LT_map.data[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_UDL = LT_map.data[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if ((tile_number_UDR != 40) && (tile_number_UDL != 40)) s->pos_y++;
+	} 
+	if (read_keys() == 2){	//LEFT
+		tile_number_LRU = LT_map.data[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+		tile_number_LRD = LT_map.data[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+		if ((tile_number_LRU != 40) && (tile_number_LRD != 40)) s->pos_x--;
+	}
+	if (read_keys() == 3){	//RIGHT
+		tile_number_LRU = LT_map.data[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
+		tile_number_LRD = LT_map.data[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
+		if ((tile_number_LRU != 40) && (tile_number_LRD != 40))  s->pos_x++;
+	}
+}
+	
 void LT_load_font(char *file){
 	load_sprite(file,&lt_gpnumber0,16);
 	load_sprite(file,&lt_gpnumber1,16);
@@ -966,12 +1014,12 @@ void Load_Song(char *fname){
 	struct stat filestat;
 	
 	if (!imfile){
-		set_mode(TEXT_MODE);
+		LT_ExitDOS();
 		printf("Can't find %s.\n",fname);
 		exit(1);
 	}
 	if (fread(rb, sizeof(char), 2, imfile) != 2){
-		set_mode(TEXT_MODE);
+		LT_ExitDOS();
 		printf("Error openning %s.\n",fname);
 		exit(1);
 	}
@@ -989,19 +1037,12 @@ void Load_Song(char *fname){
 	fstat(fileno(imfile),&filestat);
     LT_music.size = filestat.st_size;
     fseek(imfile, 0, SEEK_SET);
-	
-	free(LT_music.sdata);
-	if ((LT_music.sdata = (unsigned char *) malloc(LT_music.size)) == NULL){
-		fclose(imfile);
-		set_mode(TEXT_MODE);
-		printf("Error allocating memory for music data %s.\n",fname);
-		exit(1);
-	}
+
 	fread(LT_music.sdata, 1, LT_music.size,imfile);
 	fclose(imfile);
 }
 
-void unload_song(){
+void LT_Unload_Music(){
 	LT_music.size = NULL;
 	LT_music.offset = NULL;
 	LT_music.filetype = NULL;
