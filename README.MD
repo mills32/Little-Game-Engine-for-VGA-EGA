@@ -1,41 +1,75 @@
-
-LITTLE GAME ENGINE for MCGA/VGA and 8086/286
+# Little-Game-Engine-for-VGA-MCGA
+Little Game Engine for MCGA/VGA and 8086/286
 --------------------------------------------
 
 A lot of code from David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
 
-This is a 16-bit program, it will only work on MS-DOS and windows 98.                     
+This is a 16-bit MS-DOS program, it will only work on MS-DOS, FreeDos and windows 98.                     
 Remember to compile in the LARGE memory model!                        
 
-This program is intended to work on MS-DOS, 8086/286, and MCGA (or VGA) video.     
-Yes you read well, an 8086 with an MCGA is capable of:
+Minimum requirements:
+- CPU 8088 4.77 Mhz
+- RAM About 400Kb for a basic platformer with 4 16x16 sprites.
+- GRAPHICS MCGA/VGA
+
+Recommended:
+- CPU 8086 8 Mhz
+- RAM 640 kb
+- GRAPHICS MCGA/VGA
+- SOUND Adlib or compatible
+
+*If you have a 286+ CPU, the engine can in theory draw very big sprites, but this is not tested.
+
+Little Engine functions:
 - Load and draw 256 colours bmp.
 - Load and draw sprites (8x8, 16x16 and 32x32),with transparency and animations.
-- Load and draw TMX maps, created with tiled: https://www.mapeditor.org/
+- Load, draw and scroll big TMX maps, created with tiled: https://www.mapeditor.org/
 - Hardware scroll (70 fps).
 - Palette animations.
-- Load and play IMF music for ym3812, OPL2, Adlib, or Sound Blaster compatible. 
+- Load and play IMF music for Adlib or compatible. 
 
 The "BAD" things:
-- An 8088 will run the engine, but it won't be able to draw more than one sprite without slowdowns and flickering.
-- An 8086 can only draw 4 or 5 sprites without flickering.
-- The 304x176 resolution hides the borders being updated, but some monitors may not work.	
-	
+- An 8088 will run the engine, but it will have slowdowns and flickering.
+- A bit low resolution (304x176) it's needed to hide the borders being updated.	
+
 Please feel free to copy this source code.
 	
-LITTLE GAME ENGINE para MCGA/VGA y 8086/286
--------------------------------------------
+NOTES
+-----
+Use only indexed bmp files with 256 colours.
+Little Engine uses 16x16 pixels tiles, and will split the tilesets in chunks of 16x16 pixels (from left to right / top to bottom).
+Sprites are split in chunks of 8x8,16x16 or 32x32. 
+TMX maps must be in XML format and orthogonal.
+All files (tilesets, maps, music and sprites) are limited to 64 kb.
+Only one song, one map and one tileset can be loaded in RAM, (the engine will allocate 256kb of ram for this purpose).
+Doing this, a lot of malloc trouble is fixed, the code is simplified and the engine works like a console, so every time you loaded
+one map, tileset or music, the last one is overwritten.
+	
+	
+"Little Game Engine" para MCGA/VGA y 8086/286
+---------------------------------------------
 
 Un montón de código copiado de David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
 
-Este es un programa de 16-bit, funcionará en MS-DOS y Windows 98.                     
+Este es un programa de 16-bit, funcionará en MS-DOS, FreeDos y Windows 98.                     
 Recuerda que hay que compilarlo usando el "LARGE memory model".                        
 
-Este programa está optimizado para funcionar en MS-DOS, con un procesador 8086, y una tarjeta MCGA (o VGA).  
+Requisitos mínimos:
+- CPU 8088 4.77 Mhz
+- RAM en torno a 400Kb para un plataformas básico con 4 sprites de 16x16.
+- GRÁFICOS MCGA/VGA
 
-Si, has leído bien, un 8086 con una MCGA is capaz de:
+Recomendado:
+- CPU 8086 8 Mhz
+- RAM 640 kb
+- GRÁFICOS MCGA/VGA
+- SOUNIDO Adlib o compatible
+
+*Si tienes un 286+, en teoría la cpu sería capaz de dibujar sprites muy grandes, pero no lo he probado.
+
+Funciones de Little Engine:
 - Cargar archivos bmp de 256 colores y dibujarlos.
 - Cargar sprites de 8x8, 16x16 y 32x32, con transparencia y con animaciones.
 - Cargar mapas TMX, creados con el programa tiled: https://www.mapeditor.org/
@@ -44,25 +78,20 @@ Si, has leído bien, un 8086 con una MCGA is capaz de:
 - Cargar y reproducir música en formato IMF para el chip ym3812, OPL2, o Adlib, o cualquier Sound Blaster conpatible. 
 
 Las cosas "MALAS":
-- Un 8088 con VGA cargará el motor, pero no podrá dibujar mas de un sprite sin que haya ralentizaciones y parpadeos.
-- Un 8086 solo podrá dibujar 3 o 4 sprites de 16x16 sin parpadear. Si añades más, pues pardadearán bastante.
-- La resolución de 304x176 oculta los bordes que son actualizados para el scroll, pero algunos monitores antiguos no funcionarán.	
-	
+- Un 8088 con VGA cargará el motor, pero tendrá ralentizaciones y paradeos.
+- Baja resolución de 304x176, necesaria para ocultar los bordes que son actualizados para el scroll.	
+
 Este código es complétamente libre, cópialo o haz lo que quieras con el.
 	
-	
-NOTES
------
-Use only indexed bmp files with 256 colours.
-Little Engine uses 16x16 pixels tiles, and will split the tilesets in chunks of 16x16 pixels (from left to right / top to bottom).
-Sprites are split in chunks of 8x8,16x16 or 32x32. 
-TMX maps must be in XML format and orthogonal.
-IMF files max size is 64 Kb.
 
 NOTAS
 -----
 Usa solamente archivos bmp indexados con 256 colores.
-Little Engine usa tiles de 16x16, y corta los tilesets en trozos de 16x16 (de izquierda a derecha y de arriba a abajo).
+Little Engine usa tiles de 16x16, y corta los conjuntos de tiles en trozos de 16x16 (de izquierda a derecha y de arriba a abajo).
 Los sprites serán divididos en trozos de 8x8,16x16 or 32x32. 
 Los mapas TMX deben estar en formato XML y ortogonal.
-Los archivos IMF no pueden superar los 64 Kb.
+Todos los archivos (conjuntos de tiles, mapas, música y sprites) están limitados a 64 kb.
+Solamente una música, un mapa y un conjunto de tiles, pueden ser cargados RAM, (el motor reserva 256kb de RAM para eso).
+Haciendo esto, se solucionan bugs de malloc, el código se simplifica, y el motor funciona como una consola, es decir, 
+cada vez que cargues un mapa, conjunto de tiles, o una música, la anterior será sobreescrita.
+	
