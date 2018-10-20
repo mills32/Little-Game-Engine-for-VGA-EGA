@@ -59,6 +59,8 @@ typedef unsigned short word;
 typedef unsigned long  dword;
 extern word *my_clock;
 extern word start;
+extern byte LT_Gravity;
+extern int LT_Keys[];
 
 typedef struct tagCOLORCYCLE			/* the structure for a map. */
 {
@@ -73,6 +75,7 @@ typedef struct tagMAP					/* the structure for a map. */
 	word height;
 	word ntiles;
 	byte *data;
+	byte *collision;
 } MAP;
 
 typedef struct tagTILE					/* the structure for a bitmap. */
@@ -119,7 +122,6 @@ extern TILE LT_tileset;
 
 void ADLIB_Detect();
 void check_hardware();
-int read_keys();
 
 /*MCGA/VGA Hardware scroll*/
 void MCGA_Scroll(word x, word y);

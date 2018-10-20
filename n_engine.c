@@ -36,6 +36,10 @@ byte *MCGA=(byte *)0xA0000000L;
 void interrupt (*old_time_handler)(void); 	
 long time_ctr;
 
+//keyboard
+void interrupt (*LT_old_key_handler)(void);
+int LT_Keys[256];
+
 //ADLIB
 const int opl2_base = 0x388;	
 unsigned char shadow_opl[256];
@@ -59,32 +63,56 @@ int LT_follow = 0;
 
 //Player
 byte tile_number = 0;		//Tile a sprite is on
+byte tilecol_number = 0;	//Collision Tile a sprite is on
 byte tile_number_UDR = 0;	//Tile up or down R
 byte tile_number_UDL = 0;	//Tile up or down L
 byte tile_number_LRU = 0;	//Tile left or right U
 byte tile_number_LRD = 0;	//Tile left or right D
+byte LT_Gravity = 0;
+byte LT_player_jump = 0;
+byte LT_player_jump_frame = 0;
+int LT_player_jump_pos[] = 
+{
+	-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,-1,-1,-1,-1,
+	 0,-1, 0,-1, 0,-1,
+	 0, 0, 0, 0,
+	 0, 1, 0, 1, 0, 1,
+	 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+};
+
 //end of global variables
 
-int read_keys(){
-	//Taken from commander keen source :)
-	byte temp,k,key;
-	k = inportb(0x60);	// Get the scan code
-	// Tell the XT keyboard controller to clear the key
-	outportb(0x61,(temp = inportb(0x61)) | 0x80);
-	outportb(0x61,temp);
-	//clear buffer
-	*(char*)(0x0040001A) = 0x20;
-    *(char*)(0x0040001C) = 0x20;
-	switch (k){
-		case 0x48: return 0; //UP
-		case 0x50: return 1; //DOWN
-		case 0x4B: return 2; //LEFT
-		case 0x4D: return 3; //RIGHT
-		case 0x20: return 4; //D (JUMP)
-		case 0x1f: return 5; //S (ACTION)
-		case 0x01: return 6; //ESC
-		default: return -1;
-	}
+//So easy, and so difficult to find samples of this...
+void interrupt LT_Key_Handler(void){
+	unsigned char temp,keyhit;
+	asm{
+	cli
+    in    al, 060h      
+    mov   keyhit, al
+    in    al, 061h       
+    mov   bl, al
+    or    al, 080h
+    out   061h, al     
+    mov   al, bl
+    out   061h, al      
+    mov   al, 020h       
+    out   020h, al
+    sti
+    }
+	if (keyhit & 0x80){ keyhit &= 0x7F; LT_Keys[keyhit] = 0;} //KEY_RELEASED;
+    else LT_Keys[keyhit] = 1; //KEY_PRESSED;
+}
+
+void LT_install_key_handler(){
+	int i;
+	LT_old_key_handler=getvect(9);    //save current vector
+	LT_old_key_handler();
+	setvect(9,LT_Key_Handler);     //install new one
+	for (i = 0; i != 256; i++) LT_Keys[i] = 0;
+}
+
+void LT_reset_key_handler(){
+	setvect(9,LT_old_key_handler);     
 }
 
 void check_hardware(){
@@ -155,11 +183,6 @@ void ADLIB_Detect(){ //from ASS
     }
 }
 
-void MCGA_WaitVBL(){
-	while ((inp(0x03da) & 0x08));
-	while (!(inp(0x03da) & 0x08));
-}
-
 //Hardware scrolling
 void MCGA_Scroll(word x, word y){
 	byte p[4] = {0,2,4,6};
@@ -174,6 +197,12 @@ void MCGA_Scroll(word x, word y){
 	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
 	outport(0x03d4, 0x0C | (x+y & 0xff00));
 	outport(0x03d4, 0x0D | (x+y << 8));
+}
+
+void MCGA_WaitVBL(){
+	int i;
+	while ((inp(0x03da) & 0x08));
+	while (!(inp(0x03da) & 0x08));
 }
 
 void MCGA_ClearScreen(){
@@ -212,11 +241,10 @@ void LT_Init(){
     // set vertical retrace back to normal
     word_out(0x03d4, V_RETRACE_END, 0x8e);
 	
-	
 	//Allocate 256kb RAM for:
 	// 64kb Tileset
 	// 64kb Temp Tileset
-	// 64kb Map
+	// 32kb Map + 32kb collision map
 	// 64kb Music
 	if ((LT_tileset.tdata = malloc(65535*sizeof(byte))) == NULL){
 		LT_ExitDOS();
@@ -228,15 +256,19 @@ void LT_Init(){
 		printf("Error allocating 64kb for temp data\n");
 	}
 	
-	if ((LT_map.data = malloc(65535*sizeof(byte))) == NULL){
+	if ((LT_map.data = malloc(32767*sizeof(byte))) == NULL){
 		LT_ExitDOS();
-		printf("Error allocating 64kb for map\n");
+		printf("Error allocating 32kb for map\n");
 	}
-	
+	if ((LT_map.collision = malloc(32767*sizeof(byte))) == NULL){
+		LT_ExitDOS();
+		printf("Error allocating 32kb for collision map\n");
+	}
 	if ((LT_music.sdata = malloc(65535*sizeof(byte))) == NULL){
 		LT_ExitDOS();
 		printf("Error allocating 64kb for music data\n");
 	}
+	LT_install_key_handler();
 }
 
 void LT_ExitDOS(){
@@ -244,6 +276,11 @@ void LT_ExitDOS(){
 	regs.h.ah = 0x00;
 	regs.h.al = TEXT_MODE;
 	int86(0x10, &regs, &regs);
+	LT_Unload_Music();
+	LT_unload_tileset();
+	LT_unload_map();
+	LT_unload_font();
+	LT_reset_key_handler();
 }
 
 void fskip(FILE *fp, word num_bytes){
@@ -304,7 +341,7 @@ void load_tiles(char *file){
 	word x;
 	word tileX;
 	word tileY;
-	
+
 	fp = fopen(file,"rb");
 	if(!fp){
 		LT_ExitDOS();
@@ -361,15 +398,18 @@ void LT_unload_tileset(){
 	free(LT_tileset.tdata); LT_tileset.tdata = NULL;
 }
 
-//Load tiled TMX map in XML format
+//Load tiled TMX map in CSV format
+//Be sure bkg layer map is the first to be exported, (before collision layer map)
 void load_map(char *file){ 
 	FILE *f = fopen(file, "rb");
-	word start_data = 0;
-	word end_data = 0;
+	word start_bkg_data = 0;
+	word start_col_data = 0;
 	word tile = 0;
 	word index = 0;
-	char line[64];
+	byte tilecount = 0; //Just to get the number of tiles to substract to collision tiles 
+	char line[128];
 	char name[64]; //name of the layer in TILED
+
 	if(!f){
 		LT_ExitDOS();
 		printf("can't find %s.\n",file);
@@ -377,31 +417,44 @@ void load_map(char *file){
 	}
 	//read file
 	fseek(f, 0, SEEK_SET);			
-	while(start_data == 0){	//read lines 
+	while(start_bkg_data == 0){	//read lines 
+		memset(line, 0, 64);
+		fgets(line, 64, f);
+		if((line[1] == '<')&&(line[2] == 't')){ // get tilecount
+			sscanf(line," <tileset firstgid=\"%i[^\"]\" name=\"%24[^\"]\" tilewidth=\"%i[^\"]\" tileheight=\"%i[^\"]\" tilecount=\"%i[^\"]\"",&tilecount,&tilecount,&tilecount,&tilecount,&tilecount);
+		}
+		if((line[1] == '<')&&(line[2] == 'l')){// get map dimensions
+			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&LT_map.width,&LT_map.height);
+			start_bkg_data = 1;
+		}
+	}
+	LT_map.ntiles = LT_map.width*LT_map.height;
+	if (LT_map.ntiles > 32767){
+		LT_ExitDOS();
+		printf("Error, map is bigger than 32 kb");
+	}
+	fgets(line, 64, f); //skip line: <data encoding="csv">
+
+	//read tile array
+	for (index = 0; index < LT_map.ntiles; index++){
+		fscanf(f, "%i,", &tile);
+		LT_map.data[index] = tile-1;
+	}
+	//skip 
+	while(start_col_data == 0){	//read lines 
 		memset(line, 0, 64);
 		fgets(line, 64, f);
 		if((line[1] == '<')&&(line[2] == 'l')){
 			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&LT_map.width,&LT_map.height);
-			start_data = 1;
+			start_col_data = 1;
 		}
 	}
-
-	while(end_data == 0){
-		memset(line, 0, 64);
-		fgets(line, 64, f);
-		if ((line[3] == '<')&&(line[4] == 't')){
-			sscanf(line,"   <tile gid=\"%d\"/>",&tile);
-			if (!tile){
-				LT_ExitDOS();
-				printf("Error. tile number too big\n");
-				exit(1);
-			}
-			LT_map.data[index] = tile -1;
-			index++;
-		}
-		if((line[2] == '<')&&(line[3] == '/'))end_data = 1;
+	fgets(line, 64, f); //skip line: <data encoding="csv">
+	//read collision array
+	for (index = 0; index < LT_map.ntiles; index++){
+		fscanf(f, "%d,", &tile);
+		LT_map.collision[index] = tile -tilecount;
 	}
-	LT_map.ntiles = LT_map.width*LT_map.height;
 	fclose(f);
 }
 
@@ -410,6 +463,7 @@ void LT_unload_map(){
 	LT_map.height = NULL;
 	LT_map.ntiles = NULL;
 	free(LT_map.data); LT_map.data = NULL;
+	free(LT_map.collision); LT_map.collision = NULL;
 }
 
 void LT_Set_Map(int x, int y){
@@ -418,6 +472,8 @@ void LT_Set_Map(int x, int y){
 	int j = 0;
 	current_x = x;
 	current_y = y;
+	last_x = x;
+	last_y = y;
 	map_offset = (LT_map.width*y)+x;
 	SCR_X = x<<4;
 	SCR_Y = y<<4;
@@ -860,27 +916,73 @@ void draw_sprite(SPRITE *s, word x, word y, byte frame){
 }
 
 void LT_move_player(SPRITE *s){
+	int col = 0;
 	//GET TILE POS
 	tile_number = LT_map.data[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
-	if (read_keys() == 0){	//UP
-		tile_number_UDR = LT_map.data[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_UDL = LT_map.data[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if ((tile_number_UDR != 40) && (tile_number_UDL != 40)) s->pos_y--;
+	tilecol_number = LT_map.collision[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
+	//0x48 UP; 0x50 DOWN; 0x4B LEFT; 0x4D RIGHT;
+	//0x20 D (JUMP); 0x1f S (ACTION); 0x01 ESC
+		
+  if (LT_Gravity == 1){
+	if ((LT_player_jump == 0) && (LT_Keys[0x20])) {LT_player_jump_frame = 0; LT_player_jump = 1;}
+	if (LT_player_jump == 1){//JUMP
+		col = 0;
+		tile_number_UDR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_UDL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_UDR == 1) {LT_player_jump_frame = 0; LT_player_jump = 0;}
+		if (tile_number_UDL == 1) {LT_player_jump_frame = 0; LT_player_jump = 0;}
+		if (col == 0){
+			s->pos_y += LT_player_jump_pos[LT_player_jump_frame];
+			LT_player_jump_frame++;
+			if (LT_player_jump_frame == 52) {LT_player_jump_frame = 0; LT_player_jump = 0;}
+		}
 	}
-	if (read_keys() == 1){	//DOWN
-		tile_number_UDR = LT_map.data[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_UDL = LT_map.data[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if ((tile_number_UDR != 40) && (tile_number_UDL != 40)) s->pos_y++;
-	} 
-	if (read_keys() == 2){	//LEFT
-		tile_number_LRU = LT_map.data[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
-		tile_number_LRD = LT_map.data[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
-		if ((tile_number_LRU != 40) && (tile_number_LRD != 40)) s->pos_x--;
+	if (LT_player_jump == 0){//DOWN
+		col = 0;
+		tile_number_UDR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_UDL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_UDR == 1) col = 1;
+		if (tile_number_UDL == 1) col = 1;
+		if (tile_number_UDR == 2) col = 1;
+		if (tile_number_UDL == 2) col = 1;
+		if (col == 0) s->pos_y++;
 	}
-	if (read_keys() == 3){	//RIGHT
-		tile_number_LRU = LT_map.data[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
-		tile_number_LRD = LT_map.data[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
-		if ((tile_number_LRU != 40) && (tile_number_LRD != 40))  s->pos_x++;
+  }
+  if (LT_Gravity == 0){
+	if (LT_Keys[0x48]){	//UP
+		col = 0;
+		tile_number_UDR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_UDL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_UDR == 1) col = 1;
+		if (tile_number_UDL == 1) col = 1;
+		if (col == 0) s->pos_y--;
+	}
+	if (LT_Keys[0x50]){	//DOWN
+		col = 0;
+		tile_number_UDR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_UDL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_UDR == 1) col = 1;
+		if (tile_number_UDL == 1) col = 1;
+		if (tile_number_UDR == 2) col = 1;
+		if (tile_number_UDL == 2) col = 1;
+		if (col == 0) s->pos_y++;
+	}
+  }
+	if (LT_Keys[0x4B]){	//LEFT
+		col = 0;
+		tile_number_LRU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+		tile_number_LRD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+		if (tile_number_LRU == 1) col = 1;
+		if (tile_number_LRD == 1) col = 1;
+		if (col == 0) s->pos_x--;
+	}
+	if (LT_Keys[0x4D]){	//RIGHT
+		col = 0;
+		tile_number_LRU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
+		tile_number_LRD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
+		if (tile_number_LRU == 1) col = 1;
+		if (tile_number_LRD == 1) col = 1;
+		if (col == 0) s->pos_x++;
 	}
 }
 	

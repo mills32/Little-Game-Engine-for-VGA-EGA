@@ -44,82 +44,78 @@ void main(){
 	LT_Init();
 	
 	printf("Loading...\n");
-	load_map("GFX/logo.tmx");
+	/*load_map("GFX/logo.tmx");
 	load_tiles("GFX/logo.bmp");
 	LT_Set_Map(0,0);
 	
+	while (SCR_Y < 200){
+		MCGA_Scroll(SCR_X,SCR_Y);
+		MCGA_WaitVBL();
+		LT_scroll_map();
+		SCR_Y++;
+	}
+	SCR_Y = 0;
 	wait(20);
-	
+	*/
 	Scene = 1;
-
-	i = 0;
-	j = 0;
+	printf("Loading...\n");
+	load_map("GFX/luna_map.tmx");
+	load_tiles("GFX/lunatil.bmp");
+	LT_load_font("GFX/font.bmp");
 	
-	load_map("GFX/mario.tmx");
-	load_tiles("GFX/mariotil.bmp");
 	load_sprite("GFX/s_mario.bmp",&sprite_player,16);
 	load_sprite("GFX/ship1.bmp",&sprite_ship1,32);
-	LT_load_font("GFX/font.bmp");
 
 	//open IMF
 	//"music/64style.imf" "music/fox.imf" "music/game.imf" "music/luna.imf" "music/menu.imf" "music/riddle.imf" "music/space.imf"
-	//set_timer(500); 
-	//Load_Song("music/menu.imf");
-	//opl2_clear();
+	set_timer(500); 
+	Load_Song("music/mario.imf");
+	opl2_clear();
 	
 	//animate colours
-	//cycle_init(&cycle_water,palette_cycle_water);
-
-	i = 0;
-	j = 0;
+	cycle_init(&cycle_water,palette_cycle_water);
 	
 	sprite_player.pos_x = 130;
 	sprite_player.pos_y = 70;
 
 	LT_Set_Map(0,0);
-	
+	LT_Gravity = 0;
 	/*MAIN LOOP SCROLL X*/
 	while(Scene == 1){
 	
-		//SCR_X and SCR_Y are global variables predefined
-		MCGA_Scroll(SCR_X,SCR_Y);  
+		//SCR_X and SCR_Y are global variables predefined 
+		MCGA_Scroll(SCR_X,SCR_Y);
 		MCGA_WaitVBL(); //Draw everything just after VBL!!
-
-		//scroll_map 
-		LT_scroll_follow(&sprite_player);
+		//scroll_map
 		LT_scroll_map();
+		LT_scroll_follow(&sprite_player);
 		
 		draw_sprite(&sprite_player,sprite_player.pos_x,sprite_player.pos_y,frame);
-		LT_gprint(SCR_X,240,160);
+		LT_gprint(LT_map.collision[((sprite_player.pos_y>>4) * LT_map.width) + (sprite_player.pos_x>>4)],240,160);
 		
 		LT_move_player(&sprite_player);
 		
-		//cycle_palette(&cycle_water,2);
+		cycle_palette(&cycle_water,2);
 		
 		if(Speed == 8){Speed = 0; frame++;}
 		Speed++;
 		//move sprite
 
-		if (read_keys() == 6) Scene = -1; //esc exit
+		if (LT_Keys[1]) Scene = -1; //esc exit
 		//if (j == 1200) Scene = -1; //esc exit
 		if(frame == 15) frame = 0;
 	}
 	
-	//opl2_clear();
-	//reset_timer();
-	
+	opl2_clear();
+	reset_timer();
+	t1 = LT_map.ntiles;
 	//free ram, if not, program it will crash a lot
-	LT_Unload_Music();
-	LT_unload_tileset();
-	LT_unload_map();
-	LT_unload_sprite(&sprite_player);
-	LT_unload_font();
-	
-	LT_ExitDOS();
+	LT_ExitDOS(); //frees map, tileset, font and music
+	LT_unload_sprite(&sprite_player); //manually free sprites
+	LT_unload_sprite(&sprite_ship1);
 	
 	//debug
-	printf("Copy rle odd = %f\n",t1);
-	printf("Copy rle even = %f\n",t2);
+	printf("debug = %f\n",t1);
 	
 	return;
 }
