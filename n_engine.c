@@ -7,6 +7,14 @@
 
 	Please feel free to copy this source code.                            
 
+	Used:	K1n9_Duk3's IMF Player - A simple IMF player for DOS
+			Copyright (C) 2013-2016 K1n9_Duk3
+
+			Based on the Apogee Sound System (ASS) and Wolfenstein 3-D (W3D)
+
+			ASS is Copyright (C) 1994-1995 Apogee Software, Ltd.
+			W3D is Copyright (C) 1992 Id Software, Inc.
+	
 ##########################################################################*/
 
 #include "n_engine.h"
@@ -20,8 +28,10 @@ You'll have to unload a music/map/tilset before loading another.
 IMFsong LT_music;	// One song in ram stored at "LT_music"
 MAP LT_map;			// One map in ram stored at "LT_map"
 TILE LT_tileset;	// One tileset in ram stored at "LT_tileset"
+SPRITE LT_Sprite[4];// 4 sprites in ram stored at "LT_Sprite"
 unsigned char *LT_tile_datatemp; //Temp storage of non tiled data.
-SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2, lt_gpnumber3; // 4 sprites for debug printing
+unsigned char *LT_sprite_tiledatatemp; //Temp storage of tiled sprites to be converted to RLE
+SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2; // 4 sprites for debug printing
 
 //GLOBAL VARIABLES
 
@@ -33,7 +43,7 @@ float t2 = 0;
 byte *MCGA=(byte *)0xA0000000L; 
 
 //timer     		
-void interrupt (*old_time_handler)(void); 	
+void interrupt (*LT_old_time_handler)(void); 	
 long time_ctr;
 
 //keyboard
@@ -45,7 +55,7 @@ const int opl2_base = 0x388;
 unsigned char shadow_opl[256];
 long next_event;
 
-// this points to the 18.2hz system clock. 
+// this points to the 18.2hz system clock for debug in dosbox (does not work on PCEM). 
 word *my_clock=(word *)0x0000046C;    		
 word start;
 int Free_RAM;
@@ -59,25 +69,26 @@ int last_x = 0;
 int current_y = 0;
 int last_y = 0;
 int map_offset = 0;
+int map_offset_Endless = 0;
 int LT_follow = 0;
 
 //Player
 byte tile_number = 0;		//Tile a sprite is on
 byte tilecol_number = 0;	//Collision Tile a sprite is on
-byte tile_number_UDR = 0;	//Tile up or down R
-byte tile_number_UDL = 0;	//Tile up or down L
-byte tile_number_LRU = 0;	//Tile left or right U
-byte tile_number_LRD = 0;	//Tile left or right D
+byte tile_number_VR = 0;	//Tile vertical right
+byte tile_number_VL = 0;	//Tile vertical left
+byte tile_number_HU = 0;	//Tile horizontal up
+byte tile_number_HD = 0;	//Tile horizontal down
 byte LT_Gravity = 0;
 byte LT_player_jump = 0;
 byte LT_player_jump_frame = 0;
 int LT_player_jump_pos[] = 
 {
-	-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,-1,-1,-1,-1,
-	 0,-1, 0,-1, 0,-1,
+	-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,
+	-1,-1,-1,-1,-1,-1,
 	 0, 0, 0, 0,
-	 0, 1, 0, 1, 0, 1,
-	 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+	 1, 1, 1, 1, 1, 1,
+	 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
 
 //end of global variables
@@ -115,7 +126,7 @@ void LT_reset_key_handler(){
 	setvect(9,LT_old_key_handler);     
 }
 
-void check_hardware(){
+void LT_Check_CPU(){
 	asm{
 		pushf                   // push original FLAGS
         pop     ax              // get original FLAGS
@@ -130,12 +141,12 @@ void check_hardware(){
         je      _8086_8088		// jump if processor is 8086/8088
 	}
 	printf("\nCPU: 286+ - Little engine will work great!!\n");
-	wait(30);
+	sleep(5);
 	return;
 	_8086_8088:
 	printf("\nCPU: 8088 - Little engine will work a bit slow\n");
 	printf("\nCPU: 8086 - Little engine will work great!!\n (Just don't use more than 4 sprites)\n");
-	wait(20);
+	sleep(5);
 	return;
 }
 
@@ -151,7 +162,7 @@ static void ADLIB_SendOutput(int reg,int data){
    //asm STI //enable interrupts
 }
 
-void ADLIB_Detect(){ //from ASS
+void LT_Adlib_Detect(){ 
     int status1, status2, i;
 
     ADLIB_SendOutput(4, 0x60);
@@ -174,11 +185,11 @@ void ADLIB_Detect(){ //from ASS
 		for (i=1; i<=0xF5; ADLIB_SendOutput(i++, 0));    //clear all registers
 		ADLIB_SendOutput(1, 0x20);  // Set WSE=1
 		printf("AdLib card detected.\n");
-		wait(20);
+		sleep(3);
         return;
     } else {
 		printf("AdLib card not detected.\n");
-		wait(20);
+		sleep(3);
         return;
     }
 }
@@ -189,17 +200,19 @@ void MCGA_Scroll(word x, word y){
 	byte pix = x & 3; 	//pixel panning 
 	x=x>>2;				//x/4
 	y=(y<<6)+(y<<4);	//(y*64)+(y*16) = y*80;
-
+	
+  while ((inp(0x03da) & 0x08));
 	//change pixel panning register 
 	inp(0x3da);
-	outp(0x3c0, 0x33);		
+	outp(0x3c0, 0x33);
 	outp(0x3c0, p[pix]);
 	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
 	outport(0x03d4, 0x0C | (x+y & 0xff00));
 	outport(0x03d4, 0x0D | (x+y << 8));
+  while (!(inp(0x03da) & 0x08));
 }
 
-void MCGA_WaitVBL(){
+void MCGA_WaitVBL(){ //This does not work well outside MCGA_Scroll
 	int i;
 	while ((inp(0x03da) & 0x08));
 	while (!(inp(0x03da) & 0x08));
@@ -208,6 +221,65 @@ void MCGA_WaitVBL(){
 void MCGA_ClearScreen(){
 	outport(0x03c4,0xff02);
 	memset(&MCGA[0],0,(320*200)/4);
+}
+
+void MCGA_SplitScreen(int line){
+	MCGA_WaitVBL();
+    asm{
+	push    ax
+    push    cx
+    push    dx
+	//Set the split screen scan line.
+    cli		// make sure all the registers get set at once
+	}
+	word_out(CRTC_INDEX, LINE_COMPARE, line); // set bits 7-0 of the split screen scan line
+
+	asm{
+    mov    ah,byte ptr [line+1]
+    and    ah,1
+    mov    cl,4
+    shl    ah,cl                      // move bit 8 of the split split screen scan line into position for the Overflow reg
+    mov    al,OVERFLOW
+
+	//The Split Screen, Overflow, and Line Compare registers all contain part of the split screen start scan line on the VGA
+    out    dx,al                      //set CRTC Index reg to point to Overflow
+    inc    dx                         //point to CRTC Data reg
+    in     al,dx                      //get the current Overflow reg setting
+    and    al,not 10h                 //turn off split screen bit 8
+    or     al,ah                      //insert the new split screen bit 8 (works in any mode)
+    out    dx,al                      //set the new split screen bit 8
+    dec    dx                         //point to CRTC Index reg
+    mov    ah,byte ptr [line+1]
+    and    ah,2
+    mov    cl,3
+    ror    ah,cl                      // move bit 9 of the split split screen scan line into position for the Maximum Scan Line register
+    mov    al,MAX_SCAN_LINE
+    out    dx,al                      //set CRTC Index reg to point to Maximum Scan Line
+    inc    dx                         //point to CRTC Data reg
+    in     al,dx                      //get the current Maximum Scan Line setting
+    and    al,not 40h                 //turn off split screen bit 9
+    or     al,ah                      //insert the new split screen bit 9 (works in any mode)
+    out    dx,al                      //set the new split screen bit 9
+
+	//Turn on split screen pal pen suppression, so the split screen
+	//won't be subject to pel panning as is the non split screen portion.
+
+	mov  dx,INPUT_STATUS_0
+	in   al,dx                  	//Reset the AC Index/Data toggle to index state
+	mov  al,AC_MODE_CONTROL+20h 	//Bit 5 set to prevent screen blanking
+	mov  dx,AC_INDEX				//Point AC to Index/Data register
+	out  dx,al
+	inc  dx							//Point to AC Data reg (for reads only)
+	in   al,dx						//Get the current AC Mode Control reg
+	or   al,20h						//Enable split scrn Pel panning suppress.
+	dec  dx							//Point to AC Index/Data reg (for writes only)
+	out  dx,al						//Write the new AC Mode Control setting with split screen pel panning suppression turned on	
+	
+    sti
+    pop    dx
+    pop    cx
+    pop    ax
+    }
 }
 
 void LT_Init(){
@@ -241,21 +313,28 @@ void LT_Init(){
     // set vertical retrace back to normal
     word_out(0x03d4, V_RETRACE_END, 0x8e);
 	
-	//Allocate 256kb RAM for:
+	LT_old_time_handler = getvect(0x1C);
+	LT_install_key_handler();
+	
+	//Allocate 272kb RAM for:
 	// 64kb Tileset
 	// 64kb Temp Tileset
+	// 16kb Temp Sprites
+	// 4 x 16kb for 4 sprites 
 	// 32kb Map + 32kb collision map
 	// 64kb Music
 	if ((LT_tileset.tdata = malloc(65535*sizeof(byte))) == NULL){
 		LT_ExitDOS();
 		printf("Error allocating 64kb for tile data\n");
 	}	
-
 	if ((LT_tile_datatemp = malloc(65535*sizeof(byte))) == NULL){
 		LT_ExitDOS();
 		printf("Error allocating 64kb for temp data\n");
 	}
-	
+	if ((LT_sprite_tiledatatemp = malloc(16384*sizeof(byte))) == NULL){
+		LT_ExitDOS();
+		printf("Error allocating 64kb for temp data\n");
+	}
 	if ((LT_map.data = malloc(32767*sizeof(byte))) == NULL){
 		LT_ExitDOS();
 		printf("Error allocating 32kb for map\n");
@@ -268,7 +347,7 @@ void LT_Init(){
 		LT_ExitDOS();
 		printf("Error allocating 64kb for music data\n");
 	}
-	LT_install_key_handler();
+	MCGA_SplitScreen(0x0ffff);
 }
 
 void LT_ExitDOS(){
@@ -288,49 +367,54 @@ void fskip(FILE *fp, word num_bytes){
 	for (i=0; i<num_bytes; i++) fgetc(fp);
 }
 
-void load_plain_bmp(char *file,TILE *b){
+void LT_Load_BKG(char *file){
 	FILE *fp;
-	long index;
+	long index,offset;
 	word num_colors;
 	word x;
+	word tileX;
+	word tileY;
 
 	fp = fopen(file,"rb");
 	if(!fp){
 		LT_ExitDOS();
 		printf("can't find %s.\n",file);
 		exit(1);
-	}
+	} 
 	fgetc(fp);
 	fgetc(fp);
 
 	fskip(fp,16);
-	fread(&b->width, sizeof(word), 1, fp);
+	fread(&LT_tileset.width, sizeof(word), 1, fp);
 	fskip(fp,2);
-	fread(&b->height,sizeof(word), 1, fp);
+	fread(&LT_tileset.height,sizeof(word), 1, fp);
 	fskip(fp,22);
 	fread(&num_colors,sizeof(word), 1, fp);
 	fskip(fp,6);
 
 	if (num_colors==0) num_colors=256;
-	if ((b->tdata = (byte *) malloc(b->width*b->height)) == NULL){
-		fclose(fp);
-		LT_ExitDOS();
-		printf("Error allocating memory for file %s.\n",file);
-		exit(1);
-	}
-
 	for(index=0;index<num_colors;index++){
-		b->palette[(int)(index*3+2)] = fgetc(fp) >> 2;
-		b->palette[(int)(index*3+1)] = fgetc(fp) >> 2;
-		b->palette[(int)(index*3+0)] = fgetc(fp) >> 2;
-		x=fgetc(fp);
+		LT_tileset.palette[(int)(index*3+2)] = fgetc(fp) >> 2;
+		LT_tileset.palette[(int)(index*3+1)] = fgetc(fp) >> 2;
+		LT_tileset.palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+		fgetc(fp);
 	}
 
-	for(index=(b->height-1)*b->width;index>=0;index-=b->width)
-		for(x=0;x<b->width;x++)
-		b->tdata[(word)index+x]=(byte)fgetc(fp);
-
+	for(index=(LT_tileset.height-1)*LT_tileset.width;index>=0;index-=LT_tileset.width)
+		for(x=0;x<LT_tileset.width;x++)
+			LT_tileset.tdata[index+x]=(byte)fgetc(fp);
 	fclose(fp);
+}
+
+void LT_Draw_BKG(){
+	dword bitmap_offset = 0;
+	dword screen_offset = 0;
+	int j;
+	for(j=0;j<174;j++){
+		memcpy(&MCGA[screen_offset],&LT_tileset.tdata[bitmap_offset],LT_tileset.width);
+		bitmap_offset+=LT_tileset.width;
+		screen_offset+=320;
+	}
 }
 
 /* load_16x16 tiles */
@@ -386,8 +470,6 @@ void load_tiles(char *file){
 	}
 	
 	LT_tileset.ntiles = (LT_tileset.width>>4) * (LT_tileset.height>>4);
-	LT_tileset.width = 16;
-	LT_tileset.height = 200;
 }
 
 void LT_unload_tileset(){
@@ -475,11 +557,51 @@ void LT_Set_Map(int x, int y){
 	last_x = x;
 	last_y = y;
 	map_offset = (LT_map.width*y)+x;
+	map_offset_Endless = 20;
 	SCR_X = x<<4;
 	SCR_Y = y<<4;
 	//draw map 
 	for (i = 0;i<320;i+=16){draw_map_column(i,0,map_offset+j);j++;}	
 	set_palette(LT_tileset.palette);
+}
+
+void LT_Draw_MapTile(word x, word y, word map_offset){
+	unsigned char *tiledata = (unsigned char *) &LT_tileset.tdata;
+	unsigned char *mapdata = LT_map.data;
+	word screen_offset = (y<<8)+(y<<6)+x;
+	asm{
+		push ds
+		push di
+		push si
+		
+		lds		bx,dword ptr[tiledata]					
+		lds		si,ds:[bx]				//ds:si data address
+		
+		mov		ax,map_offset
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		mov		di,screen_offset		//es:di screen address							
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov 	ax,16
+	}
+	copy_tile:	
+	asm{
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		dec 	ax
+		jnz		copy_tile
+		
+		pop si
+		pop di
+		pop ds
+	}
 }
 
 void draw_map_column(word x, word y, word map_offset){
@@ -494,6 +616,71 @@ void draw_map_column(word x, word y, word map_offset){
 		push si
 		
 		mov		dx,12		//12 tiles height column
+		
+		lds		bx,dword ptr[tiledata]					
+		lds		si,ds:[bx]				//ds:si data address
+		
+		mov		word ptr [tile_offset],ds
+		mov		word ptr [tile_offset+2],si
+
+		mov		ax,map_offset
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		mov		di,screen_offset		//es:di screen address							
+	}
+	loop_tile:
+	asm{
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov 	ax,16
+	}
+	copy_tile:	
+	asm{
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		dec 	ax
+		jnz		copy_tile
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		dec		dx
+		jnz		loop_tile
+		
+		pop si
+		pop di
+		pop ds
+	}
+}
+
+void draw_map_column2(word x, word y, word map_offset){
+	unsigned char *tiledata = (unsigned char *) &LT_tileset.tdata;
+	unsigned char *mapdata = LT_map.data;
+	word tile_offset = 0;
+	word width = LT_map.width;
+	word screen_offset = (y<<8)+(y<<6)+x;
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov		dx,1		//12 tiles height column
 		
 		lds		bx,dword ptr[tiledata]					
 		lds		si,ds:[bx]				//ds:si data address
@@ -639,6 +826,18 @@ void LT_scroll_map(){
 	last_y = current_y;
 }
 
+//Endless Side Scrolling Map
+void LT_Endless_SideScroll_Map(){
+	current_x = SCR_X-(SCR_X & 15);
+	current_y = 0;
+	if (current_x > last_x) { 
+		draw_map_column(current_x+304,current_y,map_offset_Endless%LT_map.width);
+		map_offset_Endless++;
+	}
+	last_x = current_x;
+}
+
+
 void LT_scroll_follow(SPRITE *s){
 	//LIMITS
 	int y_limU = SCR_Y + 64;
@@ -647,12 +846,14 @@ void LT_scroll_follow(SPRITE *s){
 	int x_limR = SCR_X + 200;
 	int wmap = LT_map.width<<4;
 	int hmap = LT_map.height<<4;
+	int x = abs(s->last_x - s->pos_x);
+	int y = abs(s->last_y - s->pos_y);
 	//clamp limits
 	if ((SCR_X > -1) && ((SCR_X+303)<wmap) && (SCR_Y > -1) && ((SCR_Y+175)<hmap)){
-		if (s->pos_y > y_limD) SCR_Y++;
-		if (s->pos_y < y_limU) SCR_Y--;
-		if (s->pos_x < x_limL) SCR_X--;
-		if (s->pos_x > x_limR) SCR_X++;
+		if (s->pos_y > y_limD) SCR_Y+=y;
+		if (s->pos_y < y_limU) SCR_Y-=y;
+		if (s->pos_x < x_limL) SCR_X-=x;
+		if (s->pos_x > x_limR) SCR_X+=x;
 	}
 	if (SCR_X < 0) SCR_X = 0; 
 	if ((SCR_X+304) > wmap) SCR_X = wmap-304;
@@ -684,9 +885,6 @@ void load_sprite(char *file,SPRITE *s, byte size){
 	byte current_byte;
 	byte last_byte = 0;
 	
-	unsigned char *sprite_datatemp; 
-	unsigned char *sprite_tiledatatemp; 
-	
 	fp = fopen(file,"rb");
 	if(!fp){
 		LT_ExitDOS();
@@ -709,23 +907,10 @@ void load_sprite(char *file,SPRITE *s, byte size){
 		fgetc(fp);
 		fgetc(fp);
 	}
-	
-	if ((sprite_datatemp = (byte *) malloc(s->width*s->height)) == NULL){
-		fclose(fp);
-		LT_ExitDOS();
-		printf("Error allocating memory for sprite temp data %s.\n",file);
-		exit(1);
-	}
-	if ((sprite_tiledatatemp = (byte *) malloc(s->width*s->height)) == NULL){
-		fclose(fp);
-		LT_ExitDOS();
-		printf("Error allocating memory for sprite data %s.\n",file);
-		exit(1);
-	}
 
 	for(index=(s->height-1)*s->width;index>=0;index-=s->width)
 		for(x=0;x<s->width;x++)
-		sprite_datatemp[index+x]=(byte)fgetc(fp);
+		LT_tile_datatemp[index+x]=(byte)fgetc(fp);
 	fclose(fp);
 
 	index = 0;
@@ -735,7 +920,7 @@ void load_sprite(char *file,SPRITE *s, byte size){
 		for (tileX=0;tileX<s->width;tileX+=size){
 			offset = (tileY*s->width)+tileX;
 			for(x=0;x<size;x++){
-				memcpy(&sprite_tiledatatemp[index],&sprite_datatemp[offset+(x*s->width)],size);
+				memcpy(&LT_sprite_tiledatatemp[index],&LT_tile_datatemp[offset+(x*s->width)],size);
 				index+=size;
 			}
 		}
@@ -743,7 +928,6 @@ void load_sprite(char *file,SPRITE *s, byte size){
 	s->nframes = (s->width>>4) * (s->height>>4);
 	s->width = size;
 	s->height = size;
-	free(sprite_datatemp);
 
 	//calculate frames size
 	s->rle_frames = malloc(s->nframes*sizeof(SPRITEFRAME));
@@ -760,7 +944,7 @@ void load_sprite(char *file,SPRITE *s, byte size){
 			pixel = 0;
 			for(x = 0; x < size; x++) {
 				//Get pixel value
-				current_byte = sprite_tiledatatemp[(size*y)+x+frame]; 
+				current_byte = LT_sprite_tiledatatemp[(size*y)+x+frame]; 
 				//I found a Pixel, start a run
 				if (last_byte == 0 && current_byte != 0){
 					run_startx[number_of_runs] = x;
@@ -806,12 +990,11 @@ void load_sprite(char *file,SPRITE *s, byte size){
 			memcpy(&s->rle_frames[j].rle_data[foffset],&run_length[i],2); //Number of bytes of pixel data that follow
 			foffset+=2;
 			offset+=run_bskip[i];
-			memcpy(&s->rle_frames[j].rle_data[foffset],&sprite_tiledatatemp[offset+frame],run_length[i]); //copy pixel data;
+			memcpy(&s->rle_frames[j].rle_data[foffset],&LT_sprite_tiledatatemp[offset+frame],run_length[i]); //copy pixel data;
 			foffset+=run_length[i];
 			offset+=run_length[i];
 		}
 	}
-	free(sprite_tiledatatemp);
 
 	s->bkg_data = (byte *) malloc(size*size); /*allocate memory for the 16x16 bkg chunk erased every time you draw the sprite*/
 	s->init = 0;
@@ -922,66 +1105,78 @@ void LT_move_player(SPRITE *s){
 	tilecol_number = LT_map.collision[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
 	//0x48 UP; 0x50 DOWN; 0x4B LEFT; 0x4D RIGHT;
 	//0x20 D (JUMP); 0x1f S (ACTION); 0x01 ESC
-		
   if (LT_Gravity == 1){
 	if ((LT_player_jump == 0) && (LT_Keys[0x20])) {LT_player_jump_frame = 0; LT_player_jump = 1;}
 	if (LT_player_jump == 1){//JUMP
 		col = 0;
-		tile_number_UDR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_UDL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_UDR == 1) {LT_player_jump_frame = 0; LT_player_jump = 0;}
-		if (tile_number_UDL == 1) {LT_player_jump_frame = 0; LT_player_jump = 0;}
+		if (LT_player_jump_pos[LT_player_jump_frame] < 0){
+			tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+			tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
+			if (tile_number_VR == 1) col = 1; 
+			if (tile_number_VL == 1) col = 1; 
+		} else {
+			tile_number_VR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+			tile_number_VL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
+			if (tile_number_VR == 1) col = 1; 
+			if (tile_number_VL == 1) col = 1; 			
+			if (tile_number_VR == 2) col = 1; 
+			if (tile_number_VL == 2) col = 1; 
+		}
 		if (col == 0){
 			s->pos_y += LT_player_jump_pos[LT_player_jump_frame];
 			LT_player_jump_frame++;
 			if (LT_player_jump_frame == 52) {LT_player_jump_frame = 0; LT_player_jump = 0;}
 		}
+		if (col == 1){
+			LT_player_jump_frame = 0; 
+			LT_player_jump = 0;
+		}
 	}
 	if (LT_player_jump == 0){//DOWN
 		col = 0;
-		tile_number_UDR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_UDL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_UDR == 1) col = 1;
-		if (tile_number_UDL == 1) col = 1;
-		if (tile_number_UDR == 2) col = 1;
-		if (tile_number_UDL == 2) col = 1;
-		if (col == 0) s->pos_y++;
+		tile_number_VR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_VL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_VR == 1) col = 1;
+		if (tile_number_VL == 1) col = 1;
+		if (tile_number_VR == 2) col = 1;
+		if (tile_number_VL == 2) col = 1;
+		if (col == 0) s->pos_y+=2;
 	}
   }
   if (LT_Gravity == 0){
 	if (LT_Keys[0x48]){	//UP
 		col = 0;
-		tile_number_UDR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_UDL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_UDR == 1) col = 1;
-		if (tile_number_UDL == 1) col = 1;
+		tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_VR == 1) col = 1;
+		if (tile_number_VL == 1) col = 1;
 		if (col == 0) s->pos_y--;
 	}
 	if (LT_Keys[0x50]){	//DOWN
 		col = 0;
-		tile_number_UDR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_UDL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_UDR == 1) col = 1;
-		if (tile_number_UDL == 1) col = 1;
-		if (tile_number_UDR == 2) col = 1;
-		if (tile_number_UDL == 2) col = 1;
+		tile_number_VR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+		tile_number_VL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_VR == 1) col = 1;
+		if (tile_number_VL == 1) col = 1;
+		if (tile_number_VR == 2) col = 1;
+		if (tile_number_VL == 2) col = 1;
 		if (col == 0) s->pos_y++;
 	}
   }
 	if (LT_Keys[0x4B]){	//LEFT
 		col = 0;
-		tile_number_LRU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
-		tile_number_LRD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
-		if (tile_number_LRU == 1) col = 1;
-		if (tile_number_LRD == 1) col = 1;
+		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+		tile_number_HD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
+		if (tile_number_HU == 1) col = 1;
+		if (tile_number_HD == 1) col = 1;
 		if (col == 0) s->pos_x--;
 	}
 	if (LT_Keys[0x4D]){	//RIGHT
 		col = 0;
-		tile_number_LRU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
-		tile_number_LRD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
-		if (tile_number_LRU == 1) col = 1;
-		if (tile_number_LRD == 1) col = 1;
+		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
+		tile_number_HD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
+		if (tile_number_HU == 1) col = 1;
+		if (tile_number_HD == 1) col = 1;
 		if (col == 0) s->pos_x++;
 	}
 }
@@ -1050,27 +1245,6 @@ void cycle_palette(COLORCYCLE *cycle, byte speed){
 	cycle->counter++;
 }
 
-/* draw_bitmap */
-void draw_plain_bitmap(TILE *bmp, word x,word y){
-	dword screen_offset = (y<<8)+(y<<6)+x;
-	dword bitmap_offset = 0;
-	int j;
-	for(j=0;j<bmp->height;j++){
-		memcpy(&MCGA[screen_offset],&bmp->tdata[bitmap_offset],bmp->width);
-		bitmap_offset+=bmp->width;
-		screen_offset+=SCREEN_WIDTH;
-	}
-}
-
-//wait
-void wait(word ticks){
-  word start;
-  start=*my_clock;
-  while (*my_clock-start<ticks){
-    *my_clock=*my_clock;
-  }
-}
-
 void opl2_out(unsigned char reg, unsigned char data){
 	outportb(opl2_base, reg);
 	outportb(opl2_base + 1, data);
@@ -1093,27 +1267,17 @@ void interrupt play_music(void){
 	//outportb(0x20, 0x20);	//PIC, EOI
 }
 
-void set_timer(word freq_div){
-	unsigned long spd = 1193182;
-	old_time_handler = getvect(0x1C);
-	spd /= freq_div;
-	outportb(0x43, 0x36);
-	outportb(0x40, spd % 0x100);	//lo-byte
-	outportb(0x40, spd / 0x100);	//hi-byte*/
-	setvect(0x1C, play_music);
-}
-
-void reset_timer(){
-	outportb(0x43, 0x36);
-	outportb(0x40, 0xFF);	//lo-byte
-	outportb(0x40, 0xFF);	//hi-byte*/
-	setvect(0x1C, old_time_handler);
-}
-
-void Load_Song(char *fname){
+void LT_Load_Music(char *fname){
 	FILE *imfile = fopen(fname, "rb");
 	unsigned char rb[16];
 	struct stat filestat;
+	
+	opl2_clear();
+	//reset interrupt
+	outportb(0x43, 0x36);
+	outportb(0x40, 0xFF);	//lo-byte
+	outportb(0x40, 0xFF);	//hi-byte*/
+	setvect(0x1C, LT_old_time_handler);
 	
 	if (!imfile){
 		LT_ExitDOS();
@@ -1144,85 +1308,114 @@ void Load_Song(char *fname){
 	fclose(imfile);
 }
 
+void LT_Start_Music(word freq_div){
+	//set interrupt and start playing music
+	unsigned long spd = 1193182;
+	spd /= freq_div;
+	outportb(0x43, 0x36);
+	outportb(0x40, spd % 0x100);	//lo-byte
+	outportb(0x40, spd / 0x100);	//hi-byte*/
+	setvect(0x1C, play_music);
+}
+
+void LT_Stop_Music(){
+	opl2_clear();
+	//reset interrupt
+	outportb(0x43, 0x36);
+	outportb(0x40, 0xFF);	//lo-byte
+	outportb(0x40, 0xFF);	//hi-byte*/
+	setvect(0x1C, LT_old_time_handler);
+}
+
+
 void LT_Unload_Music(){
+	LT_Stop_Music();
 	LT_music.size = NULL;
 	LT_music.offset = NULL;
 	LT_music.filetype = NULL;
-	free(LT_music.sdata); LT_music.sdata = NULL;
+	if (LT_music.sdata){
+		free(LT_music.sdata); 
+		LT_music.sdata = NULL;
+	}
 }
 
-///////////////////////////////////////
-int SIN[720] = {
- 9,  9,  9,  9, 10, 10, 10, 10, 10, 10,
-11, 11, 11, 11, 11, 11, 12, 12, 12, 12,
-12, 12, 13, 13, 13, 13, 13, 13, 14, 14,
-14, 14, 14, 14, 15, 15, 15, 15, 15, 15,
-15, 16, 16, 16, 16, 16, 16, 16, 16, 17,
-17, 17, 17, 17, 17, 17, 17, 17, 18, 18,
-18, 18, 18, 18, 18, 18, 18, 18, 18, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 20, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-18, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-16, 16, 16, 16, 16, 16, 16, 16, 15, 15,
-15, 15, 15, 15, 15, 14, 14, 14, 14, 14,
-14, 13, 13, 13, 13, 13, 13, 12, 12, 12,
-12, 12, 12, 11, 11, 11, 11, 11, 11, 10,
-10, 10, 10, 10, 10, 9, 9, 9, 9, 9,
-8, 8, 8, 8, 8, 8, 7, 7, 7, 7,
-7, 7, 6, 6, 6, 6, 6, 6, 5, 5,
-5, 5, 5, 5, 5, 4, 4, 4, 4, 4,
-4, 3, 3, 3, 3, 3, 3, 3, 3, 2,
-2, 2, 2, 2, 2, 2, 2, 2, 1, 1,
-1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-1, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-3, 3, 3, 3, 3, 3, 3, 3, 4, 4,
-4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
-5, 6, 6, 6, 6, 6, 6, 7, 7, 7,
-7, 7, 7, 8, 8, 8, 8, 8, 8, 9,
- 9,  9,  9,  9, 10, 10, 10, 10, 10, 10,
-11, 11, 11, 11, 11, 11, 12, 12, 12, 12,
-12, 12, 13, 13, 13, 13, 13, 13, 14, 14,
-14, 14, 14, 14, 15, 15, 15, 15, 15, 15,
-15, 16, 16, 16, 16, 16, 16, 16, 16, 17,
-17, 17, 17, 17, 17, 17, 17, 17, 18, 18,
-18, 18, 18, 18, 18, 18, 18, 18, 18, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 20, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-19, 19, 19, 19, 19, 19, 19, 19, 19, 19,
-18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-18, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-16, 16, 16, 16, 16, 16, 16, 16, 15, 15,
-15, 15, 15, 15, 15, 14, 14, 14, 14, 14,
-14, 13, 13, 13, 13, 13, 13, 12, 12, 12,
-12, 12, 12, 11, 11, 11, 11, 11, 11, 10,
-10, 10, 10, 10, 10, 9, 9, 9, 9, 9,
-8, 8, 8, 8, 8, 8, 7, 7, 7, 7,
-7, 7, 6, 6, 6, 6, 6, 6, 5, 5,
-5, 5, 5, 5, 5, 4, 4, 4, 4, 4,
-4, 3, 3, 3, 3, 3, 3, 3, 3, 2,
-2, 2, 2, 2, 2, 2, 2, 2, 1, 1,
-1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-1, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-3, 3, 3, 3, 3, 3, 3, 3, 4, 4,
-4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
-5, 6, 6, 6, 6, 6, 6, 7, 7, 7,
-7, 7, 7, 8, 8, 8, 8, 8, 8, 9
+//Pre calculated SIN and COS, Divide to use for smaller circles.
+int LT_SIN[365] = {
+0, 0, 1, 1, 3, 5, 6, 8, 10, 12, 13,
+15, 17, 19, 20, 22, 24, 25, 27, 29, 30,
+32, 34, 35, 37, 39, 40, 42, 43, 45, 46,
+48, 50, 51, 52, 54, 55, 57, 58, 60, 61,
+62, 64, 65, 66, 68, 69, 70, 71, 73, 74,
+75, 76, 77, 78, 79, 80, 81, 82, 83, 84,
+85, 86, 87, 88, 89, 89, 90, 91, 92, 92,
+93, 93, 94, 95, 95, 96, 96, 97, 97, 97,
+98, 98, 98, 99, 99, 99, 99, 99, 99, 99,
+99, 100, 99, 99, 99, 99, 99, 99, 99, 99,
+98, 98, 98, 97, 97, 97, 96, 96, 95, 95,
+94, 93, 93, 92, 92, 91, 90, 89, 89, 88,
+87, 86, 85, 84, 83, 82, 81, 80, 79, 78,
+77, 76, 75, 74, 73, 71, 70, 69, 68, 66,
+65, 64, 62, 61, 60, 58, 57, 55, 54, 52,
+51, 50, 48, 46, 45, 43, 42, 40, 39, 37,
+35, 34, 32, 30, 29, 27, 25, 24, 22, 20,
+19, 17, 15, 13, 12, 10, 8, 6, 5, 3,
+1, 0, -2, -4, -6, -7, -9, -11, -13, -14,
+-16, -18, -20, -21, -23, -25, -26, -28, -30, -31,
+-33, -35, -36, -38, -40, -41, -43, -44, -46, -47,
+-49, -50, -52, -53, -55, -56, -58, -59, -61, -62,
+-63, -65, -66, -67, -69, -70, -71, -72, -74, -75,
+-76, -77, -78, -79, -80, -81, -82, -83, -84, -85,
+-86, -87, -88, -89, -90, -90, -91, -92, -93, -93,
+-94, -94, -95, -96, -96, -97, -97, -98, -98, -98,
+-99, -99, -99, -100, -100, -100, -100, -100, -100, -100,
+-100, -100, -100, -100, -100, -100, -100, -100, -100, -100,
+-99, -99, -99, -98, -98, -98, -97, -97, -96, -96,
+-95, -94, -94, -93, -93, -92, -91, -90, -90, -89,
+-88, -87, -86, -85, -84, -83, -82, -81, -80, -79,
+-78, -77, -76, -75, -74, -72, -71, -70, -69, -67,
+-66, -65, -63, -62, -61, -59, -58, -56, -55, -53,
+-52, -51, -49, -47, -46, -44, -43, -41, -40, -38,
+-36, -35, -33, -31, -30, -28, -26, -25, -23, -21,
+-20, -18, -16, -14, -13, -11, -9, -7, -6, -4, -2,
+-1, 0, 0
+};
+
+int LT_COS[365] = {
+99, 100, 99, 99, 99, 99, 99, 99, 99, 99,
+98, 98, 98, 97, 97, 97, 96, 96, 95, 95,
+94, 93, 93, 92, 92, 91, 90, 89, 89, 88,
+87, 86, 85, 84, 83, 82, 81, 80, 79, 78,
+77, 76, 75, 74, 73, 71, 70, 69, 68, 66,
+65, 64, 62, 61, 60, 58, 57, 55, 54, 52,
+51, 50, 48, 46, 45, 43, 42, 40, 39, 37,
+35, 34, 32, 30, 29, 27, 25, 24, 22, 20,
+19, 17, 15, 13, 12, 10, 8, 6, 5, 3,
+1, 0, -2, -4, -6, -7, -9, -11, -13, -14,
+-16, -18, -20, -21, -23, -25, -26, -28, -30, -31,
+-33, -35, -36, -38, -40, -41, -43, -44, -46, -47,
+-49, -50, -52, -53, -55, -56, -58, -59, -61, -62,
+-63, -65, -66, -67, -69, -70, -71, -72, -74, -75,
+-76, -77, -78, -79, -80, -81, -82, -83, -84, -85,
+-86, -87, -88, -89, -90, -90, -91, -92, -93, -93,
+-94, -94, -95, -96, -96, -97, -97, -98, -98, -98,
+-99, -99, -99, -100, -100, -100, -100, -100, -100, -100,
+-100, -100, -100, -100, -100, -100, -100, -100, -100, -100,
+-99, -99, -99, -98, -98, -98, -97, -97, -96, -96,
+-95, -94, -94, -93, -93, -92, -91, -90, -90, -89,
+-88, -87, -86, -85, -84, -83, -82, -81, -80, -79,
+-78, -77, -76, -75, -74, -72, -71, -70, -69, -67,
+-66, -65, -63, -62, -61, -59, -58, -56, -55, -53,
+-52, -51, -49, -47, -46, -44, -43, -41, -40, -38,
+-36, -35, -33, -31, -30, -28, -26, -25, -23, -21,
+-20, -18, -16, -14, -13, -11, -9, -7, -6, -4, -2,
+-1, 0, 0 ,0,
+ 0, 1, 1, 3, 5, 6, 8, 10, 12, 13,
+15, 17, 19, 20, 22, 24, 25, 27, 29, 30,
+32, 34, 35, 37, 39, 40, 42, 43, 45, 46,
+48, 50, 51, 52, 54, 55, 57, 58, 60, 61,
+62, 64, 65, 66, 68, 69, 70, 71, 73, 74,
+75, 76, 77, 78, 79, 80, 81, 82, 83, 84,
+85, 86, 87, 88, 89, 89, 90, 91, 92, 92,
+93, 93, 94, 95, 95, 96, 96, 97, 97, 97,
+98, 98, 98, 99, 99, 99, 99, 99, 99, 99,
 };

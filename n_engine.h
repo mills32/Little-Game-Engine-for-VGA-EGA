@@ -12,6 +12,7 @@
 #include <sys\stat.h> //use stat to get correct file size
 #include <dos.h>
 #include <mem.h>
+#include <math.h>
 #undef outp
 #define VIDEO_INT           0x10      // the BIOS video interrupt.
 #define SET_MODE            0x00      // BIOS func to set the video mode.
@@ -23,7 +24,10 @@
 #define NUM_COLORS          256       // number of colors in mode 0x13
 
 #define MISC_OUTPUT         0x03c2    // VGA misc. output register
-
+#define INPUT_STATUS_0		0x03da
+#define AC_MODE_CONTROL		0x10	  //Index of Mode COntrol register in AC
+#define AC_INDEX			0x03c0	  //Attribute controller index register
+#define CRTC_INDEX			0x03d4	  // CRT Controller Index
 #define H_TOTAL             0x00      // CRT controller registers
 #define H_DISPLAY_END       0x01
 #define H_BLANK_START       0x02
@@ -41,6 +45,7 @@
 #define V_BLANK_START       0x15
 #define V_BLANK_END         0x16
 #define MODE_CONTROL        0x17
+#define LINE_COMPARE		0x18      
 
 #define ADLIB_PORT 			0x388
 
@@ -52,7 +57,8 @@ extern int Free_RAM;
 extern int SCR_X;
 extern int SCR_Y;
 extern float t1,t2; //debug
-extern int SIN[]; 
+extern int LT_SIN[]; 
+extern int LT_COS[]; 
 
 typedef unsigned char  byte;
 typedef unsigned short word;
@@ -62,7 +68,15 @@ extern word start;
 extern byte LT_Gravity;
 extern int LT_Keys[];
 
-typedef struct tagCOLORCYCLE			/* the structure for a map. */
+typedef struct tagBITMAP				/* the structure for a bitmap. */
+{
+	word width;
+	word height;
+	byte palette[256*3];
+	byte *data;
+} BITMAP;
+
+typedef struct tagCOLORCYCLE			/* the structure for color cycle. */
 {
 	byte frame;
 	byte counter;
@@ -78,7 +92,7 @@ typedef struct tagMAP					/* the structure for a map. */
 	byte *collision;
 } MAP;
 
-typedef struct tagTILE					/* the structure for a bitmap. */
+typedef struct tagTILE					/* the structure for tiles */
 {
 	word width;
 	word height;
@@ -120,20 +134,22 @@ extern IMFsong LT_music;
 extern MAP LT_map;			
 extern TILE LT_tileset;	
 
-void ADLIB_Detect();
-void check_hardware();
+void LT_Adlib_Detect();
+void LT_Check_CPU();
 
 /*MCGA/VGA Hardware scroll*/
 void MCGA_Scroll(word x, word y);
 void MCGA_WaitVBL();
-
+void MCGA_SplitScreen();
 void MCGA_ClearScreen();
 
 void LT_Init();
 void LT_ExitDOS();
 
 /* load plain bmp */
-void load_plain_bmp(char *file,TILE *b);
+void LT_Load_BKG(char *file);
+void LT_Draw_BKG();
+void LT_Unload_Bitmap(BITMAP *b);
 
 /* load_16x16 tiles */
 void load_tiles(char *file);
@@ -142,8 +158,9 @@ void LT_unload_tileset();
 //Load tiled TMX map in XML format
 void load_map(char *file);
 void LT_Set_Map(int x, int y);
-void draw_map_column( word x, word y, word map_offset);
-void draw_map_row( word x, word y, word map_offset);
+void LT_Draw_MapTile(word x, word y, word map_offset);
+void draw_map_column(word x, word y, word map_offset);
+void draw_map_row(word x, word y, word map_offset);
 void LT_unload_map();
 
 //update screen
@@ -164,15 +181,9 @@ void set_palette(unsigned char *palette);
 void cycle_init(COLORCYCLE *cycle,unsigned char *palette);
 void cycle_palette(COLORCYCLE *cycle, byte speed);
 
-/* draw_bitmap */
-void draw_plain_bitmap(TILE *bmp, word x, word y);
-
-/*wait*/
-void wait(word ticks);
 
 //MUSIC
-void opl2_clear(void);
-void set_timer(word freq_div);
-void reset_timer();
-void Load_Song(char *fname);
+void LT_Load_Music(char *fname);
+void LT_Start_Music(word freq_div);
+void LT_Stop_Music();
 void LT_Unload_Music();

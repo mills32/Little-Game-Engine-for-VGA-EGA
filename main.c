@@ -32,66 +32,102 @@ int j = 0;
 int frame = 0;
 int Speed = 0;
 int Scene = 0;
+int menu_option = 0;
+int menu_pos[6] = {30,48,176,112,272,64};
 
-void main(){		
-	SPRITE sprite_player,sprite_ship0,sprite_ship1,sprite_enemy1,sprite_enemy2,sprite_enemy3;
+void main(){
+	SPRITE sprite_cursor, sprite_player, sprite_enemy1, sprite_enemy2, sprite_enemy3, sprite_ship;
 	COLORCYCLE cycle_water;
 	
 	system("cls");
-	//check_hardware(); //causes garbage
-	//ADLIB_Detect(); 
+	//LT_Check_CPU(); //still causing trouble
+	//LT_Adlib_Detect(); 
 	
 	LT_Init();
-	
+
 	printf("Loading...\n");
-	/*load_map("GFX/logo.tmx");
+	Load_map("GFX/logo.tmx");
 	load_tiles("GFX/logo.bmp");
 	LT_Set_Map(0,0);
 	
+	//LOGO
 	while (SCR_Y < 200){
 		MCGA_Scroll(SCR_X,SCR_Y);
-		MCGA_WaitVBL();
 		LT_scroll_map();
 		SCR_Y++;
+		if (LT_Keys[1]) SCR_Y= 200; //esc exit
 	}
-	SCR_Y = 0;
-	wait(20);
-	*/
+
+	sleep(3);
 	Scene = 1;
+	Load_map("GFX/menu.tmx");
+	load_tiles("GFX/menutil.bmp");
+	load_sprite("GFX/cursor.bmp",&sprite_cursor,16);
+	
+	LT_Set_Map(0,0);
+	MCGA_SplitScreen(63);
+	LT_Load_Music("music/crooner.imf");
+	LT_Start_Music(700);
+	
+	SCR_Y = 0;
+	MCGA_Scroll(SCR_X,SCR_Y);
+
+	//MENU
+	i = 0;
+	while(Scene == 1){
+		
+		MCGA_Scroll(SCR_X,144); //Scroll tittle
+		SCR_X = LT_SIN[i]>>1;
+		
+		sprite_cursor.pos_x = menu_pos[menu_option] + (LT_COS[i]>>2);
+		sprite_cursor.pos_y = menu_pos[menu_option+1] + (LT_SIN[i]>>2);
+		draw_sprite(&sprite_cursor,sprite_cursor.pos_x,sprite_cursor.pos_y,0);
+		
+		if (i > 360) i = 0;
+		i+=2;
+		if (LT_Keys[1]) Scene = 2; //esc exit
+	}
+	
+	SCR_X = 0;
+	MCGA_Scroll(SCR_X,SCR_Y);
+	sleep(2);
+	
+	MCGA_ClearScreen();
+	MCGA_SplitScreen(0x0ffff);
 	printf("Loading...\n");
+	Scene = 2;
 	load_map("GFX/luna_map.tmx");
 	load_tiles("GFX/lunatil.bmp");
-	LT_load_font("GFX/font.bmp");
+	//LT_load_font("GFX/font.bmp");
 	
-	load_sprite("GFX/s_mario.bmp",&sprite_player,16);
-	load_sprite("GFX/ship1.bmp",&sprite_ship1,32);
+	load_sprite("GFX/player.bmp",&sprite_player,16);
+	load_sprite("GFX/player.bmp",&sprite_enemy1,16);
+	load_sprite("GFX/player.bmp",&sprite_enemy2,16);
 
-	//open IMF
-	//"music/64style.imf" "music/fox.imf" "music/game.imf" "music/luna.imf" "music/menu.imf" "music/riddle.imf" "music/space.imf"
-	set_timer(500); 
-	Load_Song("music/mario.imf");
-	opl2_clear();
+	LT_Load_Music("music/dintro.imf");
+	LT_Start_Music(700);
 	
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
 	
-	sprite_player.pos_x = 130;
+	sprite_player.pos_x = 80;
 	sprite_player.pos_y = 70;
-
+	
 	LT_Set_Map(0,0);
-	LT_Gravity = 0;
+	LT_Gravity = 1;
+	
 	/*MAIN LOOP SCROLL X*/
-	while(Scene == 1){
+	while(Scene == 2){
 	
 		//SCR_X and SCR_Y are global variables predefined 
 		MCGA_Scroll(SCR_X,SCR_Y);
-		MCGA_WaitVBL(); //Draw everything just after VBL!!
+
 		//scroll_map
 		LT_scroll_map();
 		LT_scroll_follow(&sprite_player);
-		
+
 		draw_sprite(&sprite_player,sprite_player.pos_x,sprite_player.pos_y,frame);
-		LT_gprint(LT_map.collision[((sprite_player.pos_y>>4) * LT_map.width) + (sprite_player.pos_x>>4)],240,160);
+		//LT_gprint(LT_map.collision[((sprite_player.pos_y>>4) * LT_map.width) + (sprite_player.pos_x>>4)],240,160);
 		
 		LT_move_player(&sprite_player);
 		
@@ -99,20 +135,19 @@ void main(){
 		
 		if(Speed == 8){Speed = 0; frame++;}
 		Speed++;
-		//move sprite
 
 		if (LT_Keys[1]) Scene = -1; //esc exit
-		//if (j == 1200) Scene = -1; //esc exit
+
 		if(frame == 15) frame = 0;
 	}
 	
-	opl2_clear();
-	reset_timer();
 	t1 = LT_map.ntiles;
 	//free ram, if not, program it will crash a lot
-	LT_ExitDOS(); //frees map, tileset, font and music
 	LT_unload_sprite(&sprite_player); //manually free sprites
-	LT_unload_sprite(&sprite_ship1);
+	LT_unload_sprite(&sprite_enemy1);
+	LT_unload_sprite(&sprite_enemy2);
+	LT_unload_sprite(&sprite_cursor);
+	LT_ExitDOS(); //frees map, tileset, font and music.
 	
 	//debug
 	printf("debug = %f\n",t1);
