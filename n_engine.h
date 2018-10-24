@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <sys\stat.h> //use stat to get correct file size
 #include <dos.h>
+#include <alloc.h>
 #include <mem.h>
 #include <math.h>
 #undef outp
@@ -49,6 +50,17 @@
 
 #define ADLIB_PORT 			0x388
 
+//KEYS
+#define LT_ESC				0x01
+#define LT_ENTER			0x1C
+#define LT_S				0x1F
+#define LT_D				0x20
+#define LT_UP				0x48
+#define LT_DOWN				0x50
+#define LT_LEFT				0x4B
+#define LT_RIGHT			0x4D
+
+
 /* macro to write a word to a port */
 #define word_out(port,register,value) \
   outport(port,(((word)value<<8) + register))
@@ -66,6 +78,7 @@ typedef unsigned long  dword;
 extern word *my_clock;
 extern word start;
 extern byte LT_Gravity;
+extern byte LT_SideScroll;
 extern int LT_Keys[];
 
 typedef struct tagBITMAP				/* the structure for a bitmap. */
@@ -112,12 +125,17 @@ typedef struct tagSPRITE				/* the structure for a sprite. */
 	word height;
 	byte palette[256*3];
 	byte init;
+	byte animate;
+	byte speed;
+	byte anim_counter;
+	byte anim_speed;
+	byte baseframe;
+	byte aframes;
 	word pos_x;
 	word pos_y;
 	word last_x;
 	word last_y;
 	byte frame;
-	byte base_frame;
 	byte nframes;
 	byte *bkg_data;
 	SPRITEFRAME *rle_frames;	
@@ -165,16 +183,19 @@ void LT_unload_map();
 
 //update screen
 void LT_scroll_map();
+void LT_Endless_SideScroll_Map();
 
 //sprite
 void load_sprite(char *file,SPRITE *s, byte size);
-void draw_sprite(SPRITE *b, word x, word y, byte frame);
+void LT_Set_Sprite_Animation(SPRITE *s, int baseframe, int frames, int speed);
+void LT_Draw_Sprite(SPRITE *b);
 void LT_move_player(SPRITE *s);
 void LT_load_font(char *file);
 void LT_gprint(int var, word x, word y);
 void LT_unload_sprite(SPRITE *s);
 void LT_unload_font();
 void LT_scroll_follow(SPRITE *s);
+
 
 //set_palette                                                           
 void set_palette(unsigned char *palette);

@@ -71,6 +71,8 @@ int last_y = 0;
 int map_offset = 0;
 int map_offset_Endless = 0;
 int LT_follow = 0;
+byte LT_Gravity = 0;
+byte LT_SideScroll = 0;
 
 //Player
 byte tile_number = 0;		//Tile a sprite is on
@@ -79,7 +81,8 @@ byte tile_number_VR = 0;	//Tile vertical right
 byte tile_number_VL = 0;	//Tile vertical left
 byte tile_number_HU = 0;	//Tile horizontal up
 byte tile_number_HD = 0;	//Tile horizontal down
-byte LT_Gravity = 0;
+
+
 byte LT_player_jump = 0;
 byte LT_player_jump_frame = 0;
 int LT_player_jump_pos[] = 
@@ -221,6 +224,9 @@ void MCGA_WaitVBL(){ //This does not work well outside MCGA_Scroll
 void MCGA_ClearScreen(){
 	outport(0x03c4,0xff02);
 	memset(&MCGA[0],0,(320*200)/4);
+	SCR_X = 0;
+	SCR_Y = 0;
+	MCGA_Scroll(0,0);
 }
 
 void MCGA_SplitScreen(int line){
@@ -320,32 +326,43 @@ void LT_Init(){
 	// 64kb Tileset
 	// 64kb Temp Tileset
 	// 16kb Temp Sprites
-	// 4 x 16kb for 4 sprites 
 	// 32kb Map + 32kb collision map
-	// 64kb Music
-	if ((LT_tileset.tdata = malloc(65535*sizeof(byte))) == NULL){
-		LT_ExitDOS();
+	// 64kb Music 
+	if ((LT_tileset.tdata = farcalloc(65535,sizeof(byte))) == NULL){
 		printf("Error allocating 64kb for tile data\n");
+		sleep(2);
+		LT_ExitDOS();
+		exit(1);
 	}	
-	if ((LT_tile_datatemp = malloc(65535*sizeof(byte))) == NULL){
-		LT_ExitDOS();
+	if ((LT_tile_datatemp = farcalloc(65535,sizeof(byte))) == NULL){
 		printf("Error allocating 64kb for temp data\n");
-	}
-	if ((LT_sprite_tiledatatemp = malloc(16384*sizeof(byte))) == NULL){
+		sleep(2);
 		LT_ExitDOS();
-		printf("Error allocating 64kb for temp data\n");
+		exit(1);		
 	}
-	if ((LT_map.data = malloc(32767*sizeof(byte))) == NULL){
+	if ((LT_sprite_tiledatatemp = farcalloc(16384,sizeof(byte))) == NULL){
+		printf("Error allocating 16kb for temp data\n");
+		sleep(2);
 		LT_ExitDOS();
+		exit(1);	
+	}
+	if ((LT_map.data = farcalloc(32767,sizeof(byte))) == NULL){
 		printf("Error allocating 32kb for map\n");
-	}
-	if ((LT_map.collision = malloc(32767*sizeof(byte))) == NULL){
+		sleep(2);
 		LT_ExitDOS();
+		exit(1);
+	}
+	if ((LT_map.collision = farcalloc(32767,sizeof(byte))) == NULL){
 		printf("Error allocating 32kb for collision map\n");
-	}
-	if ((LT_music.sdata = malloc(65535*sizeof(byte))) == NULL){
+		sleep(2);
 		LT_ExitDOS();
+		exit(1);	
+	}
+	if ((LT_music.sdata = farcalloc(65535,sizeof(byte))) == NULL){
 		printf("Error allocating 64kb for music data\n");
+		sleep(2);
+		LT_ExitDOS();
+		exit(1);	
 	}
 	MCGA_SplitScreen(0x0ffff);
 }
@@ -355,11 +372,14 @@ void LT_ExitDOS(){
 	regs.h.ah = 0x00;
 	regs.h.al = TEXT_MODE;
 	int86(0x10, &regs, &regs);
+	LT_Stop_Music();
 	LT_Unload_Music();
 	LT_unload_tileset();
 	LT_unload_map();
 	LT_unload_font();
 	LT_reset_key_handler();
+	MCGA_SplitScreen(0x0ffff);
+	exit(1);
 }
 
 void fskip(FILE *fp, word num_bytes){
@@ -377,8 +397,9 @@ void LT_Load_BKG(char *file){
 
 	fp = fopen(file,"rb");
 	if(!fp){
-		LT_ExitDOS();
 		printf("can't find %s.\n",file);
+		sleep(2);
+		LT_ExitDOS();
 		exit(1);
 	} 
 	fgetc(fp);
@@ -428,8 +449,9 @@ void load_tiles(char *file){
 
 	fp = fopen(file,"rb");
 	if(!fp){
-		LT_ExitDOS();
 		printf("can't find %s.\n",file);
+		sleep(2);
+		LT_ExitDOS();
 		exit(1);
 	} 
 	fgetc(fp);
@@ -493,8 +515,9 @@ void load_map(char *file){
 	char name[64]; //name of the layer in TILED
 
 	if(!f){
-		LT_ExitDOS();
 		printf("can't find %s.\n",file);
+		sleep(2);
+		LT_ExitDOS();
 		exit(1);
 	}
 	//read file
@@ -512,8 +535,9 @@ void load_map(char *file){
 	}
 	LT_map.ntiles = LT_map.width*LT_map.height;
 	if (LT_map.ntiles > 32767){
-		LT_ExitDOS();
 		printf("Error, map is bigger than 32 kb");
+		sleep(2);
+		LT_ExitDOS();
 	}
 	fgets(line, 64, f); //skip line: <data encoding="csv">
 
@@ -552,16 +576,17 @@ void LT_Set_Map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
-	current_x = x;
-	current_y = y;
-	last_x = x;
-	last_y = y;
 	map_offset = (LT_map.width*y)+x;
 	map_offset_Endless = 20;
 	SCR_X = x<<4;
 	SCR_Y = y<<4;
+	current_x = SCR_X-(SCR_X & 15);
+	current_y = SCR_Y-(SCR_Y & 15);
+	last_x = current_x;
+	last_y = current_y;
+	MCGA_Scroll(SCR_X,SCR_Y);
 	//draw map 
-	for (i = 0;i<320;i+=16){draw_map_column(i,0,map_offset+j);j++;}	
+	for (i = 0;i<320;i+=16){draw_map_column(SCR_X+i,SCR_Y,map_offset+j);j++;}	
 	set_palette(LT_tileset.palette);
 }
 
@@ -616,71 +641,6 @@ void draw_map_column(word x, word y, word map_offset){
 		push si
 		
 		mov		dx,12		//12 tiles height column
-		
-		lds		bx,dword ptr[tiledata]					
-		lds		si,ds:[bx]				//ds:si data address
-		
-		mov		word ptr [tile_offset],ds
-		mov		word ptr [tile_offset+2],si
-
-		mov		ax,map_offset
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		ax,es:[bx]
-		mov		cl,8
-		shl		ax,cl
-		add		si,ax
-		mov		di,screen_offset		//es:di screen address							
-	}
-	loop_tile:
-	asm{
-		mov 	ax,0A000h
-		mov 	es,ax
-		mov 	ax,16
-	}
-	copy_tile:	
-	asm{
-		mov 	cx,8
-		rep		movsw				
-		add 	di,320-16
-		dec 	ax
-		jnz		copy_tile
-		
-		mov		ds,word ptr [tile_offset]
-		mov		si,word ptr [tile_offset+2]
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		ax,es:[bx]
-		mov		cl,8
-		shl		ax,cl
-		add		si,ax
-		
-		dec		dx
-		jnz		loop_tile
-		
-		pop si
-		pop di
-		pop ds
-	}
-}
-
-void draw_map_column2(word x, word y, word map_offset){
-	unsigned char *tiledata = (unsigned char *) &LT_tileset.tdata;
-	unsigned char *mapdata = LT_map.data;
-	word tile_offset = 0;
-	word width = LT_map.width;
-	word screen_offset = (y<<8)+(y<<6)+x;
-	asm{
-		push ds
-		push di
-		push si
-		
-		mov		dx,1		//12 tiles height column
 		
 		lds		bx,dword ptr[tiledata]					
 		lds		si,ds:[bx]				//ds:si data address
@@ -814,7 +774,6 @@ void LT_scroll_map(){
 		map_offset += LT_map.width;
 	}
 	if (current_x < last_x) { 
-		if (current_x < 0) map_offset = map_offset - LT_map.width;
 		draw_map_column(current_x,current_y,map_offset-1); 
 		map_offset--;
 	}
@@ -836,7 +795,6 @@ void LT_Endless_SideScroll_Map(){
 	}
 	last_x = current_x;
 }
-
 
 void LT_scroll_follow(SPRITE *s){
 	//LIMITS
@@ -887,8 +845,9 @@ void load_sprite(char *file,SPRITE *s, byte size){
 	
 	fp = fopen(file,"rb");
 	if(!fp){
-		LT_ExitDOS();
 		printf("can't find %s.\n",file);
+		sleep(2);
+		LT_ExitDOS();
 		exit(1);
 	} 
 
@@ -930,7 +889,7 @@ void load_sprite(char *file,SPRITE *s, byte size){
 	s->height = size;
 
 	//calculate frames size
-	s->rle_frames = malloc(s->nframes*sizeof(SPRITEFRAME));
+	s->rle_frames = farcalloc(s->nframes,sizeof(SPRITEFRAME));
 	//CONVERT AND STORE EVERY FRAME IN RLE FORMAT
 	for(j=0;j<s->nframes;j++){
 		offset = 0;
@@ -979,7 +938,7 @@ void load_sprite(char *file,SPRITE *s, byte size){
 		frame_size = 2; //word "number of runs"
 		for(i = 0; i < number_of_runs; i++) 
 			frame_size+= (4 + run_length[i]); //word skip + word number of pixels + length
-		s->rle_frames[j].rle_data = (byte*) malloc(frame_size);
+		s->rle_frames[j].rle_data = (byte*) farcalloc(frame_size,sizeof(byte));
 
 		//copy RLE data to struct
 		memcpy(&s->rle_frames[j].rle_data[0],&number_of_runs,2);
@@ -996,20 +955,46 @@ void load_sprite(char *file,SPRITE *s, byte size){
 		}
 	}
 
-	s->bkg_data = (byte *) malloc(size*size); /*allocate memory for the 16x16 bkg chunk erased every time you draw the sprite*/
+	s->bkg_data = (byte *) farcalloc(size*size,sizeof(byte)); /*allocate memory for the 16x16 bkg chunk erased every time you draw the sprite*/
 	s->init = 0;
 	s->frame = 0;
+	s->baseframe = 0;
+	s->animate = 0;
+	s->anim_speed = 0;
+	s->anim_counter = 0;
 }
 
-void draw_sprite(SPRITE *s, word x, word y, byte frame){
-	unsigned char *data = (unsigned char *) &s->rle_frames[frame].rle_data;
+void LT_Set_Sprite_Animation(SPRITE *s, int baseframe, int frames, int speed){
+	s->baseframe = baseframe;
+	s->aframes = frames;
+	s->speed = speed;
+	s->animate = 1;
+}
+
+void LT_Draw_Sprite(SPRITE *s){
+	unsigned char *data;
 	unsigned char *bkg_data = (unsigned char *) &s->bkg_data;
 	word screen_offset0 = (s->last_y<<8)+(s->last_y<<6)+s->last_x;
-	word screen_offset1 = (y<<8)+(y<<6)+x;
+	word screen_offset1 = (s->pos_y<<8)+(s->pos_y<<6)+s->pos_x;
 	word init = s->init;
 	word size = s->height;
 	word size2 = s->height>>1;
 	word next_scanline = 320 - s->width;
+	
+	//animation
+	if (s->animate == 1){
+		s->frame = s->baseframe + s->anim_counter;
+		if (s->anim_speed == s->speed){
+			s->anim_speed = 0;
+			s->anim_counter++;
+			if (s->anim_counter == s->aframes) s->anim_counter = 0;
+		}
+		s->anim_speed++;
+	}
+	
+	data = (unsigned char *) &s->rle_frames[s->frame].rle_data; 
+	
+	//Draw a sprite frame
 	asm{
 		push ds
 		push di
@@ -1094,90 +1079,102 @@ void draw_sprite(SPRITE *s, word x, word y, byte frame){
 		pop di
 		pop ds
 	}
-	s->last_x = x;
-	s->last_y = y;
+	s->last_x = s->pos_x;
+	s->last_y = s->pos_y;
+	
 }
 
 void LT_move_player(SPRITE *s){
-	int col = 0;
+	int col_x = 0;
+	int col_y = 0;
+	int size = s->width;
+	int siz = s->width -1;
+	
 	//GET TILE POS
 	tile_number = LT_map.data[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
 	tilecol_number = LT_map.collision[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
-	//0x48 UP; 0x50 DOWN; 0x4B LEFT; 0x4D RIGHT;
-	//0x20 D (JUMP); 0x1f S (ACTION); 0x01 ESC
   if (LT_Gravity == 1){
-	if ((LT_player_jump == 0) && (LT_Keys[0x20])) {LT_player_jump_frame = 0; LT_player_jump = 1;}
+	if ((LT_player_jump == 0) && (LT_Keys[LT_D])) {LT_player_jump_frame = 0; LT_player_jump = 1;}
 	if (LT_player_jump == 1){//JUMP
-		col = 0;
+		col_y = 0;
 		if (LT_player_jump_pos[LT_player_jump_frame] < 0){
-			tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+			tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
 			tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
-			if (tile_number_VR == 1) col = 1; 
-			if (tile_number_VL == 1) col = 1; 
+			if (tile_number_VR == 1) col_y = 1; 
+			if (tile_number_VL == 1) col_y = 1; 
 		} else {
-			tile_number_VR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-			tile_number_VL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
-			if (tile_number_VR == 1) col = 1; 
-			if (tile_number_VL == 1) col = 1; 			
-			if (tile_number_VR == 2) col = 1; 
-			if (tile_number_VL == 2) col = 1; 
+			tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+			tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
+			if (tile_number_VR == 1) col_y = 1; 
+			if (tile_number_VL == 1) col_y = 1; 			
+			if (tile_number_VR == 2) col_y = 1; 
+			if (tile_number_VL == 2) col_y = 1; 
 		}
-		if (col == 0){
+		if (col_y == 0){
 			s->pos_y += LT_player_jump_pos[LT_player_jump_frame];
 			LT_player_jump_frame++;
 			if (LT_player_jump_frame == 52) {LT_player_jump_frame = 0; LT_player_jump = 0;}
 		}
-		if (col == 1){
+		if (col_y == 1){
 			LT_player_jump_frame = 0; 
 			LT_player_jump = 0;
 		}
 	}
 	if (LT_player_jump == 0){//DOWN
-		col = 0;
-		tile_number_VR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_VL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_VR == 1) col = 1;
-		if (tile_number_VL == 1) col = 1;
-		if (tile_number_VR == 2) col = 1;
-		if (tile_number_VL == 2) col = 1;
-		if (col == 0) s->pos_y+=2;
+		col_y = 0;
+		tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+		tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_VR == 1) col_y = 1;
+		if (tile_number_VL == 1) col_y = 1;
+		if (tile_number_VR == 2) col_y = 1;
+		if (tile_number_VL == 2) col_y = 1;
+		if (col_y == 0) s->pos_y+=2;
 	}
   }
   if (LT_Gravity == 0){
-	if (LT_Keys[0x48]){	//UP
-		col = 0;
-		tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
+	if (LT_Keys[LT_UP]){	//UP
+		col_y = 0;
+		tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
 		tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_VR == 1) col = 1;
-		if (tile_number_VL == 1) col = 1;
-		if (col == 0) s->pos_y--;
+		if (tile_number_VR == 1) col_y = 1;
+		if (tile_number_VL == 1) col_y = 1;
+		if (col_y == 0) s->pos_y--;
 	}
-	if (LT_Keys[0x50]){	//DOWN
-		col = 0;
-		tile_number_VR = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + ((s->pos_x+15)>>4)];
-		tile_number_VL = LT_map.collision[(((s->pos_y+16)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_VR == 1) col = 1;
-		if (tile_number_VL == 1) col = 1;
-		if (tile_number_VR == 2) col = 1;
-		if (tile_number_VL == 2) col = 1;
-		if (col == 0) s->pos_y++;
+	if (LT_Keys[LT_DOWN]){	//DOWN
+		col_y = 0;
+		tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+		tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
+		if (tile_number_VR == 1) col_y = 1;
+		if (tile_number_VL == 1) col_y = 1;
+		if (tile_number_VR == 2) col_y = 1;
+		if (tile_number_VL == 2) col_y = 1;
+		if (col_y == 0) s->pos_y++;
 	}
   }
-	if (LT_Keys[0x4B]){	//LEFT
-		col = 0;
+	if (LT_Keys[LT_LEFT]){	//LEFT
+		col_x = 0;
 		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
-		tile_number_HD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
-		if (tile_number_HU == 1) col = 1;
-		if (tile_number_HD == 1) col = 1;
-		if (col == 0) s->pos_x--;
+		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
+		if (tile_number_HU == 1) col_x = 1;
+		if (tile_number_HD == 1) col_x = 1;
+		if (col_x == 0) s->pos_x--;
 	}
-	if (LT_Keys[0x4D]){	//RIGHT
-		col = 0;
-		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
-		tile_number_HD = LT_map.collision[(((s->pos_y+15)>>4) * LT_map.width) + ((s->pos_x+16)>>4)];
-		if (tile_number_HU == 1) col = 1;
-		if (tile_number_HD == 1) col = 1;
-		if (col == 0) s->pos_x++;
+	if (LT_Keys[LT_RIGHT]){	//RIGHT
+		col_x = 0;
+		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+		if (tile_number_HU == 1) col_x = 1;
+		if (tile_number_HD == 1) col_x = 1;
+		if (col_x == 0) s->pos_x++;
+	}
+	if (LT_SideScroll == 1){
+		col_x = 0;
+		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+		if (tile_number_HU == 1) col_x = 1;
+		if (tile_number_HD == 1) col_x = 1;
+		if (col_x == 0) s->pos_x++;
+		if (s->pos_x < SCR_X+3) s->pos_x = SCR_X+3;
 	}
 }
 	
@@ -1188,31 +1185,31 @@ void LT_load_font(char *file){
 }
 
 void LT_gprint(int var, word x, word y){
-	draw_sprite(&lt_gpnumber0,SCR_X+x+34,SCR_Y+y,var % 10);
+	lt_gpnumber0.pos_x = SCR_X+x+34; lt_gpnumber0.pos_y = SCR_Y+y;
+	lt_gpnumber1.pos_x = SCR_X+x+17; lt_gpnumber1.pos_y = SCR_Y+y;
+	lt_gpnumber2.pos_x = SCR_X+x; lt_gpnumber2.pos_y = SCR_Y+y;
+	
+	lt_gpnumber0.frame = var % 10;
+	LT_Draw_Sprite(&lt_gpnumber0);
+	
 	var /= 10;
-	draw_sprite(&lt_gpnumber1,SCR_X+x+17,SCR_Y+y,var % 10);
+	lt_gpnumber1.frame = var % 10;
+	LT_Draw_Sprite(&lt_gpnumber1);
+	
 	var /= 10;
-	draw_sprite(&lt_gpnumber2,SCR_X+x,SCR_Y+y,var % 10);
+	lt_gpnumber2.frame = var % 10;
+	LT_Draw_Sprite(&lt_gpnumber2);
 }
 	
 void LT_unload_sprite(SPRITE *s){
 	int i;
-	s->width = NULL;
-	s->height = NULL;
-	*s->palette = NULL;
-	s->init = NULL;
-	s->pos_x = NULL;
-	s->pos_y = NULL;
-	s->last_x = NULL;
-	s->last_y = NULL;
-	s->frame = NULL;
-	s->base_frame = NULL;
-	free(s->bkg_data); s->bkg_data = NULL;
+	farfree(s->bkg_data); s->bkg_data = NULL;
 	for (i=0;i<s->nframes;i++){
-		free(&s->rle_frames[i].rle_data);
+		farfree(s->rle_frames[i].rle_data);
 		s->rle_frames[i].rle_data = NULL;
 	}
-	s->nframes = NULL;
+	farfree(s->rle_frames); s->rle_frames = NULL;
+	s = NULL;
 }
 
 void LT_unload_font(){
@@ -1280,13 +1277,15 @@ void LT_Load_Music(char *fname){
 	setvect(0x1C, LT_old_time_handler);
 	
 	if (!imfile){
-		LT_ExitDOS();
 		printf("Can't find %s.\n",fname);
+		sleep(2);
+		LT_ExitDOS();
 		exit(1);
 	}
 	if (fread(rb, sizeof(char), 2, imfile) != 2){
-		LT_ExitDOS();
 		printf("Error openning %s.\n",fname);
+		sleep(2);
+		LT_ExitDOS();
 		exit(1);
 	}
 	
@@ -1302,6 +1301,12 @@ void LT_Load_Music(char *fname){
 	//get file size:
 	fstat(fileno(imfile),&filestat);
     LT_music.size = filestat.st_size;
+	if (LT_music.size > 65535){
+		printf("Music file is bigger than 64 Kb %s.\n",fname);
+		sleep(2);
+		LT_ExitDOS();
+		exit(1);		
+	}
     fseek(imfile, 0, SEEK_SET);
 
 	fread(LT_music.sdata, 1, LT_music.size,imfile);
