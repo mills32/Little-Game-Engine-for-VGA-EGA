@@ -89,6 +89,24 @@ typedef struct tagBITMAP				/* the structure for a bitmap. */
 	byte *data;
 } BITMAP;
 
+typedef struct tagANIMATION				/* the structure for an animation. */
+{
+	word width;
+	word height;
+	byte palette[256*3];
+	byte animate;
+	byte speed;
+	byte anim_counter;
+	byte anim_speed;
+	byte baseframe;
+	byte aframes;
+	word pos_x;
+	word pos_y;
+	byte frame;
+	byte nframes;
+	byte *data;	
+} ANIMATION;
+
 typedef struct tagCOLORCYCLE			/* the structure for color cycle. */
 {
 	byte frame;
@@ -131,6 +149,9 @@ typedef struct tagSPRITE				/* the structure for a sprite. */
 	byte anim_speed;
 	byte baseframe;
 	byte aframes;
+	byte ground;
+	byte jump;
+	byte jump_frame;
 	word pos_x;
 	word pos_y;
 	word last_x;
@@ -151,11 +172,16 @@ typedef struct tagIMFsong{
 extern IMFsong LT_music;	
 extern MAP LT_map;			
 extern TILE LT_tileset;	
+extern ANIMATION LT_Loading_Animation;
 
 void LT_Adlib_Detect();
 void LT_Check_CPU();
 
-/*MCGA/VGA Hardware scroll*/
+//
+void LT_Set_Loading_Interrupt();
+void LT_Delete_Loading_Interrupt();
+
+//MCGA/VGA Hardware scroll
 void MCGA_Scroll(word x, word y);
 void MCGA_WaitVBL();
 void MCGA_SplitScreen();
@@ -164,16 +190,20 @@ void MCGA_ClearScreen();
 void LT_Init();
 void LT_ExitDOS();
 
-/* load plain bmp */
+// load plain bmp
 void LT_Load_BKG(char *file);
 void LT_Draw_BKG();
-void LT_Unload_Bitmap(BITMAP *b);
+//void LT_Unload_BKG(); 
+void LT_Load_Animation(char *file,ANIMATION *s, byte size);
+void LT_Set_Animation(ANIMATION *s, int baseframe, int frames, int speed);
+void LT_Draw_Animation(ANIMATION *s);
+void LT_Unload_Animation(); 
 
-/* load_16x16 tiles */
+// load_16x16 tiles
 void load_tiles(char *file);
 void LT_unload_tileset();
 
-//Load tiled TMX map in XML format
+// Load tiled TMX map in XML format
 void load_map(char *file);
 void LT_Set_Map(int x, int y);
 void LT_Draw_MapTile(word x, word y, word map_offset);
@@ -186,7 +216,7 @@ void LT_scroll_map();
 void LT_Endless_SideScroll_Map();
 
 //sprite
-void load_sprite(char *file,SPRITE *s, byte size);
+void LT_Load_Sprite(char *file,SPRITE *s, byte size);
 void LT_Set_Sprite_Animation(SPRITE *s, int baseframe, int frames, int speed);
 void LT_Draw_Sprite(SPRITE *b);
 void LT_move_player(SPRITE *s);
@@ -196,12 +226,10 @@ void LT_unload_sprite(SPRITE *s);
 void LT_unload_font();
 void LT_scroll_follow(SPRITE *s);
 
-
 //set_palette                                                           
 void set_palette(unsigned char *palette);
 void cycle_init(COLORCYCLE *cycle,unsigned char *palette);
 void cycle_palette(COLORCYCLE *cycle, byte speed);
-
 
 //MUSIC
 void LT_Load_Music(char *fname);
