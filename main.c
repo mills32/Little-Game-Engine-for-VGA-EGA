@@ -30,6 +30,7 @@ COLORCYCLE cycle_water;
 
 int i = 0;
 int j = 0;
+byte *col;
 
 int Scene = 0;
 int menu_option = 0;
@@ -58,7 +59,7 @@ void Set_Menu(){
 	Load_map("GFX/menu.tmx");
 	load_tiles("GFX/menutil.bmp");
 	LT_Load_Sprite("GFX/cursor.bmp",&sprite_cursor,16);
-	LT_Load_Music("music/menu1.imf");
+	LT_Load_Music("music/menu4.imf");
 	LT_Start_Music(700);
 	LT_Set_Map(0,0);
 	MCGA_SplitScreen(63);
@@ -80,6 +81,7 @@ void Run_Menu(){
 		sprite_cursor.pos_x = menu_pos[menu_option] + (LT_COS[i]>>2);
 		sprite_cursor.pos_y = menu_pos[menu_option+1] + (LT_SIN[i]>>3);
 		LT_Draw_Sprite(&sprite_cursor);
+		
 		if (i > 360) i = 0;
 		i+=2;
 		
@@ -95,7 +97,7 @@ void Run_Menu(){
 		if (game < 0) game = 0;
 		if (game > 2) game = 2;	
 		
-		if (LT_Keys[LT_ENTER]) Scene = 2; 
+		if (LT_Keys[LT_ENTER]) Scene = 2;
 		if (LT_Keys[LT_ESC]) {
 			LT_unload_sprite(&sprite_cursor);
 			LT_ExitDOS();
@@ -141,8 +143,10 @@ void Run_TopDown(){
 		
 		//LT_gprint(LT_map.collision[((sprite_player.pos_y>>4) * LT_map.width) + (sprite_player.pos_x>>4)],240,160);
 		
-		LT_move_player(&sprite_player);
+		col = LT_move_player(&sprite_player);
 		
+		//If collision tile = ?, end level
+		if (col[1] == 6) Scene = 1;
 		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,6,4);
 		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(&sprite_player,6,6,4);
 		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(&sprite_player,12,6,4);
@@ -169,17 +173,17 @@ void Set_Platform(){
 	LT_Load_Sprite("GFX/player.bmp",&sprite_enemy3,16);
 	LT_Load_Sprite("GFX/player.bmp",&sprite_enemy4,16);
 
-	LT_Load_Music("music/platform.imf");
-	LT_Start_Music(580);
+	LT_Load_Music("music/platfor1.imf");
+	LT_Start_Music(700);
 	
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
-	
-	LT_Set_Map(0,0);
-	LT_Gravity = 1;
 }
 
 void Run_Platform(){
+	startp:
+	LT_Set_Map(0,0);
+	LT_Gravity = 1;
 	Scene = 2;
 	sprite_player.pos_x = 80;
 	sprite_player.pos_y = 70;
@@ -192,8 +196,12 @@ void Run_Platform(){
 		//scroll_map
 		LT_scroll_map();
 		
-		LT_move_player(&sprite_player);
-
+		col = LT_move_player(&sprite_player);
+		//if water
+		if (col[0] == 182) {sprite_player.init = 0; goto startp;}
+		//If collision tile = ?, end level
+		if (col[1] == 6) Scene = 1;
+		
 		//set animations
 		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,6,4);
 		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(&sprite_player,6,6,4);
@@ -227,7 +235,9 @@ void Set_Shooter(){
 }
 
 void Run_Shooter(){
-	int timer = 0;
+	int timer;
+	start:
+	timer = 0;
 	Scene = 0;
 	sprite_ship.pos_x = 8*16;
 	sprite_ship.pos_y = 13*16;
@@ -240,6 +250,7 @@ void Run_Shooter(){
 	LT_Set_Map(0,5);
 	
 	while (Scene == 0){
+		
 		MCGA_Scroll(SCR_X,SCR_Y);
 		LT_Draw_Sprite(&sprite_ship);
 		LT_Draw_Sprite(&sprite_player);
@@ -263,11 +274,11 @@ void Run_Shooter(){
 		LT_Draw_Sprite(&sprite_ship);
 		
 		sprite_ship.pos_y--;
-		if (sprite_ship.pos_y < 60) Scene = 3; //esc exit
+		if (SCR_Y == 0) Scene = 3; 
 		
 		LT_scroll_map();
 	}
-	LT_Set_Sprite_Animation(&sprite_ship,4,4,10);
+	LT_Set_Sprite_Animation(&sprite_ship,4,4,5);
 	while (Scene == 3){
 		MCGA_Scroll(SCR_X,SCR_Y);
 		LT_Draw_Sprite(&sprite_ship);
@@ -279,19 +290,24 @@ void Run_Shooter(){
 	LT_Start_Music(700);
 	LT_SideScroll = 1;
 	LT_Gravity = 0;
-	LT_Set_Sprite_Animation(&sprite_ship,12,4,4);
+	LT_Set_Sprite_Animation(&sprite_ship,8,4,4);
 	while(Scene == 4){
+		
 		MCGA_Scroll(SCR_X,SCR_Y);
 		
 		LT_Draw_Sprite(&sprite_ship);
-		LT_Endless_SideScroll_Map();
-		
-		LT_move_player(&sprite_ship);
-
-		SCR_X++;
+		LT_Endless_SideScroll_Map(0);
+		col = LT_move_player(&sprite_ship);
+		if (col[2] == 1) {
+			LT_Set_Sprite_Animation(&sprite_ship,12,4,4);
+		}
+		if (sprite_ship.frame == 15) {
+			sprite_ship.init = 0;
+			sleep(2); 
+			goto start;
+		}
 		if (LT_Keys[LT_ESC]) Scene = -1; //esc exit
-		
-		
+		SCR_X++;
 	}
 	
 	LT_unload_sprite(&sprite_ship);
@@ -299,16 +315,17 @@ void Run_Shooter(){
 }
 
 void main(){
-	system("cls");
-	gotoxy(17,15);
-	printf("LOADING");
-	gotoxy(0,0);
 	
+	system("cls");
+	//LT_VGA_Font("vgafont.bin");
 	//LT_Check_CPU(); //still causing trouble
 	//LT_Adlib_Detect(); 
 	
 	LT_Init();
-
+	gotoxy(17,14);
+	printf("LOADING");
+	gotoxy(0,0);
+	
 	//You can use a custom load animation
 	LT_Load_Animation("GFX/loading.bmp",&LT_Loading_Animation,32);
 	LT_Set_Animation(&LT_Loading_Animation,0,16,2);

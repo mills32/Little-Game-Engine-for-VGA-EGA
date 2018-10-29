@@ -28,7 +28,7 @@ You'll have to unload a music/map/tilset before loading another.
 IMFsong LT_music;	// One song in ram stored at "LT_music"
 MAP LT_map;			// One map in ram stored at "LT_map"
 TILE LT_tileset;	// One tileset in ram stored at "LT_tileset"
-ANIMATION LT_Loading_Animation;// Animation for loading screen
+SPRITE LT_Sprite[4];// 4 sprites in ram stored at "LT_Sprite"
 unsigned char *LT_tile_datatemp; //Temp storage of non tiled data.
 unsigned char *LT_sprite_tiledatatemp; //Temp storage of tiled sprites to be converted to RLE
 SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2; // 4 sprites for debug printing
@@ -82,6 +82,7 @@ byte tile_number_VL = 0;	//Tile vertical left
 byte tile_number_HU = 0;	//Tile horizontal up
 byte tile_number_HD = 0;	//Tile horizontal down
 
+
 int LT_player_jump_pos[] = 
 {
 	-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,
@@ -91,105 +92,7 @@ int LT_player_jump_pos[] =
 	 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
 
-//Loading palette
-unsigned char LT_Loading_Palette[] = {
-	0x00,0x00,0x00,	//colour 0
-	0xff,0xff,0xff	//colour 1
-};
-
-byte LT_font_data[4096];
-
-unsigned char OurFont[28] = {
-	    0x00,          /* 00000000b */
-            0x7F,          /* 01111111b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x7F,          /* 01111111b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x00,          /* 00000000b */
-            0x00,          /* 00000000b */
-
-            0x00,          /* 00000000b */
-            0x7E,          /* 01111110b */
-            0x66,          /* 01100110b */
-            0x66,          /* 01100110b */
-            0x66,          /* 01100110b */
-            0x7F,          /* 01111111b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x7F,          /* 01111111b */
-            0x00,          /* 00000000b */
-	    0x00           /* 00000000b */
-};
-
 //end of global variables
-
-void LT_VGA_Font(char *file){
-	/*union REGS pregs;
-	struct SREGS sregs;
-	void far *mptr = OurFont;
-
-	pregs.x.ax = 0x1100;
-	pregs.x.dx = 0x41;       // 65  'A'
-	pregs.x.cx = 0x02;       // two char's to change
-	pregs.h.bh = 0x0E;
-	pregs.h.bl = 0x00;
-	pregs.x.bp = FP_OFF(mptr);
-	sregs.es = FP_SEG(mptr);
-	int86x(0x10, &pregs, &pregs, &sregs);
-	*/
-	return;
-}
-
-//So easy, and so difficult to find samples of this...
-void interrupt LT_Loading(void){
-	LT_Draw_Animation(&LT_Loading_Animation);
-}
-
-void LT_Set_Loading_Interrupt(){
-	unsigned long spd = 1193182/50;
-	int i;
-	set_palette(LT_Loading_Animation.palette);
-	//change color 0, 1, 2 (black and white)
-	outp(0x03c8,0); 
-	outp(0x03c9,LT_Loading_Palette[0]);
-	outp(0x03c9,LT_Loading_Palette[0]);
-	outp(0x03c9,LT_Loading_Palette[1]);
-	
-	//clear screen
-	MCGA_ClearScreen();
-	//Print "Loading", without deleting the animation.
-	//Every character fills a 8x8 cell in the 64Kb VRAM, so:
-	gotoxy(17,15);
-	printf("LOADING\r");
-
-	//center loading animation
-	LT_Loading_Animation.pos_x = 138;
-	LT_Loading_Animation.pos_y = 72;
-	//set timer
-	outportb(0x43, 0x36);
-	outportb(0x40, spd % 0x100);	//lo-byte
-	outportb(0x40, spd / 0x100);	//hi-byte*/
-	//set interrupt
-	setvect(0x1C, LT_Loading);		//interrupt 1C not available on NEC 9800-series PCs.
-}
-
-void LT_Delete_Loading_Interrupt(){
-	//reset interrupt
-	outportb(0x43, 0x36);
-	outportb(0x40, 0xFF);	//lo-byte
-	outportb(0x40, 0xFF);	//hi-byte*/
-	setvect(0x1C, LT_old_time_handler);
-}
 
 //So easy, and so difficult to find samples of this...
 void interrupt LT_Key_Handler(void){
@@ -321,7 +224,7 @@ void MCGA_ClearScreen(){
 	memset(&MCGA[0],0,(320*200)/4);
 	SCR_X = 0;
 	SCR_Y = 0;
-	MCGA_Scroll(SCR_X,SCR_Y);
+	MCGA_Scroll(0,0);
 }
 
 void MCGA_SplitScreen(int line){
@@ -388,27 +291,28 @@ void LT_Init(){
 	regs.h.ah = 0x00;
 	regs.h.al = VGA_256_COLOR_MODE;
 	int86(0x10, &regs, &regs);
-	
+	//320x200
 	// turn off write protect */
     word_out(0x03d4, V_RETRACE_END, 0x2c);
     outp(MISC_OUTPUT, 0xe7);
-	
-	//This was tested and working on old crts!          
-	word_out(0x03d4,H_DISPLAY_END, (304>>2)-1);		//HORIZONTAL RESOLUTION = 304 
-	word_out(0x03d4,V_DISPLAY_END, 176<<1);  		//VERTICAL RESOLUTION = 176
-	
-	//This was not tested, it should center the screen with black borders on old crts
-	//Modern VGA monitors and TV don't care, they just center the image
-	
-	//word_out(0x03d4,H_BLANK_START, (320>>2)-1);        
-	//word_out(0x03d4,H_BLANK_END,0);
-	//word_out(0x03d4,H_RETRACE_START,3); /**/ 
-	//word_out(0x03d4,H_RETRACE_END,(320>>2)-1);  
-	
-	//word_out(0x03d4,V_BLANK_START, 8>>1);   /**/ 
-	//word_out(0x03d4,V_BLANK_END, 184>>1);    /**/ 
-	//word_out(0x03d4,V_RETRACE_START, 0x0f); /**/ 
-	//word_out(0x03d4,V_RETRACE_END, 200); /**/  
+	//do not touch... working on old crts!
+	/*word_out(0x03d4,H_TOTAL, 80);  /**/             
+	word_out(0x03d4,H_DISPLAY_END, (304>>2)-1);   //HORIZONTAL RESOLUTION = 304   
+	//word_out(0x03d4,H_BLANK_START, 0);        
+	//word_out(0x03d4,H_BLANK_END,(320>>2)-1);         
+	//word_out(0x03d4,H_RETRACE_START,3); /**/      
+	//word_out(0x03d4,H_RETRACE_END,(320>>2)-1);        
+	/*word_out(0x03d4,V_TOTAL, 80);  /**/             
+	/*word_out(0x03d4,OVERFLOW, 80);  /**/            
+	/*word_out(0x03d4,MAX_SCAN_LINE,0);/**/         
+	//word_out(0x03d4,V_RETRACE_START, 0x0f); /**/      
+	//word_out(0x03d4,V_RETRACE_END, 200); /**/        
+	word_out(0x03d4,V_DISPLAY_END, 176<<1);  //VERTICAL RESOLUTION = 176
+	/*word_out(0x03d4,UNDERLINE_LOCATION, 80); /**/   
+	/*word_out(0x03d4,V_BLANK_START, 80);   /**/      
+	/*word_out(0x03d4,V_BLANK_END, 80);    /**/      
+    /*word_out(0x03d4,MODE_CONTROL, 80);  /**/     
+	//word_out(0x03d4, 0x13, (320>>2)-1);    		/* OFFSET			*/
 	
     // set vertical retrace back to normal
     word_out(0x03d4, V_RETRACE_END, 0x8e);
@@ -525,145 +429,11 @@ void LT_Draw_BKG(){
 	dword bitmap_offset = 0;
 	dword screen_offset = 0;
 	int j;
-	set_palette(LT_tileset.palette);
 	for(j=0;j<174;j++){
 		memcpy(&MCGA[screen_offset],&LT_tileset.tdata[bitmap_offset],LT_tileset.width);
 		bitmap_offset+=LT_tileset.width;
 		screen_offset+=320;
 	}
-}
-
-//load static animations without transparency
-void LT_Load_Animation(char *file,ANIMATION *s, byte size){
-	FILE *fp;
-	long index,offset;
-	word num_colors;
-	byte x,y;
-	word i,j;
-	byte tileX;
-	byte tileY;
-	
-	fp = fopen(file,"rb");
-	if(!fp){
-		printf("can't find %s.\n",file);
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);
-	} 
-
-	fskip(fp,18);
-	fread(&s->width, sizeof(word), 1, fp);
-	fskip(fp,2);
-	fread(&s->height,sizeof(word), 1, fp);
-	fskip(fp,22);
-	fread(&num_colors,sizeof(word), 1, fp);
-	fskip(fp,6);
-
-	if (num_colors==0) num_colors=256;
-	for(index=0;index<num_colors;index++){
-		s->palette[(int)(index*3+2)] = fgetc(fp) >> 2;
-		s->palette[(int)(index*3+1)] = fgetc(fp) >> 2;
-		s->palette[(int)(index*3+0)] = fgetc(fp) >> 2;
-		fgetc(fp);
-	}
-	
-	if ((s->data = farcalloc(s->height*s->width,sizeof(byte))) == NULL){
-		printf("Error allocating animation data\n");
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);		
-	}
-	
-	for(index=(s->height-1)*s->width;index>=0;index-=s->width)
-		for(x=0;x<s->width;x++)
-			LT_tile_datatemp[index+x]=(byte)fgetc(fp);
-	fclose(fp);
-
-	index = 0;
-
-
-	//Rearrange tiles one after another in memory (in a column)
-	for (tileY=0;tileY<s->height;tileY+=size){
-		for (tileX=0;tileX<s->width;tileX+=size){
-			offset = (tileY*s->width)+tileX;
-			for(x=0;x<size;x++){
-				memcpy(&s->data[index],&LT_tile_datatemp[offset+(x*s->width)],size);
-				index+=size;
-			}
-		}
-	}
-	
-	s->nframes = (s->width>>4) * (s->height>>4);
-	s->width = size;
-	s->height = size;
-	s->frame = 0;
-	s->baseframe = 0;
-	s->anim_speed = 0;
-	s->anim_counter = 0;
-}
-
-void LT_Set_Animation(ANIMATION *s, int baseframe, int frames, int speed){
-	s->baseframe = baseframe;
-	s->aframes = frames;
-	s->speed = speed;
-	s->animate = 1;
-}
-
-void LT_Draw_Animation(ANIMATION *s){
-	word screen_offset = (s->pos_y<<8)+(s->pos_y<<6)+s->pos_x;
-	word size = s->width;
-	word size2 = s->height>>1;
-	word next_scanline = 320 - s->width;
-	unsigned char *data;
-	byte frame;
-	
-	//animation
-	if (s->animate == 1){
-		s->frame = s->baseframe + s->anim_counter;
-		if (s->anim_speed == s->speed){
-			s->anim_speed = 0;
-			s->anim_counter++;
-			if (s->anim_counter == s->aframes) s->anim_counter = 0;
-		}
-		s->anim_speed++;
-	}
-	
-	data = (unsigned char *) &s->data;
-	frame = s->frame;
-	asm{
-		push ds
-		push di
-		push si
-		
-		lds		bx,dword ptr[data]					
-		lds		si,ds:[bx]				//ds:si data address
-		
-		mov		ax,word ptr [frame]
-		mov		cl,10
-		shl		ax,cl
-		add		si,ax
-		
-		mov		di,screen_offset		//es:di screen address							
-		mov 	ax,0A000h
-		mov 	es,ax
-		mov 	ax,size
-	}
-	copy_tile_a:	
-	asm{
-		mov 	cx,size2
-		rep		movsw				
-		add 	di,next_scanline
-		dec 	ax
-		jnz		copy_tile_a
-		
-		pop si
-		pop di
-		pop ds
-	}	
-}
-
-void LT_Unload_Animation(ANIMATION *s){
-	free(s->data); s->data = NULL;
 }
 
 /* load_16x16 tiles */
@@ -818,7 +588,7 @@ void LT_Set_Map(int x, int y){
 	set_palette(LT_tileset.palette);
 }
 
-void LT_Edit_MapTile(word x, word y, byte ntile){
+void LT_Draw_MapTile(word x, word y, word map_offset){
 	unsigned char *tiledata = (unsigned char *) &LT_tileset.tdata;
 	unsigned char *mapdata = LT_map.data;
 	word screen_offset = (y<<8)+(y<<6)+x;
@@ -1014,11 +784,11 @@ void LT_scroll_map(){
 }
 
 //Endless Side Scrolling Map
-void LT_Endless_SideScroll_Map(int y){
+void LT_Endless_SideScroll_Map(){
 	current_x = SCR_X-(SCR_X & 15);
-	current_y = SCR_Y-(SCR_Y & 15);
+	current_y = 0;
 	if (current_x > last_x) { 
-		draw_map_column(current_x+304,current_y,(map_offset_Endless%LT_map.width)+(y*LT_map.width));
+		draw_map_column(current_x+304,current_y,map_offset_Endless%LT_map.width);
 		map_offset_Endless++;
 	}
 	last_x = current_x;
@@ -1048,7 +818,7 @@ void LT_scroll_follow(SPRITE *s){
 }
 
 //load RLE sprites with transparency (size = 8,16,32)
-void LT_Load_Sprite(char *file,SPRITE *s, byte size){
+void load_sprite(char *file,SPRITE *s, byte size){
 	FILE *fp;
 	long index,offset;
 	word num_colors;
@@ -1188,7 +958,7 @@ void LT_Load_Sprite(char *file,SPRITE *s, byte size){
 	s->frame = 0;
 	s->baseframe = 0;
 	s->ground = 0;
-	s->jump = 2;
+	s->jump = 0;
 	s->jump_frame = 0;
 	s->animate = 0;
 	s->anim_speed = 0;
@@ -1314,8 +1084,7 @@ void LT_Draw_Sprite(SPRITE *s){
 	
 }
 
-byte *LT_move_player(SPRITE *s){
-	byte LT_Collision[4];
+void LT_move_player(SPRITE *s){
 	int col_x = 0;
 	int col_y = 0;
 	int size = s->width;
@@ -1325,7 +1094,7 @@ byte *LT_move_player(SPRITE *s){
 	tile_number = LT_map.data[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
 	tilecol_number = LT_map.collision[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
   if (LT_Gravity == 1){
-	if ((s->ground == 1) && (LT_Keys[LT_D])) {s->ground = 0; s->jump_frame = 0; s->jump = 1;}
+	if ((s->ground == 1) && (s->jump == 0) && (LT_Keys[LT_D])) {s->ground = 0; s->jump_frame = 0; s->jump = 1;}
 	if (s->jump == 1){//JUMP
 		col_y = 0;
 		if (LT_player_jump_pos[s->jump_frame] < 0){
@@ -1344,14 +1113,14 @@ byte *LT_move_player(SPRITE *s){
 		if (col_y == 0){
 			s->pos_y += LT_player_jump_pos[s->jump_frame];
 			s->jump_frame++;
-			if (s->jump_frame == 76) {s->jump_frame = 0; s->jump = 2;}
+			if (s->jump_frame == 76) {s->jump_frame = 0; s->jump = 0;}
 		}
 		if (col_y == 1){
 			s->jump_frame = 0; 
-			s->jump = 2;
+			s->jump = 0;
 		}
 	}
-	if (s->jump == 2){//DOWN
+	if (s->jump == 0){//DOWN
 		col_y = 0;
 		tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
 		tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
@@ -1359,7 +1128,7 @@ byte *LT_move_player(SPRITE *s){
 		if (tile_number_VL == 1) col_y = 1;
 		if (tile_number_VR == 2) col_y = 1;
 		if (tile_number_VL == 2) col_y = 1;
-		if (col_y == 0) {s->ground = 0; s->pos_y+=2;}
+		if (col_y == 0) s->pos_y+=2;
 		if (col_y == 1) s->ground = 1;
 	}
   }
@@ -1408,18 +1177,12 @@ byte *LT_move_player(SPRITE *s){
 		if (col_x == 0) s->pos_x++;
 		if (s->pos_x < SCR_X+3) s->pos_x = SCR_X+3;
 	}
-	LT_Collision[0] = tile_number;
-	LT_Collision[1] = tilecol_number;
-	LT_Collision[2] = col_x;
-	LT_Collision[3] = col_y;
-	
-	return LT_Collision;
 }
 	
 void LT_load_font(char *file){
-	LT_Load_Sprite(file,&lt_gpnumber0,16);
-	LT_Load_Sprite(file,&lt_gpnumber1,16);
-	LT_Load_Sprite(file,&lt_gpnumber2,16);
+	load_sprite(file,&lt_gpnumber0,16);
+	load_sprite(file,&lt_gpnumber1,16);
+	load_sprite(file,&lt_gpnumber2,16);
 }
 
 void LT_gprint(int var, word x, word y){
@@ -1496,10 +1259,10 @@ void interrupt play_music(void){
 		opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
 		next_event += (LT_music.sdata[LT_music.offset+2] | (LT_music.sdata[LT_music.offset+3]) << 8);
 		LT_music.offset+=4;
-		if (LT_music.offset > LT_music.size) LT_music.offset = 4;
+		if (LT_music.offset > LT_music.size) LT_music.offset = 0;
 	}
 	time_ctr++;
-	outportb(0x20, 0x20);	//PIC, EOI
+	//outportb(0x20, 0x20);	//PIC, EOI
 }
 
 void LT_Load_Music(char *fname){
@@ -1568,6 +1331,7 @@ void LT_Stop_Music(){
 	outportb(0x40, 0xFF);	//hi-byte*/
 	setvect(0x1C, LT_old_time_handler);
 }
+
 
 void LT_Unload_Music(){
 	LT_Stop_Music();
