@@ -132,7 +132,7 @@ void Set_TopDown(){
 void Run_TopDown(){
 	Scene = 2;
 	while(Scene == 2){
-		//SCR_X and SCR_Y are global variables predefined 
+		//SCR_X and SCR_Y are predefined global variables 
 		MCGA_Scroll(SCR_X,SCR_Y);
 		
 		LT_scroll_follow(&sprite_player);
@@ -173,7 +173,7 @@ void Set_Platform(){
 	LT_Load_Sprite("GFX/player.bmp",&sprite_enemy3,16);
 	LT_Load_Sprite("GFX/player.bmp",&sprite_enemy4,16);
 
-	LT_Load_Music("music/platfor1.imf");
+	LT_Load_Music("music/platform.imf");
 	LT_Start_Music(700);
 	
 	//animate colours
@@ -265,7 +265,7 @@ void Run_Shooter(){
 		if (sprite_ship.frame == 4) Scene = 2; //esc exit
 	}
 	
-	sleep(1);	
+	sleep(0.5);	
 	sprite_ship.animate = 0;
 	while (Scene == 2){
 		MCGA_Scroll(SCR_X,SCR_Y);
@@ -304,7 +304,7 @@ void Run_Shooter(){
 		if (sprite_ship.frame == 15) {
 			sprite_ship.init = 0;
 			sleep(2); 
-			goto start;
+			Scene = -1;
 		}
 		if (LT_Keys[LT_ESC]) Scene = -1; //esc exit
 		SCR_X++;
@@ -322,7 +322,7 @@ void main(){
 	//LT_Adlib_Detect(); 
 	
 	LT_Init();
-	gotoxy(17,14);
+	gotoxy(17,13);
 	printf("LOADING");
 	gotoxy(0,0);
 	
@@ -337,7 +337,7 @@ void main(){
 	//MENU
 	menu:
 	
-	LT_Set_Loading_Interrupt(); //stops music
+	LT_Set_Loading_Interrupt(); 
 	Set_Menu();
 	Run_Menu();
 
@@ -346,6 +346,7 @@ void main(){
 		LT_Set_Loading_Interrupt(); 
 		Set_TopDown();
 		Run_TopDown();
+		LT_Stop_Music();
 		goto menu;
 	}
 	if (game == 1){
@@ -353,6 +354,7 @@ void main(){
 		LT_Set_Loading_Interrupt(); 
 		Set_Platform();
 		Run_Platform();
+		LT_Stop_Music();
 		goto menu;
 	}
 	if (game == 2){
@@ -360,6 +362,7 @@ void main(){
 		LT_Set_Loading_Interrupt(); 
 		Set_Shooter();
 		Run_Shooter();
+		LT_Stop_Music();
 		goto menu;
 	}
 

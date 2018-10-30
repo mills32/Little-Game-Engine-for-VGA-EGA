@@ -64,12 +64,12 @@ int Free_RAM;
 byte scr_delay = 0; //copy tile data in several frames to avoid slowdown
 int SCR_X = 0;
 int SCR_Y = 0;
-int current_x = 0;
-int last_x = 0;
-int current_y = 0;
-int last_y = 0;
-int map_offset = 0;
-int map_offset_Endless = 0;
+int LT_current_x = 0;
+int LT_last_x = 0;
+int LT_current_y = 0;
+int LT_last_y = 0;
+int LT_map_offset = 0;
+int LT_map_offset_Endless = 0;
 int LT_follow = 0;
 byte LT_Gravity = 0;
 byte LT_SideScroll = 0;
@@ -804,17 +804,17 @@ void LT_Set_Map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
-	map_offset = (LT_map.width*y)+x;
-	map_offset_Endless = 20;
+	LT_map_offset = (LT_map.width*y)+x;
+	LT_map_offset_Endless = 20;
 	SCR_X = x<<4;
 	SCR_Y = y<<4;
-	current_x = SCR_X-(SCR_X & 15);
-	current_y = SCR_Y-(SCR_Y & 15);
-	last_x = current_x;
-	last_y = current_y;
+	LT_current_x = (SCR_X>>4)<<4;
+	LT_current_y = (SCR_Y>>4)<<4;
+	LT_last_x = LT_current_x;
+	LT_last_y = LT_current_y;
 	MCGA_Scroll(SCR_X,SCR_Y);
 	//draw map 
-	for (i = 0;i<320;i+=16){draw_map_column(SCR_X+i,SCR_Y,map_offset+j);j++;}	
+	for (i = 0;i<320;i+=16){draw_map_column(SCR_X+i,SCR_Y,LT_map_offset+j);j++;}	
 	set_palette(LT_tileset.palette);
 }
 
@@ -830,7 +830,7 @@ void LT_Edit_MapTile(word x, word y, byte ntile){
 		lds		bx,dword ptr[tiledata]					
 		lds		si,ds:[bx]				//ds:si data address
 		
-		mov		ax,map_offset
+		mov		ax,LT_map_offset
 		les		bx,[mapdata]
 		add		bx,ax
 		mov		ax,es:[bx]
@@ -991,37 +991,37 @@ void draw_map_row( word x, word y, word map_offset){
 
 //update rows and colums
 void LT_scroll_map(){
-	current_x = SCR_X-(SCR_X & 15);
-	current_y = SCR_Y-(SCR_Y & 15);
-	if (current_y < last_y) {
-		draw_map_row(current_x,current_y,map_offset-LT_map.width);
-		map_offset -= LT_map.width;
+	LT_current_x = (SCR_X>>4)<<4;
+	LT_current_y = (SCR_Y>>4)<<4;
+	
+	if (LT_current_x != LT_last_x) {
+		LT_map_offset = ((SCR_Y>>4)*LT_map.width)+(SCR_X>>4);
+		if (LT_current_x < LT_last_x) 
+			draw_map_column(LT_current_x,LT_current_y,LT_map_offset); 
+		else  
+			draw_map_column(LT_current_x+304,LT_current_y,LT_map_offset+19);
 	}
-	if (current_y > last_y) { 
-		draw_map_row(current_x,current_y+176,map_offset+(12*LT_map.width));
-		map_offset += LT_map.width;
+	if (LT_current_y != LT_last_y) {
+		LT_map_offset = ((SCR_Y>>4)*LT_map.width)+(SCR_X>>4);
+		if (LT_current_y < LT_last_y)
+			draw_map_row(LT_current_x,LT_current_y,LT_map_offset);
+		else 
+			draw_map_row(LT_current_x,LT_current_y+176,LT_map_offset+(11*LT_map.width));
 	}
-	if (current_x < last_x) { 
-		draw_map_column(current_x,current_y,map_offset-1); 
-		map_offset--;
-	}
-	if (current_x > last_x) { 
-		draw_map_column(current_x+304,current_y,map_offset+20);
-		map_offset++;
-	}
-	last_x = current_x;
-	last_y = current_y;
+	
+	LT_last_x = LT_current_x;
+	LT_last_y = LT_current_y;
 }
 
 //Endless Side Scrolling Map
 void LT_Endless_SideScroll_Map(int y){
-	current_x = SCR_X-(SCR_X & 15);
-	current_y = SCR_Y-(SCR_Y & 15);
-	if (current_x > last_x) { 
-		draw_map_column(current_x+304,current_y,(map_offset_Endless%LT_map.width)+(y*LT_map.width));
-		map_offset_Endless++;
+	LT_current_x = (SCR_X>>4)<<4;
+	LT_current_y = (SCR_Y>>4)<<4;
+	if (LT_current_x > LT_last_x) { 
+		draw_map_column(LT_current_x+304,LT_current_y,(LT_map_offset_Endless%LT_map.width)+(y*LT_map.width));
+		LT_map_offset_Endless++;
 	}
-	last_x = current_x;
+	LT_last_x = LT_current_x;
 }
 
 void LT_scroll_follow(SPRITE *s){

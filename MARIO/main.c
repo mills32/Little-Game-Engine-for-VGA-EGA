@@ -6,6 +6,7 @@
 SPRITE sprite_player;
 
 int Scene = 0;
+int col[4];
 
 void Set_Platform(){
 	MCGA_ClearScreen();
@@ -14,9 +15,9 @@ void Set_Platform(){
 	load_map("GFX/mario.tmx");
 	load_tiles("GFX/mariotil.bmp");
 	
-	load_sprite("GFX/s_mario.bmp",&sprite_player,16);
+	LT_Load_Sprite("GFX/s_mario.bmp",&sprite_player,16);
 	LT_Load_Music("music/platform.imf");
-	LT_Start_Music(580);
+	LT_Start_Music(700);
 	
 	//animate colours
 	LT_Set_Map(0,0);
@@ -25,25 +26,26 @@ void Set_Platform(){
 
 void Run_Platform(){
 	Scene = 2;
-	sprite_player.pos_x = 6*16;
-	sprite_player.pos_y = 6*16;
+	sprite_player.pos_x = 16*10;
+	sprite_player.pos_y = 0;
 	
 	while(Scene == 2){
 		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_scroll_follow(&sprite_player);
-		
-		LT_Draw_Sprite(&sprite_player);
-		LT_scroll_map();
-		
-		LT_move_player(&sprite_player);
 
+		LT_scroll_follow(&sprite_player);
+		LT_scroll_map();
+		LT_Draw_Sprite(&sprite_player);
+
+		LT_move_player(&sprite_player);
+		
 		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,4,4);
 		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(&sprite_player,6,4,4);
 		else sprite_player.animate = 0;
 
+		//if (sprite_player.ground == 0) sprite_player.frame = 4;
+		
 		if (LT_Keys[LT_ESC]) Scene = -1; //esc exit
-		
-		
+	
 	}
 	
 	LT_unload_sprite(&sprite_player); //manually free sprites
@@ -58,7 +60,8 @@ void main(){
 	
 	Set_Platform();
 	Run_Platform();
-
+	
+	LT_Stop_Music();
 	LT_ExitDOS(); //frees map, tileset, font and music.
 	
 	return;
