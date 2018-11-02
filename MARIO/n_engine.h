@@ -232,7 +232,7 @@ void cycle_init(COLORCYCLE *cycle,unsigned char *palette);
 void cycle_palette(COLORCYCLE *cycle, byte speed);
 
 //MUSIC
-void LT_Load_Music(char *fname);
+void LT_Load_Music(char *filename);
 void LT_Start_Music(word freq_div);
 void LT_Stop_Music();
 void LT_Unload_Music();

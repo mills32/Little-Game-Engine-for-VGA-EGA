@@ -16,8 +16,8 @@ void Set_Platform(){
 	load_tiles("GFX/mariotil.bmp");
 	
 	LT_Load_Sprite("GFX/s_mario.bmp",&sprite_player,16);
-	LT_Load_Music("music/platform.imf");
-	LT_Start_Music(700);
+	LT_Load_Music("music/mario2.imf");
+	LT_Start_Music(70);
 	
 	//animate colours
 	LT_Set_Map(0,0);

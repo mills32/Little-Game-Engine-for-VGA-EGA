@@ -30,11 +30,12 @@ COLORCYCLE cycle_water;
 
 int i = 0;
 int j = 0;
-byte *col;
+
+LT_Col LT_Player_Col;
 
 int Scene = 0;
 int menu_option = 0;
-int menu_pos[6] = {88,58,100,100,200,60};
+int menu_pos[8] = {88,58,100,100,200,60};
 int game = 0;
 int random;
 
@@ -59,8 +60,8 @@ void Set_Menu(){
 	Load_map("GFX/menu.tmx");
 	load_tiles("GFX/menutil.bmp");
 	LT_Load_Sprite("GFX/cursor.bmp",&sprite_cursor,16);
-	LT_Load_Music("music/menu4.imf");
-	LT_Start_Music(700);
+	LT_Load_Music("music/menu2.imf");
+	LT_Start_Music(70);
 	LT_Set_Map(0,0);
 	MCGA_SplitScreen(63);
 	i = 0;
@@ -117,7 +118,7 @@ void Set_TopDown(){
 	LT_Load_Sprite("GFX/player.bmp",&sprite_player,16);
 
 	LT_Load_Music("music/top_down.imf");
-	LT_Start_Music(700);
+	LT_Start_Music(70);
 	
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
@@ -143,10 +144,10 @@ void Run_TopDown(){
 		
 		//LT_gprint(LT_map.collision[((sprite_player.pos_y>>4) * LT_map.width) + (sprite_player.pos_x>>4)],240,160);
 		
-		col = LT_move_player(&sprite_player);
-		
+		LT_Player_Col = LT_move_player(&sprite_player);
+		printf ("test %i  \r",LT_Player_Col.tilecol_number);
 		//If collision tile = ?, end level
-		if (col[1] == 6) Scene = 1;
+		if (LT_Player_Col.tilecol_number == 10) Scene = 1;
 		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,6,4);
 		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(&sprite_player,6,6,4);
 		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(&sprite_player,12,6,4);
@@ -174,7 +175,7 @@ void Set_Platform(){
 	LT_Load_Sprite("GFX/player.bmp",&sprite_enemy4,16);
 
 	LT_Load_Music("music/platform.imf");
-	LT_Start_Music(700);
+	LT_Start_Music(70);
 	
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
@@ -196,11 +197,11 @@ void Run_Platform(){
 		//scroll_map
 		LT_scroll_map();
 		
-		col = LT_move_player(&sprite_player);
+		LT_Player_Col = LT_move_player(&sprite_player);
 		//if water
-		if (col[0] == 182) {sprite_player.init = 0; goto startp;}
+		if (LT_Player_Col.tile_number == 182) {sprite_player.init = 0; goto startp;}
 		//If collision tile = ?, end level
-		if (col[1] == 6) Scene = 1;
+		if (LT_Player_Col.tilecol_number == 10) Scene = 1;
 		
 		//set animations
 		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,6,4);
@@ -287,7 +288,7 @@ void Run_Shooter(){
 		if (timer == 100) Scene = 4; 
 	}
 	
-	LT_Start_Music(700);
+	LT_Start_Music(70);
 	LT_SideScroll = 1;
 	LT_Gravity = 0;
 	LT_Set_Sprite_Animation(&sprite_ship,8,4,4);
@@ -297,8 +298,8 @@ void Run_Shooter(){
 		
 		LT_Draw_Sprite(&sprite_ship);
 		LT_Endless_SideScroll_Map(0);
-		col = LT_move_player(&sprite_ship);
-		if (col[2] == 1) {
+		LT_Player_Col = LT_move_player(&sprite_ship);
+		if (LT_Player_Col.col_x == 1) {
 			LT_Set_Sprite_Animation(&sprite_ship,12,4,4);
 		}
 		if (sprite_ship.frame == 15) {

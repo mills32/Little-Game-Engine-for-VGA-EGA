@@ -169,6 +169,13 @@ typedef struct tagIMFsong{
 	byte *sdata;
 } IMFsong;
 
+typedef struct tagLT_Col{
+	byte tile_number;	
+	byte tilecol_number;	
+	byte col_x;
+	byte col_y;	
+} LT_Col;
+
 extern IMFsong LT_music;	
 extern MAP LT_map;			
 extern TILE LT_tileset;	
@@ -219,7 +226,7 @@ void LT_Endless_SideScroll_Map(int y);
 void LT_Load_Sprite(char *file,SPRITE *s, byte size);
 void LT_Set_Sprite_Animation(SPRITE *s, int baseframe, int frames, int speed);
 void LT_Draw_Sprite(SPRITE *b);
-byte *LT_move_player(SPRITE *s);
+LT_Col LT_move_player(SPRITE *s);
 void LT_load_font(char *file);
 void LT_gprint(int var, word x, word y);
 void LT_unload_sprite(SPRITE *s);
@@ -232,7 +239,7 @@ void cycle_init(COLORCYCLE *cycle,unsigned char *palette);
 void cycle_palette(COLORCYCLE *cycle, byte speed);
 
 //MUSIC
-void LT_Load_Music(char *fname);
+void LT_Load_Music(char *filename);
 void LT_Start_Music(word freq_div);
 void LT_Stop_Music();
 void LT_Unload_Music();

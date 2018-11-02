@@ -32,7 +32,6 @@ ANIMATION LT_Loading_Animation;// Animation for loading screen
 unsigned char *LT_tile_datatemp; //Temp storage of non tiled data.
 unsigned char *LT_sprite_tiledatatemp; //Temp storage of tiled sprites to be converted to RLE
 SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2; // 4 sprites for debug printing
-
 //GLOBAL VARIABLES
 
 //debugging
@@ -51,9 +50,9 @@ void interrupt (*LT_old_key_handler)(void);
 int LT_Keys[256];
 
 //ADLIB
-const int opl2_base = 0x388;	
-unsigned char shadow_opl[256];
+const int opl2_base = 0x388;
 long next_event;
+long LT_imfwait;
 
 // this points to the 18.2hz system clock for debug in dosbox (does not work on PCEM). 
 word *my_clock=(word *)0x0000046C;    		
@@ -1314,8 +1313,8 @@ void LT_Draw_Sprite(SPRITE *s){
 	
 }
 
-byte *LT_move_player(SPRITE *s){
-	byte LT_Collision[4];
+LT_Col LT_move_player(SPRITE *s){
+	LT_Col LT_Collision;
 	int col_x = 0;
 	int col_y = 0;
 	int size = s->width;
@@ -1408,10 +1407,11 @@ byte *LT_move_player(SPRITE *s){
 		if (col_x == 0) s->pos_x++;
 		if (s->pos_x < SCR_X+3) s->pos_x = SCR_X+3;
 	}
-	LT_Collision[0] = tile_number;
-	LT_Collision[1] = tilecol_number;
-	LT_Collision[2] = col_x;
-	LT_Collision[3] = col_y;
+	
+	LT_Collision.tile_number = tile_number;
+	LT_Collision.tilecol_number = tilecol_number;
+	LT_Collision.col_x = col_x;
+	LT_Collision.col_y = col_y;
 	
 	return LT_Collision;
 }
@@ -1481,24 +1481,48 @@ void cycle_palette(COLORCYCLE *cycle, byte speed){
 }
 
 void opl2_out(unsigned char reg, unsigned char data){
+	_disable(); //disable interrupts
 	outportb(opl2_base, reg);
 	outportb(opl2_base + 1, data);
-	shadow_opl[reg] = data;
+	_enable();
 }
 
 void opl2_clear(void){
-	int i;
-	for (i = 0; i < 256; i++)opl2_out(i, 0);
+    //unsigned char i, slot1, slot2;
+    //static unsigned char slotVoice[9][2] = {{0,3},{1,4},{2,5},{6,9},{7,10},{8,11},{12,15},{13,16},{14,17}};
+    //static unsigned char offsetSlot[18] = {0,1,2,3,4,5,8,9,10,11,12,13,16,17,18,19,20,21};
+    unsigned char i;
+    opl2_out(   1, 0x20);   // Set WSE=1
+    opl2_out(   8,    0);   // Set CSM=0 & SEL=0
+    opl2_out(0xBD,    0);   // Set AM Depth, VIB depth & Rhythm = 0
+    
+    for(i=0; i<9; i++){
+        //slot1 = offsetSlot[slotVoice[i][0]];
+        //slot2 = offsetSlot[slotVoice[i][1]];
+        opl2_out(0xB0+i, 0);    //turn note off
+        opl2_out(0xA0+i, 0);    //clear frequency
+        /*
+		opl2_out(0xE0+slot1, 0);
+        opl2_out(0xE0+slot2, 0);
+        opl2_out(0x60+slot1, 0xff);
+        opl2_out(0x60+slot2, 0xff);
+        opl2_out(0x80+slot1, 0xff);
+        opl2_out(0x80+slot2, 0xff);
+        opl2_out(0x40+slot1, 0xff);
+        opl2_out(0x40+slot2, 0xff);*/
+    }
+	for (i=1; i<=0xF5; ADLIB_SendOutput(i++, 0));
 }
 
 void interrupt play_music(void){
-	if (time_ctr > next_event){
-		opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
-		next_event += (LT_music.sdata[LT_music.offset+2] | (LT_music.sdata[LT_music.offset+3]) << 8);
+    while (!LT_imfwait){
+        LT_imfwait = LT_music.sdata[LT_music.offset+2] | (LT_music.sdata[LT_music.offset+3]) << 8;
+        opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
 		LT_music.offset+=4;
 		if (LT_music.offset > LT_music.size) LT_music.offset = 4;
 	}
-	time_ctr++;
+	
+	LT_imfwait--;
 	outportb(0x20, 0x20);	//PIC, EOI
 }
 
@@ -1552,12 +1576,13 @@ void LT_Load_Music(char *fname){
 
 void LT_Start_Music(word freq_div){
 	//set interrupt and start playing music
-	unsigned long spd = 1193182;
-	spd /= freq_div;
+	unsigned long spd = 1193182/freq_div;
+	_disable(); //disable interrupts
 	outportb(0x43, 0x36);
-	outportb(0x40, spd % 0x100);	//lo-byte
-	outportb(0x40, spd / 0x100);	//hi-byte*/
+	outportb(0x40, spd);	//lo-byte
+	outportb(0x40, spd >> 8);	//hi-byte*/
 	setvect(0x1C, play_music);		//interrupt 1C not available on NEC 9800-series PCs.
+	_enable();  //enable interrupts	 
 }
 
 void LT_Stop_Music(){
