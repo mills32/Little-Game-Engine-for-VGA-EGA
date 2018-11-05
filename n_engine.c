@@ -293,20 +293,20 @@ void LT_Adlib_Detect(){
 
 //Hardware scrolling
 void MCGA_Scroll(word x, word y){
-	byte p[4] = {0,2,4,6};
+	byte p[4] = {0x00,0x02,0x04,0x06};
 	byte pix = x & 3; 	//pixel panning 
 	x=x>>2;				//x/4
 	y=(y<<6)+(y<<4);	//(y*64)+(y*16) = y*80;
-	
-  while ((inp(0x03da) & 0x08));
+
+	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
+	outport(0x03d4, 0x0C | (x+y & 0xff00));
+	outport(0x03d4, 0x0D | (x+y << 8));	
 	//change pixel panning register 
 	inp(0x3da);
 	outp(0x3c0, 0x33);
 	outp(0x3c0, p[pix]);
-	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
-	outport(0x03d4, 0x0C | (x+y & 0xff00));
-	outport(0x03d4, 0x0D | (x+y << 8));
-  while (!(inp(0x03da) & 0x08));
+	while ((inp(0x03da) & 0x08));
+	while (!(inp(0x03da) & 0x08));
 }
 
 void MCGA_WaitVBL(){ //This does not work well outside MCGA_Scroll
@@ -1111,7 +1111,7 @@ void LT_Load_Sprite(char *file,SPRITE *s, byte size){
 			}
 		}
 	}
-	s->nframes = (s->width>>4) * (s->height>>4);
+	s->nframes = (s->width/size) * (s->height/size);
 	s->width = size;
 	s->height = size;
 
@@ -1417,14 +1417,14 @@ LT_Col LT_move_player(SPRITE *s){
 }
 	
 void LT_load_font(char *file){
-	LT_Load_Sprite(file,&lt_gpnumber0,16);
-	LT_Load_Sprite(file,&lt_gpnumber1,16);
-	LT_Load_Sprite(file,&lt_gpnumber2,16);
+	LT_Load_Sprite(file,&lt_gpnumber0,8);
+	LT_Load_Sprite(file,&lt_gpnumber1,8);
+	LT_Load_Sprite(file,&lt_gpnumber2,8);
 }
 
 void LT_gprint(int var, word x, word y){
-	lt_gpnumber0.pos_x = SCR_X+x+34; lt_gpnumber0.pos_y = SCR_Y+y;
-	lt_gpnumber1.pos_x = SCR_X+x+17; lt_gpnumber1.pos_y = SCR_Y+y;
+	lt_gpnumber0.pos_x = SCR_X+x+18; lt_gpnumber0.pos_y = SCR_Y+y;
+	lt_gpnumber1.pos_x = SCR_X+x+9; lt_gpnumber1.pos_y = SCR_Y+y;
 	lt_gpnumber2.pos_x = SCR_X+x; lt_gpnumber2.pos_y = SCR_Y+y;
 	
 	lt_gpnumber0.frame = var % 10;
