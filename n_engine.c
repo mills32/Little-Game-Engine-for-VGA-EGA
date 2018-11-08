@@ -38,6 +38,9 @@ SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2; // 4 sprites for debug printing
 float t1 = 0;
 float t2 = 0;
 
+//Palette for fading
+byte LT_Temp_palette[256*3];
+
 //This points to video memory.
 byte *MCGA=(byte *)0xA0000000L; 
 
@@ -70,8 +73,6 @@ int LT_last_y = 0;
 int LT_map_offset = 0;
 int LT_map_offset_Endless = 0;
 int LT_follow = 0;
-byte LT_Gravity = 0;
-byte LT_SideScroll = 0;
 
 //Player
 byte tile_number = 0;		//Tile a sprite is on
@@ -81,8 +82,20 @@ byte tile_number_VL = 0;	//Tile vertical left
 byte tile_number_HU = 0;	//Tile horizontal up
 byte tile_number_HD = 0;	//Tile horizontal down
 
-int LT_player_jump_pos[] = 
-{
+//player movement modes
+//MODE TOP = 0;
+//MODE PLATFORM = 1;
+//MODE PUZZLE = 2;
+//MODE SIDESCROLL = 3;
+byte LT_MODE = 0;
+
+//PLAYER Speed for puzzle mode
+float LT_Speed_UP = 0.8;
+float LT_Speed_DOWN = 0.8;
+float LT_Speed_LEFT = 0.8;
+float LT_Speed_RIGHT = 0.8;
+
+int LT_player_jump_pos[] = {
 	-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,
 	 0, 0, 0, 0,
@@ -96,58 +109,83 @@ unsigned char LT_Loading_Palette[] = {
 	0xff,0xff,0xff	//colour 1
 };
 
-byte LT_font_data[4096];
 
-unsigned char OurFont[28] = {
-	    0x00,          /* 00000000b */
-            0x7F,          /* 01111111b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x7F,          /* 01111111b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x00,          /* 00000000b */
-            0x00,          /* 00000000b */
-
-            0x00,          /* 00000000b */
-            0x7E,          /* 01111110b */
-            0x66,          /* 01100110b */
-            0x66,          /* 01100110b */
-            0x66,          /* 01100110b */
-            0x7F,          /* 01111111b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x63,          /* 01100011b */
-            0x7F,          /* 01111111b */
-            0x00,          /* 00000000b */
-	    0x00           /* 00000000b */
-};
+//SIMULATE PHYSICS - Float speeds
+byte LT_FLOAT = 0;
+int s0[] = {-2,-2,-2,-2}; //-2
+int s1[] = {-2,-2,-2,-1}; //-1.75
+int s2[] = {-1,-2,-1,-2}; //-1.5
+int s3[] = {-1,-1,-1,-2}; //-1.25
+int s4[] = {-1,-1,-1,-1}; //-1
+int s5[] = {-1,-1,-1,0}; //-0.75
+int s6[] = {-1,0,-1,0}; //-0.5
+int s7[] = {0,0,0,-1}; //-0.25
+int s8[] = {0,0,0,0}; //0     
+int s9[] = {0,0,0,1}; //0.25
+int s10[] = {1,0,1,0}; //0.5
+int s11[] = {1,1,1,0}; //0.75
+int s12[] = {1,1,1,1}; //1
+int s13[] = {1,1,1,2}; //1.25
+int s14[] = {1,2,1,2}; //1.5
+int s15[] = {2,2,2,1}; //1.75
+int s16[] = {2,2,2,2}; //2
+int * FSpeed[] = {s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,0x0000};
+int Dir[] = {
+		//Speed 1
+		9, 12,/* \ (X+)*/ //0
+		11,11,/* \ */ 
+		12,9, /* \ */	
+		12,8, /* ->*/  ////// 3
+		12,7, /* / */
+		11,5, /* / */
+		9, 4, /* / */
+		8, 4, /* | UP*/
+		7, 4, /* \ (X-)*/ //16
+		5, 5, /* \ */ 
+		4, 7, /* \ */
+		4, 8, /* <-*/  ///// 11
+		4, 9, /* / */
+		5, 11,/* / */
+		7, 12,/* / */
+		8, 12,/* | DOWN*/
+		//Speed 2
+		11,14,/* \ (X+)*/ 
+		13,13,/* \ */ 
+		14,11,/* \ */	
+		14,8, /* ->*/  
+		14,6, /* / */
+		13,3, /* / */
+		11,2, /* / */
+		8, 2, /* | UP*/
+		5, 2, /* \ (X-)*/ 
+		3, 3, /* \ */ 
+		2, 5, /* \ */
+		2, 8, /* <-*/  
+		2, 11, /* / */
+		3, 13,/* / */
+		5, 14,/* / */
+		8, 14,/* | DOWN*/
+		//Speed 3
+		13,16,/* \ (X+)*/ 
+		15,15,/* \ */ 
+		16,12,/* \ */
+		16,8, /* ->*/ 
+		16,4, /* / */
+		15,1, /* / */
+		13,0, /* / */
+		8, 0, /* | UP*/
+		3, 0, /* \ (X-)*/ 
+		1, 1, /* \ */ 
+		0, 4, /* \ */
+		0, 8, /* <-*/ 
+		0, 13, /* / */
+		1, 15,/* / */
+		4, 16,/* / */
+		8, 16,/* | DOWN*/
+	};
 
 //end of global variables
 
-void LT_VGA_Font(char *file){
-	/*union REGS pregs;
-	struct SREGS sregs;
-	void far *mptr = OurFont;
-
-	pregs.x.ax = 0x1100;
-	pregs.x.dx = 0x41;       // 65  'A'
-	pregs.x.cx = 0x02;       // two char's to change
-	pregs.h.bh = 0x0E;
-	pregs.h.bl = 0x00;
-	pregs.x.bp = FP_OFF(mptr);
-	sregs.es = FP_SEG(mptr);
-	int86x(0x10, &pregs, &pregs, &sregs);
-	*/
-	return;
-}
 
 //So easy, and so difficult to find samples of this...
 void interrupt LT_Loading(void){
@@ -157,15 +195,17 @@ void interrupt LT_Loading(void){
 void LT_Set_Loading_Interrupt(){
 	unsigned long spd = 1193182/50;
 	int i;
-	set_palette(LT_Loading_Animation.palette);
-	//change color 0, 1, 2 (black and white)
-	outp(0x03c8,0); 
-	outp(0x03c9,LT_Loading_Palette[0]);
-	outp(0x03c9,LT_Loading_Palette[0]);
-	outp(0x03c9,LT_Loading_Palette[1]);
+	MCGA_Fade_out();
+	LT_Stop_Music();
+	MCGA_SplitScreen(0x0ffff); //disable split screen
+	MCGA_ClearScreen();//clear screen
+	MCGA_ClearPalette();
 	
-	//clear screen
-	MCGA_ClearScreen();
+	//change color 0, 1, 2 (black and white)
+	LT_Loading_Animation.palette[0]= LT_Loading_Palette[0];
+	LT_Loading_Animation.palette[1]= LT_Loading_Palette[1];
+	LT_Loading_Animation.palette[2]= LT_Loading_Palette[1];
+	
 	//Print "Loading", without deleting the animation.
 	//Every character fills a 8x8 cell in the 64Kb VRAM, so:
 	gotoxy(17,15);
@@ -180,9 +220,11 @@ void LT_Set_Loading_Interrupt(){
 	outportb(0x40, spd / 0x100);	//hi-byte*/
 	//set interrupt
 	setvect(0x1C, LT_Loading);		//interrupt 1C not available on NEC 9800-series PCs.
+	MCGA_Fade_in(LT_Loading_Animation.palette);
 }
 
 void LT_Delete_Loading_Interrupt(){
+	MCGA_Fade_out();
 	//reset interrupt
 	outportb(0x43, 0x36);
 	outportb(0x40, 0xFF);	//lo-byte
@@ -213,7 +255,6 @@ void interrupt LT_Key_Handler(void){
 
 void LT_install_key_handler(){
 	int i;
-	LT_old_key_handler=getvect(9);    //save current vector
 	LT_old_key_handler();
 	setvect(9,LT_Key_Handler);     //install new one
 	for (i = 0; i != 256; i++) LT_Keys[i] = 0;
@@ -291,22 +332,26 @@ void LT_Adlib_Detect(){
     }
 }
 
-//Hardware scrolling
+//Hardware scrolling 
 void MCGA_Scroll(word x, word y){
-	byte p[4] = {0x00,0x02,0x04,0x06};
-	byte pix = x & 3; 	//pixel panning 
+	byte p[8] = {0,2,4,6};
+	byte pix = x & 3; 	//pixel panning value
 	x=x>>2;				//x/4
 	y=(y<<6)+(y<<4);	//(y*64)+(y*16) = y*80;
 
-	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
-	outport(0x03d4, 0x0C | (x+y & 0xff00));
-	outport(0x03d4, 0x0D | (x+y << 8));	
+	//MCGA_WaitVBL
+	while ((inp(0x03da) & 0x08));
 	//change pixel panning register 
 	inp(0x3da);
 	outp(0x3c0, 0x33);
 	outp(0x3c0, p[pix]);
-	while ((inp(0x03da) & 0x08));
+	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
+	outport(0x03d4, 0x0C | (x+y & 0xff00));
+	outport(0x03d4, 0x0D | (x+y << 8));
 	while (!(inp(0x03da) & 0x08));
+
+	//-3,+5,+1,+1,
+	//-3,+5,+1,+1
 }
 
 void MCGA_WaitVBL(){ //This does not work well outside MCGA_Scroll
@@ -413,6 +458,7 @@ void LT_Init(){
     word_out(0x03d4, V_RETRACE_END, 0x8e);
 	
 	LT_old_time_handler = getvect(0x1C);
+	LT_old_key_handler=getvect(9);    
 	LT_install_key_handler();
 	
 	//Allocate 272kb RAM for:
@@ -462,16 +508,19 @@ void LT_Init(){
 
 void LT_ExitDOS(){
 	union REGS regs;
+	MCGA_Fade_out();
+	MCGA_SplitScreen(0x0ffff);
 	regs.h.ah = 0x00;
 	regs.h.al = TEXT_MODE;
 	int86(0x10, &regs, &regs);
+	StopMOD();
 	LT_Stop_Music();
 	LT_Unload_Music();
 	LT_unload_tileset();
 	LT_unload_map();
 	LT_unload_font();
 	LT_reset_key_handler();
-	MCGA_SplitScreen(0x0ffff);
+	
 	exit(1);
 }
 
@@ -487,7 +536,7 @@ void LT_Load_BKG(char *file){
 	word x;
 	word tileX;
 	word tileY;
-
+	
 	fp = fopen(file,"rb");
 	if(!fp){
 		printf("can't find %s.\n",file);
@@ -524,7 +573,7 @@ void LT_Draw_BKG(){
 	dword bitmap_offset = 0;
 	dword screen_offset = 0;
 	int j;
-	set_palette(LT_tileset.palette);
+	MCGA_Fade_in(LT_tileset.palette);
 	for(j=0;j<174;j++){
 		memcpy(&MCGA[screen_offset],&LT_tileset.tdata[bitmap_offset],LT_tileset.width);
 		bitmap_offset+=LT_tileset.width;
@@ -580,7 +629,6 @@ void LT_Load_Animation(char *file,ANIMATION *s, byte size){
 
 	index = 0;
 
-
 	//Rearrange tiles one after another in memory (in a column)
 	for (tileY=0;tileY<s->height;tileY+=size){
 		for (tileX=0;tileX<s->width;tileX+=size){
@@ -601,7 +649,7 @@ void LT_Load_Animation(char *file,ANIMATION *s, byte size){
 	s->anim_counter = 0;
 }
 
-void LT_Set_Animation(ANIMATION *s, int baseframe, int frames, int speed){
+void LT_Set_Animation(ANIMATION *s, byte baseframe, byte frames, byte speed){
 	s->baseframe = baseframe;
 	s->aframes = frames;
 	s->speed = speed;
@@ -673,7 +721,7 @@ void load_tiles(char *file){
 	word x;
 	word tileX;
 	word tileY;
-
+	
 	fp = fopen(file,"rb");
 	if(!fp){
 		printf("can't find %s.\n",file);
@@ -803,6 +851,7 @@ void LT_Set_Map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
+	
 	LT_map_offset = (LT_map.width*y)+x;
 	LT_map_offset_Endless = 20;
 	SCR_X = x<<4;
@@ -814,7 +863,7 @@ void LT_Set_Map(int x, int y){
 	MCGA_Scroll(SCR_X,SCR_Y);
 	//draw map 
 	for (i = 0;i<320;i+=16){draw_map_column(SCR_X+i,SCR_Y,LT_map_offset+j);j++;}	
-	set_palette(LT_tileset.palette);
+	MCGA_Fade_in(LT_tileset.palette);
 }
 
 void LT_Edit_MapTile(word x, word y, byte ntile){
@@ -1192,9 +1241,11 @@ void LT_Load_Sprite(char *file,SPRITE *s, byte size){
 	s->animate = 0;
 	s->anim_speed = 0;
 	s->anim_counter = 0;
+	s->speed_x = 0;
+	s->speed_y = 0;
 }
 
-void LT_Set_Sprite_Animation(SPRITE *s, int baseframe, int frames, int speed){
+void LT_Set_Sprite_Animation(SPRITE *s, byte baseframe, byte frames, byte speed){
 	s->baseframe = baseframe;
 	s->aframes = frames;
 	s->speed = speed;
@@ -1315,99 +1366,216 @@ void LT_Draw_Sprite(SPRITE *s){
 
 LT_Col LT_move_player(SPRITE *s){
 	LT_Col LT_Collision;
-	int col_x = 0;
-	int col_y = 0;
-	int size = s->width;
-	int siz = s->width -1;
+	byte col_x = 0;
+	byte col_y = 0;
+	byte size = s->width;
+	byte siz = s->width -1;
+	byte si = s->width>>1;
 	
 	//GET TILE POS
-	tile_number = LT_map.data[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
+	tile_number = LT_map.data[(((s->pos_y+si)>>4) * LT_map.width) + ((s->pos_x+si)>>4)];
 	tilecol_number = LT_map.collision[((s->pos_y>>4) * LT_map.width) + (s->pos_x>>4)];
-  if (LT_Gravity == 1){
-	if ((s->ground == 1) && (LT_Keys[LT_D])) {s->ground = 0; s->jump_frame = 0; s->jump = 1;}
-	if (s->jump == 1){//JUMP
-		col_y = 0;
-		if (LT_player_jump_pos[s->jump_frame] < 0){
+	
+	if (LT_MODE == 0){//TOP
+		if (LT_Keys[LT_UP]){	//UP
+			col_y = 0;
 			tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
 			tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
-			if (tile_number_VR == 1) col_y = 1; 
-			if (tile_number_VL == 1) col_y = 1; 
-		} else {
+			if (tile_number_VR == 1) col_y = 1;
+			if (tile_number_VL == 1) col_y = 1;
+			if (col_y == 0) s->pos_y--;
+		}
+		if (LT_Keys[LT_DOWN]){	//DOWN
+			col_y = 0;
 			tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
 			tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
-			if (tile_number_VR == 1) col_y = 1; 
-			if (tile_number_VL == 1) col_y = 1; 			
-			if (tile_number_VR == 2) col_y = 1; 
-			if (tile_number_VL == 2) col_y = 1; 
+			if (tile_number_VR == 1) col_y = 1;
+			if (tile_number_VL == 1) col_y = 1;
+			if (tile_number_VR == 2) col_y = 1;
+			if (tile_number_VL == 2) col_y = 1;
+			if (col_y == 0) s->pos_y++;
 		}
-		if (col_y == 0){
-			s->pos_y += LT_player_jump_pos[s->jump_frame];
-			s->jump_frame++;
-			if (s->jump_frame == 76) {s->jump_frame = 0; s->jump = 2;}
+		if (LT_Keys[LT_LEFT]){	//LEFT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x--;
 		}
-		if (col_y == 1){
-			s->jump_frame = 0; 
-			s->jump = 2;
+		if (LT_Keys[LT_RIGHT]){	//RIGHT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x++;
 		}
 	}
-	if (s->jump == 2){//DOWN
-		col_y = 0;
-		tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
-		tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_VR == 1) col_y = 1;
-		if (tile_number_VL == 1) col_y = 1;
-		if (tile_number_VR == 2) col_y = 1;
-		if (tile_number_VL == 2) col_y = 1;
-		if (col_y == 0) {s->ground = 0; s->pos_y+=2;}
-		if (col_y == 1) s->ground = 1;
+	if (LT_MODE == 1){//PLATFORM
+		if ((s->ground == 1) && (LT_Keys[LT_JUMP])) {s->ground = 0; s->jump_frame = 0; s->jump = 1;}
+			if (s->jump == 1){//JUMP
+				col_y = 0;
+				if (LT_player_jump_pos[s->jump_frame] < 0){
+				tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+				tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
+				if (tile_number_VR == 1) col_y = 1; 
+				if (tile_number_VL == 1) col_y = 1; 
+			} else {
+				tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+				tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
+				if (tile_number_VR == 1) col_y = 1; 
+				if (tile_number_VL == 1) col_y = 1; 			
+				if (tile_number_VR == 2) col_y = 1; 
+				if (tile_number_VL == 2) col_y = 1; 
+			}
+			if (col_y == 0){
+				s->pos_y += LT_player_jump_pos[s->jump_frame];
+				s->jump_frame++;
+				if (s->jump_frame == 76) {s->jump_frame = 0; s->jump = 2;}
+			}
+			if (col_y == 1){
+				s->jump_frame = 0; 
+				s->jump = 2;
+			}
+		}
+		if (s->jump == 2){//DOWN
+			col_y = 0;
+			tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+			tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
+			if (tile_number_VR == 1) col_y = 1;
+			if (tile_number_VL == 1) col_y = 1;
+			if (tile_number_VR == 2) col_y = 1;
+			if (tile_number_VL == 2) col_y = 1;
+			if (col_y == 0) {s->ground = 0; s->pos_y+=2;}
+			if (col_y == 1) s->ground = 1;
+		}
+		if (LT_Keys[LT_LEFT]){	//LEFT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x--;
+		}
+		if (LT_Keys[LT_RIGHT]){	//RIGHT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x++;
+		} 
+	}	
+	if (LT_MODE == 2){//PUZZLE //SIMULATE FLOATS
+		int sx,sy;
+		if (LT_FLOAT == 4) LT_FLOAT = 0;
+		sx = FSpeed[s->speed_x][LT_FLOAT];
+		sy = FSpeed[s->speed_y][LT_FLOAT];
+		/*if (s->speed_y < 0){	//UP
+			col_y = 0;
+			tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+			tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
+			if (tile_number_VR == 1) col_y = 1;
+			if (tile_number_VL == 1) col_y = 1;
+			if (col_y == 0) s->pos_y += sy;
+			else s->speed_y *= -1;
+			if (s->speed_y > -8) s->speed_y = 0;
+		}
+		if (s->speed_y > 0){	//DOWN
+			col_y = 0;
+			tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
+			tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
+			if (tile_number_VR == 1) col_y = 1;
+			if (tile_number_VL == 1) col_y = 1;
+			if (col_y == 0) s->pos_y += sy;
+			else s->speed_y *= -1;
+			if (s->speed_y < 8) s->speed_y = 0;
+		}
+		if (s->speed_x < 0){	//LEFT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x += s->speed_x>>6;
+			else s->speed_x *= -1;
+			if (s->speed_x > -8) s->speed_x = 0;
+		}
+		if (s->speed_x > 0){	//RIGHT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x += s->speed_x>>6;
+			else s->speed_x *= -1;
+			if (s->speed_x < 8) s->speed_x = 0;
+		}
+		if (tilecol_number == 0){ //FRICTION
+			if (s->speed_x>4)s->speed_x -= 4;
+			s->speed_y -= 4;
+		}
+		//FORCE UP
+		if (tilecol_number == 6) s->speed_y -= 4; 
+		//FORCE DOWN
+		if (tilecol_number == 7) s->speed_y += 4; 
+		//FORCE LEFT
+		if (tilecol_number == 8) s->speed_x -= 4; 
+		//FORCE RIGHT
+		if (tilecol_number == 9) s->speed_x += 4; 
+		
+		if (s->speed_x > 256) s->speed_x = 256;
+		if (s->speed_x < -256) s->speed_x = -256;
+		if (s->speed_y > 256) s->speed_y = 256;
+		if (s->speed_y < -256) s->speed_y = -256;
+		*/
+		LT_FLOAT++;
 	}
-  }
-  if (LT_Gravity == 0){
-	if (LT_Keys[LT_UP]){	//UP
-		col_y = 0;
-		tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
-		tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_VR == 1) col_y = 1;
-		if (tile_number_VL == 1) col_y = 1;
-		if (col_y == 0) s->pos_y--;
-	}
-	if (LT_Keys[LT_DOWN]){	//DOWN
-		col_y = 0;
-		tile_number_VR = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
-		tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
-		if (tile_number_VR == 1) col_y = 1;
-		if (tile_number_VL == 1) col_y = 1;
-		if (tile_number_VR == 2) col_y = 1;
-		if (tile_number_VL == 2) col_y = 1;
-		if (col_y == 0) s->pos_y++;
-	}
-  }
-	if (LT_Keys[LT_LEFT]){	//LEFT
+	if (LT_MODE == 3){//SIDESCROLL
+		if (LT_Keys[LT_UP]){	//UP
+			col_y = 0;
+			tile_number_VR = LT_map.collision[((((int)s->pos_y-1)>>4) * LT_map.width) + (((int)s->pos_x+siz)>>4)];
+			tile_number_VL = LT_map.collision[((((int)s->pos_y-1)>>4) * LT_map.width) + ((int)s->pos_x>>4)];
+			if (tile_number_VR == 1) col_y = 1;
+			if (tile_number_VL == 1) col_y = 1;
+			if (col_y == 0) s->pos_y--;
+		}
+		if (LT_Keys[LT_DOWN]){	//DOWN
+			col_y = 0;
+			tile_number_VR = LT_map.collision[((((int)s->pos_y+size)>>4) * LT_map.width) + (((int)s->pos_x+siz)>>4)];
+			tile_number_VL = LT_map.collision[((((int)s->pos_y+size)>>4) * LT_map.width) + ((int)s->pos_x>>4)];
+			if (tile_number_VR == 1) col_y = 1;
+			if (tile_number_VL == 1) col_y = 1;
+			if (tile_number_VR == 2) col_y = 1;
+			if (tile_number_VL == 2) col_y = 1;
+			if (col_y == 0) s->pos_y++;
+		}
+		if (LT_Keys[LT_LEFT]){	//LEFT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[(((int)s->pos_y>>4) * LT_map.width) + (((int)s->pos_x-1)>>4)];
+			tile_number_HD = LT_map.collision[((((int)s->pos_y+siz)>>4) * LT_map.width) + (((int)s->pos_x-1)>>4)];	
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x-=2;
+		}
+		if (LT_Keys[LT_RIGHT]){	//RIGHT
+			col_x = 0;
+			tile_number_HU = LT_map.collision[(((int)s->pos_y>>4) * LT_map.width) + (((int)s->pos_x+size)>>4)];
+			tile_number_HD = LT_map.collision[((((int)s->pos_y+siz)>>4) * LT_map.width) + (((int)s->pos_x+size)>>4)];
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 1) col_x = 1;
+			if (col_x == 0) s->pos_x++;
+		}
 		col_x = 0;
-		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x-1)>>4)];
-		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
-		if (tile_number_HU == 1) col_x = 1;
-		if (tile_number_HD == 1) col_x = 1;
-		if (col_x == 0) s->pos_x--;
-	}
-	if (LT_Keys[LT_RIGHT]){	//RIGHT
-		col_x = 0;
-		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
-		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
-		if (tile_number_HU == 1) col_x = 1;
-		if (tile_number_HD == 1) col_x = 1;
-		if (col_x == 0) s->pos_x++;
-	}
-	if (LT_SideScroll == 1){
-		col_x = 0;
-		tile_number_HU = LT_map.collision[((s->pos_y>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
-		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
+		tile_number_HU = LT_map.collision[(((int)s->pos_y>>4) * LT_map.width) + (((int)s->pos_x+size)>>4)];
+		tile_number_HD = LT_map.collision[((((int)s->pos_y+siz)>>4) * LT_map.width) + (((int)s->pos_x+size)>>4)];
 		if (tile_number_HU == 1) col_x = 1;
 		if (tile_number_HD == 1) col_x = 1;
 		if (col_x == 0) s->pos_x++;
 		if (s->pos_x < SCR_X+3) s->pos_x = SCR_X+3;
 	}
-	
+
 	LT_Collision.tile_number = tile_number;
 	LT_Collision.tilecol_number = tilecol_number;
 	LT_Collision.col_x = col_x;
@@ -1422,7 +1590,7 @@ void LT_load_font(char *file){
 	LT_Load_Sprite(file,&lt_gpnumber2,8);
 }
 
-void LT_gprint(int var, word x, word y){
+void LT_gprint(byte var, word x, word y){
 	lt_gpnumber0.pos_x = SCR_X+x+18; lt_gpnumber0.pos_y = SCR_Y+y;
 	lt_gpnumber1.pos_x = SCR_X+x+9; lt_gpnumber1.pos_y = SCR_Y+y;
 	lt_gpnumber2.pos_x = SCR_X+x; lt_gpnumber2.pos_y = SCR_Y+y;
@@ -1455,12 +1623,52 @@ void LT_unload_font(){
 	LT_unload_sprite(&lt_gpnumber1);
 	LT_unload_sprite(&lt_gpnumber2);
 }
-
-/*set_palette*/                                                           
+                                                         
 void set_palette(unsigned char *palette){
-  int i;
-  outp(0x03c8,0); 
-  for(i=0;i<256*3;i++) outp(0x03c9,palette[i]);
+	int i;
+	outp(0x03c8,0); 
+	for(i=0;i<256*3;i++) outp(0x03c9,palette[i]);
+}
+
+void MCGA_ClearPalette(){
+	int i;
+	outp(0x03c8,0); 
+	for(i=0;i<256*3;i++) outp(0x03c9,0x00);
+}
+
+void MCGA_Fade_in(unsigned char *palette){
+	int i,j;
+	byte c;
+	//All colours black
+	outp(0x03c8,0);
+	for(i=0;i<256;i++){ outp(0x03c9,0x00); outp(0x03c9,0x00); outp(0x03c9,0x00);}
+	
+	for(j=0;j<256*3;j++) LT_Temp_palette[j] = 0x00;
+	
+	i = 0;
+	//Fade in
+	while (i < 64){
+		outp(0x03c8,0);
+		for(j=0;j<256*3;j++){
+			if (LT_Temp_palette[j] < palette[j]) LT_Temp_palette[j]++;
+			outp(0x03c9,LT_Temp_palette[j]);
+		}
+		i ++;
+	}
+}
+
+void MCGA_Fade_out(){
+	int i,j;
+	i = 0;
+	//Fade to black
+	outp(0x03c8,0);
+	while (i < 64){
+		for(j=0;j<256*3;j++){
+			if (LT_Temp_palette[j] > 0) LT_Temp_palette[j]--;
+			outp(0x03c9,LT_Temp_palette[j]);
+		}
+		i ++;
+	}
 }
 
 /*init Cycle struct*/  

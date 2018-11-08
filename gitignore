@@ -13,8 +13,10 @@
 # GFX and MUSIC #
 ######################
 *.imf
+*.mod
 *.dro
 *.png
+*.bmp
 *.tmx
 
 # OS generated files #

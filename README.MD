@@ -46,9 +46,11 @@ NOTES
 - TMX maps must be in XML format and orthogonal.
 - All files (tilesets, maps, music and sprites) are limited to 64 kb.
 - Only one song, one map and one tileset can be loaded in RAM, (the engine will allocate 256kb of ram for this purpose).
-Doing this, a lot of malloc trouble is fixed, the code is simplified and the engine works like a console, so every time you loaded
+	Doing this, a lot of malloc trouble is fixed, the code is simplified and the engine works like a console, so every time you loaded
 one map, tileset or music, the last one is overwritten.
 - Loading a bmp will overwrite the tileset data.
+- Little engine will store the Amiga Protracker patern data at the allocated space for adlib music (Max 64Kb).
+	MOD Sample data will be loaded to GUS RAM (ussually 256Kb)
 	
 	
 "Little Game Engine" para MCGA/VGA y 8086/286

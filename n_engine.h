@@ -53,8 +53,8 @@
 //KEYS
 #define LT_ESC				0x01
 #define LT_ENTER			0x1C
-#define LT_S				0x1F
-#define LT_D				0x20
+#define LT_ACTION			0x1F //S
+#define LT_JUMP				0x20 //D
 #define LT_UP				0x48
 #define LT_DOWN				0x50
 #define LT_LEFT				0x4B
@@ -77,8 +77,12 @@ typedef unsigned short word;
 typedef unsigned long  dword;
 extern word *my_clock;
 extern word start;
-extern byte LT_Gravity;
-extern byte LT_SideScroll;
+
+extern byte LT_MODE;
+extern float LT_Speed_UP;
+extern float LT_Speed_DOWN;
+extern float LT_Speed_LEFT;
+extern float LT_Speed_RIGHT;
 extern int LT_Keys[];
 
 typedef struct tagBITMAP				/* the structure for a bitmap. */
@@ -156,6 +160,8 @@ typedef struct tagSPRITE				/* the structure for a sprite. */
 	word pos_y;
 	word last_x;
 	word last_y;
+	int speed_x;
+	int speed_y;
 	byte frame;
 	byte nframes;
 	byte *bkg_data;
@@ -202,7 +208,7 @@ void LT_Load_BKG(char *file);
 void LT_Draw_BKG();
 //void LT_Unload_BKG(); 
 void LT_Load_Animation(char *file,ANIMATION *s, byte size);
-void LT_Set_Animation(ANIMATION *s, int baseframe, int frames, int speed);
+void LT_Set_Animation(ANIMATION *s, byte baseframe, byte frames, byte speed);
 void LT_Draw_Animation(ANIMATION *s);
 void LT_Unload_Animation(); 
 
@@ -224,22 +230,32 @@ void LT_Endless_SideScroll_Map(int y);
 
 //sprite
 void LT_Load_Sprite(char *file,SPRITE *s, byte size);
-void LT_Set_Sprite_Animation(SPRITE *s, int baseframe, int frames, int speed);
+void LT_Set_Sprite_Animation(SPRITE *s, byte baseframe, byte frames, byte speed);
 void LT_Draw_Sprite(SPRITE *b);
 LT_Col LT_move_player(SPRITE *s);
 void LT_load_font(char *file);
-void LT_gprint(int var, word x, word y);
+void LT_gprint(byte var, word x, word y);
 void LT_unload_sprite(SPRITE *s);
 void LT_unload_font();
 void LT_scroll_follow(SPRITE *s);
 
-//set_palette                                                           
+//set_palette
+void MCGA_ClearPalette();                                                           
 void set_palette(unsigned char *palette);
+void MCGA_Fade_in(unsigned char *palette);
+void MCGA_Fade_out(); 
 void cycle_init(COLORCYCLE *cycle,unsigned char *palette);
 void cycle_palette(COLORCYCLE *cycle, byte speed);
 
-//MUSIC
+//ADLIB MUSIC
 void LT_Load_Music(char *filename);
 void LT_Start_Music(word freq_div);
 void LT_Stop_Music();
 void LT_Unload_Music();
+
+//MOD MUSIC
+void LT_Init_GUS(byte channels);
+int LoadMOD(char *filename);
+void PlayMOD(byte mode);//0 normal; 1 disable effects for slow cpu (8088-8086).
+void StopMOD();
+
