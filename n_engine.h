@@ -146,22 +146,25 @@ typedef struct tagSPRITE				/* the structure for a sprite. */
 	word width;
 	word height;
 	byte palette[256*3];
-	byte init;
+	byte init;	//init sprite to captute bak data
 	byte animate;
 	byte speed;
 	byte anim_counter;
 	byte anim_speed;
-	byte baseframe;
+	byte baseframe; //first frame
 	byte aframes;
-	byte ground;
+	byte ground;	//platform touch ground
 	byte jump;
 	byte jump_frame;
 	word pos_x;
 	word pos_y;
 	word last_x;
 	word last_y;
-	int speed_x;
-	int speed_y;
+	float fpos_x;
+	float fpos_y;
+	float speed_x;
+	float speed_y;
+	byte state;		//0 no speed
 	byte frame;
 	byte nframes;
 	byte *bkg_data;

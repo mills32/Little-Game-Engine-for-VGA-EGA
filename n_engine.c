@@ -109,84 +109,6 @@ unsigned char LT_Loading_Palette[] = {
 	0xff,0xff,0xff	//colour 1
 };
 
-
-//SIMULATE PHYSICS - Float speeds
-byte LT_FLOAT = 0;
-int s0[] = {-2,-2,-2,-2}; //-2
-int s1[] = {-2,-2,-2,-1}; //-1.75
-int s2[] = {-1,-2,-1,-2}; //-1.5
-int s3[] = {-1,-1,-1,-2}; //-1.25
-int s4[] = {-1,-1,-1,-1}; //-1
-int s5[] = {-1,-1,-1,0}; //-0.75
-int s6[] = {-1,0,-1,0}; //-0.5
-int s7[] = {0,0,0,-1}; //-0.25
-int s8[] = {0,0,0,0}; //0     
-int s9[] = {0,0,0,1}; //0.25
-int s10[] = {1,0,1,0}; //0.5
-int s11[] = {1,1,1,0}; //0.75
-int s12[] = {1,1,1,1}; //1
-int s13[] = {1,1,1,2}; //1.25
-int s14[] = {1,2,1,2}; //1.5
-int s15[] = {2,2,2,1}; //1.75
-int s16[] = {2,2,2,2}; //2
-int * FSpeed[] = {s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,0x0000};
-int Dir[] = {
-		//Speed 1
-		9, 12,/* \ (X+)*/ //0
-		11,11,/* \ */ 
-		12,9, /* \ */	
-		12,8, /* ->*/  ////// 3
-		12,7, /* / */
-		11,5, /* / */
-		9, 4, /* / */
-		8, 4, /* | UP*/
-		7, 4, /* \ (X-)*/ //16
-		5, 5, /* \ */ 
-		4, 7, /* \ */
-		4, 8, /* <-*/  ///// 11
-		4, 9, /* / */
-		5, 11,/* / */
-		7, 12,/* / */
-		8, 12,/* | DOWN*/
-		//Speed 2
-		11,14,/* \ (X+)*/ 
-		13,13,/* \ */ 
-		14,11,/* \ */	
-		14,8, /* ->*/  
-		14,6, /* / */
-		13,3, /* / */
-		11,2, /* / */
-		8, 2, /* | UP*/
-		5, 2, /* \ (X-)*/ 
-		3, 3, /* \ */ 
-		2, 5, /* \ */
-		2, 8, /* <-*/  
-		2, 11, /* / */
-		3, 13,/* / */
-		5, 14,/* / */
-		8, 14,/* | DOWN*/
-		//Speed 3
-		13,16,/* \ (X+)*/ 
-		15,15,/* \ */ 
-		16,12,/* \ */
-		16,8, /* ->*/ 
-		16,4, /* / */
-		15,1, /* / */
-		13,0, /* / */
-		8, 0, /* | UP*/
-		3, 0, /* \ (X-)*/ 
-		1, 1, /* \ */ 
-		0, 4, /* \ */
-		0, 8, /* <-*/ 
-		0, 13, /* / */
-		1, 15,/* / */
-		4, 16,/* / */
-		8, 16,/* | DOWN*/
-	};
-
-//end of global variables
-
-
 //So easy, and so difficult to find samples of this...
 void interrupt LT_Loading(void){
 	LT_Draw_Animation(&LT_Loading_Animation);
@@ -355,7 +277,6 @@ void MCGA_Scroll(word x, word y){
 }
 
 void MCGA_WaitVBL(){ //This does not work well outside MCGA_Scroll
-	int i;
 	while ((inp(0x03da) & 0x08));
 	while (!(inp(0x03da) & 0x08));
 }
@@ -1243,6 +1164,8 @@ void LT_Load_Sprite(char *file,SPRITE *s, byte size){
 	s->anim_counter = 0;
 	s->speed_x = 0;
 	s->speed_y = 0;
+	s->fpos_x = 0;
+	s->fpos_y = 0;
 }
 
 void LT_Set_Sprite_Animation(SPRITE *s, byte baseframe, byte frames, byte speed){
@@ -1467,20 +1390,15 @@ LT_Col LT_move_player(SPRITE *s){
 			if (col_x == 0) s->pos_x++;
 		} 
 	}	
-	if (LT_MODE == 2){//PUZZLE //SIMULATE FLOATS
-		int sx,sy;
-		if (LT_FLOAT == 4) LT_FLOAT = 0;
-		sx = FSpeed[s->speed_x][LT_FLOAT];
-		sy = FSpeed[s->speed_y][LT_FLOAT];
-		/*if (s->speed_y < 0){	//UP
+	if (LT_MODE == 2){//PUZZLE 
+		
+		if (s->speed_y < 0){	//UP
 			col_y = 0;
 			tile_number_VR = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + ((s->pos_x+siz)>>4)];
 			tile_number_VL = LT_map.collision[(((s->pos_y-1)>>4) * LT_map.width) + (s->pos_x>>4)];
 			if (tile_number_VR == 1) col_y = 1;
 			if (tile_number_VL == 1) col_y = 1;
-			if (col_y == 0) s->pos_y += sy;
-			else s->speed_y *= -1;
-			if (s->speed_y > -8) s->speed_y = 0;
+			if (col_y == 1) s->speed_y *= -1;
 		}
 		if (s->speed_y > 0){	//DOWN
 			col_y = 0;
@@ -1488,9 +1406,7 @@ LT_Col LT_move_player(SPRITE *s){
 			tile_number_VL = LT_map.collision[(((s->pos_y+size)>>4) * LT_map.width) + (s->pos_x>>4)];
 			if (tile_number_VR == 1) col_y = 1;
 			if (tile_number_VL == 1) col_y = 1;
-			if (col_y == 0) s->pos_y += sy;
-			else s->speed_y *= -1;
-			if (s->speed_y < 8) s->speed_y = 0;
+			if (col_y == 1) s->speed_y *= -1;
 		}
 		if (s->speed_x < 0){	//LEFT
 			col_x = 0;
@@ -1498,9 +1414,7 @@ LT_Col LT_move_player(SPRITE *s){
 			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x-1)>>4)];	
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 1) col_x = 1;
-			if (col_x == 0) s->pos_x += s->speed_x>>6;
-			else s->speed_x *= -1;
-			if (s->speed_x > -8) s->speed_x = 0;
+			if (col_x == 1) s->speed_x *= -1;
 		}
 		if (s->speed_x > 0){	//RIGHT
 			col_x = 0;
@@ -1508,29 +1422,34 @@ LT_Col LT_move_player(SPRITE *s){
 			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+size)>>4)];
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 1) col_x = 1;
-			if (col_x == 0) s->pos_x += s->speed_x>>6;
-			else s->speed_x *= -1;
-			if (s->speed_x < 8) s->speed_x = 0;
+			if (col_x == 1) s->speed_x *= -1;
 		}
 		if (tilecol_number == 0){ //FRICTION
-			if (s->speed_x>4)s->speed_x -= 4;
-			s->speed_y -= 4;
+			s->speed_x/=1.02;
+			s->speed_y/=1.02;
+			if ((s->speed_x < 0.01)&&(s->speed_y < 0.01)) s->state = 0; //Stopped
 		}
+		col_x = 0;
+		col_y = 0;
 		//FORCE UP
-		if (tilecol_number == 6) s->speed_y -= 4; 
+		if (tilecol_number == 6)s->speed_y-=0.09;
 		//FORCE DOWN
-		if (tilecol_number == 7) s->speed_y += 4; 
+		if (tilecol_number == 7)s->speed_y+=0.09;
 		//FORCE LEFT
-		if (tilecol_number == 8) s->speed_x -= 4; 
+		if (tilecol_number == 8)s->speed_x-=0.09;
 		//FORCE RIGHT
-		if (tilecol_number == 9) s->speed_x += 4; 
+		if (tilecol_number == 9)s->speed_x+=0.09;
+
+		if (s->speed_x > 4) s->speed_x = 4;
+		if (s->speed_x < -4) s->speed_x = -4;
+		if (s->speed_y > 4) s->speed_y = 4;
+		if (s->speed_y < -4) s->speed_y = -4;
 		
-		if (s->speed_x > 256) s->speed_x = 256;
-		if (s->speed_x < -256) s->speed_x = -256;
-		if (s->speed_y > 256) s->speed_y = 256;
-		if (s->speed_y < -256) s->speed_y = -256;
-		*/
-		LT_FLOAT++;
+		s->fpos_x += s->speed_x;
+		s->fpos_y += s->speed_y;
+		
+		s->pos_x = s->fpos_x;
+		s->pos_y = s->fpos_y;
 	}
 	if (LT_MODE == 3){//SIDESCROLL
 		if (LT_Keys[LT_UP]){	//UP
@@ -1653,6 +1572,8 @@ void MCGA_Fade_in(unsigned char *palette){
 			if (LT_Temp_palette[j] < palette[j]) LT_Temp_palette[j]++;
 			outp(0x03c9,LT_Temp_palette[j]);
 		}
+		while ((inp(0x03da) & 0x08));
+		while (!(inp(0x03da) & 0x08));
 		i ++;
 	}
 }
@@ -1667,6 +1588,8 @@ void MCGA_Fade_out(){
 			if (LT_Temp_palette[j] > 0) LT_Temp_palette[j]--;
 			outp(0x03c9,LT_Temp_palette[j]);
 		}
+		while ((inp(0x03da) & 0x08));
+		while (!(inp(0x03da) & 0x08));
 		i ++;
 	}
 }
@@ -1794,12 +1717,12 @@ void LT_Start_Music(word freq_div){
 }
 
 void LT_Stop_Music(){
-	opl2_clear();
 	//reset interrupt
 	outportb(0x43, 0x36);
 	outportb(0x40, 0xFF);	//lo-byte
 	outportb(0x40, 0xFF);	//hi-byte*/
 	setvect(0x1C, LT_old_time_handler);
+	opl2_clear();
 }
 
 void LT_Unload_Music(){

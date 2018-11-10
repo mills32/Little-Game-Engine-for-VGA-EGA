@@ -3,9 +3,6 @@
  <tileset firstgid="1" name="menutil" tilewidth="16" tileheight="16" tilecount="105" columns="15">
   <image source="menutil.bmp" width="240" height="112"/>
  </tileset>
- <tileset firstgid="106" name="stileset" tilewidth="16" tileheight="16" tilecount="72" columns="12">
-  <image source="stileset.bmp" width="192" height="96"/>
- </tileset>
  <layer name="Ground" width="19" height="12">
   <data encoding="csv">
 21,21,21,21,21,31,32,33,34,35,36,46,47,48,21,21,21,21,21,

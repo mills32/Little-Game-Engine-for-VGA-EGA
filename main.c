@@ -271,9 +271,6 @@ void Load_Puzzle(){
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
 	
-	sprite_player.pos_x = 4*16;
-	sprite_player.pos_y = 4*16;
-	
 	LT_Set_Map(0,0);
 	LT_MODE = 2; //Physics mode
 }
@@ -281,6 +278,14 @@ void Load_Puzzle(){
 void Run_Puzzle(){
 	int rotate = 0;
 	Scene = 2;
+	
+	sprite_player.pos_x = 4*16;
+	sprite_player.pos_y = 3*16;
+	
+	//To simulate floats
+	sprite_player.fpos_x = 4*16;
+	sprite_player.fpos_y = 3*16;
+	
 	while(Scene == 2){
 		//SCR_X and SCR_Y are predefined global variables 
 		MCGA_Scroll(SCR_X,SCR_Y);
@@ -301,12 +306,15 @@ void Run_Puzzle(){
 		pointer.pos_x = sprite_player.pos_x + 4 + (LT_COS[rotate]>>2);
 		pointer.pos_y = sprite_player.pos_y + 4 + (LT_SIN[rotate]>>2);
 		
-		//ROTATE
+		//ROTATE 
 		if (LT_Keys[LT_RIGHT]) rotate++;
 		if (LT_Keys[LT_LEFT]) rotate--;
 		
 		//HIT BALL
-		if ((LT_Keys[LT_ACTION])&& (sprite_player.speed_x == 0) &&(sprite_player.speed_y == 0)){
+		if ((LT_Keys[LT_ACTION]) && (sprite_player.state == 0)){
+			sprite_player.state = 1; //Moving
+			sprite_player.speed_x = LT_COS[rotate]/32;
+			sprite_player.speed_y = LT_SIN[rotate]/32;
 		}
 		
 		//If collision tile = ?, end level
