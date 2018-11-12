@@ -21,7 +21,7 @@ Medium requirements (scroll + sprites 16x16 + Adlib / MOD without effects):
 - RAM 640 Kb
 - GRAPHICS MCGA/VGA
 - SOUND Adlib or compatible
-- GRAVIS ULTRASOUND (To play Amiga Protracker MOD files)
+- GRAVIS ULTRASOUND (To play Protracker MOD files)
 
 Ultra requirements (sprites 32x32 or more + Adlib + MOD with all effects):
 - CPU 286...
@@ -53,7 +53,7 @@ To use the adlib music player, just enable adlib or soundblaster in the emulator
 Adlib IMF files must be 70 tics/second to work well on slow CPU's like the 8088.
 
 To use MOD player, enable GUS emulation or connect a GUS to your retro PC, then run "setgus.bat" I think that's all, (no drivers needed)
-The GUS can play "MOD" files with samples up to 44100Hz and also you can use more than 4 channels.
+The GUS can play MOD files with samples up to 44100Hz and also you can use more than 4 channels.
 You can make the mod player to work better on slow CPU's by setting the mode to 1 "PlayMOD(1)". This will disable some effects.
 
 NOTES
@@ -82,7 +82,7 @@ http://www.brackeen.com/home/vga/
 Este es un programa de 16-bit, funcionará en MS-DOS, FreeDos y Windows 98.                     
 Recuerda que hay que compilarlo usando el "LARGE memory model".                        
 
-Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera con arquitectura x86), y una tarjeta compatible con VGA.
+Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA.
 
 Requisitos mínimos (mover mapa + sprites 8x8 + Adlib): 
 - CPU 8088 4.77 Mhz
@@ -95,12 +95,12 @@ Requisitos medios (mover mapa + sprites 16x16 + Adlib / música MOD sin efectos)
 - RAM 640 Kb
 - GRÁFICOS MCGA/VGA
 - SONIDO Adlib o compatible
-- GRAVIS ULTRASOUND (para reproducir módulos Amiga Protracker - MOD)
+- GRAVIS ULTRASOUND (para reproducir módulos Protracker - MOD)
 
 Requisitos Ultra (sprites de 32x32 o más + Adlib / MOD con efectos):
 - CPU 286
 
-A partir de un modelo 286, funciona en cualquier cpu moderna (2018) con cualquier tarjeta gráfica.
+A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2018) con cualquier tarjeta gráfica.
  
 
 Funciones de Little Engine:
@@ -140,7 +140,7 @@ NOTAS
 - 	Los sprites serán divididos en trozos de 8x8,16x16 or 32x32. 
 - 	Los mapas TMX deben estar en formato CSV, ortogonal, y tener dos capas (fondo y colisión).
 - 	Todos los archivos (conjuntos de tiles, mapas, música y sprites) están limitados a 64 kb.
-	Little engine carga los datos de secuancia de los archivos Amiga Protracker, en la memoria reservada para la música adlib (Max 64Kb).
+	Little engine carga los datos de secuancia de los archivos Protracker, en la memoria reservada para la música adlib (Max 64Kb).
 	Los datos de los samples se cargarán en la RAM de la tarjeta GUS (generalmente 256Kb).
 - 	Solamente una música, un mapa y un conjunto de tiles, pueden ser cargados RAM, (el motor reserva 256kb de RAM para eso).
 	Haciendo esto, se solucionan bugs de malloc, el código se simplifica, y el motor funciona como una consola.
