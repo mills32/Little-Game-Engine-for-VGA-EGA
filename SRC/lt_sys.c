@@ -56,8 +56,7 @@ void LT_Init(){
 	word_out(0x03d4,H_DISPLAY_END, (304>>2)-1);		//HORIZONTAL RESOLUTION = 304 
 	word_out(0x03d4,V_DISPLAY_END, 176<<1);  		//VERTICAL RESOLUTION = 176
 	
-	//This was not tested, it should center the screen with black borders on old crts
-	//Modern VGA monitors and TV don't care, they just center the image
+	//This was not tested, it should center the screen with black borders on some monitors
 	
 	//word_out(0x03d4,H_BLANK_START, (320>>2)-1);        
 	//word_out(0x03d4,H_BLANK_END,0);
@@ -76,10 +75,11 @@ void LT_Init(){
 	LT_old_key_handler = getvect(9);    
 	LT_install_key_handler();
 	
-	//Allocate 272kb RAM for:
+	//Allocate 272Kb + 64 RAM for:
 	// 64kb Tileset
 	// 64kb Temp Tileset
 	// 16kb Temp Sprites
+	// 64Kb (4*16) Sprites
 	// 32kb Map + 32kb collision map
 	// 64kb Music 
 	if ((LT_tileset.tdata = farcalloc(65535,sizeof(byte))) == NULL){

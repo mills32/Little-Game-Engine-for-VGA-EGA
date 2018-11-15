@@ -158,6 +158,7 @@ typedef struct tagSPRITE{				// structure for a sprite
 	byte frame;
 	byte nframes;
 	byte *bkg_data;
+	byte s_delete;
 	SPRITEFRAME *rle_frames;	
 } SPRITE;
 
@@ -227,9 +228,15 @@ void cycle_palette(COLORCYCLE *cycle, byte speed);
 
 //SPRITE
 void LT_Load_Sprite(char *file,SPRITE *s, byte size);
+void LT_Clone_Sprite(SPRITE *c,SPRITE *s);
 void LT_Set_Sprite_Animation(SPRITE *s, byte baseframe, byte frames, byte speed);
 void LT_Draw_Sprite(SPRITE *b);
+void LT_Draw_Enemy(SPRITE *b);
+void LT_Set_Enemy(SPRITE *s, word x, word y, int sx, int sy);
+void LT_Restore_Sprite_BKG(SPRITE *s);
 LT_Col LT_move_player(SPRITE *s);
+void LT_platform_walker(SPRITE *s);
+LT_Col LT_Bounce_Ball(SPRITE *s);
 void LT_Delete_Sprite(SPRITE *s);
 void LT_load_font(char *file);
 void LT_gprint(byte var, word x, word y);

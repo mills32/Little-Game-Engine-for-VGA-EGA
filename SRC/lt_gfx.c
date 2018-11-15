@@ -31,7 +31,7 @@ TILE LT_tileset;	// One tileset in ram stored at "LT_tileset"
 ANIMATION LT_Loading_Animation;// Animation for loading screen
 unsigned char *LT_tile_datatemp; //Temp storage of non tiled data.
 unsigned char *LT_sprite_tiledatatemp; //Temp storage of tiled sprites to be converted to RLE
-SPRITE lt_gpnumber0, lt_gpnumber1, lt_gpnumber2; // 4 sprites for debug printing
+SPRITE lt_gpnumber0; // sprites for printing
 //GLOBAL VARIABLES
 
 //Palette for fading
@@ -67,6 +67,7 @@ void interrupt LT_Loading(void){
 void LT_Set_Loading_Interrupt(){
 	unsigned long spd = 1193182/50;
 	int i;
+	lt_gpnumber0.init = 0;
 	MCGA_Fade_out();
 	LT_Stop_Music();
 	MCGA_SplitScreen(0x0ffff); //disable split screen
@@ -561,15 +562,57 @@ void LT_Edit_MapTile(byte x, byte y, byte ntile, byte col){
 		mov		di,screen_offset		//es:di screen address							
 		mov 	ax,0A000h
 		mov 	es,ax
-		mov 	ax,16
-	}
-	copy_tile:	
-	asm{
+
+		//UNWRAPPED COPY 16x16 TILE LOOP
 		mov 	cx,8
 		rep		movsw				
 		add 	di,320-16
-		dec 	ax
-		jnz		copy_tile
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		//END LOOP
 		
 		pop si
 		pop di
@@ -587,9 +630,7 @@ void draw_map_column(word x, word y, word map_offset){
 	asm{
 		push ds
 		push di
-		push si
-		
-		mov		dx,12		//12 tiles height column
+		push si	
 		
 		lds		bx,dword ptr[tiledata]					
 		lds		si,ds:[bx]				//ds:si data address
@@ -606,19 +647,128 @@ void draw_map_column(word x, word y, word map_offset){
 		add		si,ax
 		mov		di,screen_offset		//es:di screen address							
 	}
-	loop_tile:
-	asm{
+	//UNWRAPPED LOOPS, Just to give some more cycles for the 8088.	
+	//COPY 12 tiles 
+	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax
-		mov 	ax,16
-	}
-	copy_tile:	
-	asm{
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
 		mov 	cx,8
 		rep		movsw				
 		add 	di,320-16
-		dec 	ax
-		jnz		copy_tile
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
 		
 		mov		ds,word ptr [tile_offset]
 		mov		si,word ptr [tile_offset+2]
@@ -633,10 +783,679 @@ void draw_map_column(word x, word y, word map_offset){
 		mov		cl,8
 		shl		ax,cl
 		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
 		
-		dec		dx
-		jnz		loop_tile
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
 		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		mov 	cx,8		//COPY TILE (16 LINES)
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16	//END COPY TILE
+		
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+	}
+	
+	asm{//END	
 		pop si
 		pop di
 		pop ds
@@ -649,13 +1468,11 @@ void draw_map_row( word x, word y, word map_offset){
 	word tile_offset = 0;
 	//word width = map.width;
 	word screen_offset = (y<<8)+(y<<6)+x;
-	asm{
+	asm{//SET ADDRESS
 		push ds
 		push di
 		push si
-		
-		mov		dx,20					//20 tiles height column
-		
+			
 		lds		bx,dword ptr[tiledata]					
 		lds		si,ds:[bx]				//ds:si data address
 		
@@ -671,20 +1488,63 @@ void draw_map_row( word x, word y, word map_offset){
 		add		si,ax
 		mov		di,screen_offset		//es:di screen address							
 	}
-	loop_tile:
-	asm{
+	
+	//UNWRAPPED LOOPS
+	//Copy 20 tiles
+	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		mov 	ax,16
-	}
-	copy_tile:	
-	asm{
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
 		mov 	cx,8
 		rep		movsw				
 		add 	di,320-16
-		dec 	ax
-		jnz		copy_tile
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
 		
+		//SET ADDRESS FOR NEXT TILE
 		mov		ds,word ptr [tile_offset]
 		mov		si,word ptr [tile_offset+2]
 
@@ -701,9 +1561,1358 @@ void draw_map_row( word x, word y, word map_offset){
 		
 		sub		di,320*16
 		add		di,16						//next horizontal tile position
-		dec		dx
-		jnz		loop_tile
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
 		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		mov 	cx,8		//COPY 16 LINES
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		mov 	cx,8
+		rep		movsw				
+		add 	di,320-16
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov		ds,word ptr [tile_offset]
+		mov		si,word ptr [tile_offset+2]
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		ax,es:[bx]
+		mov		cl,8
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,320*16
+		add		di,16						//next horizontal tile position
+	}
+	
+	asm{//END	
 		pop si
 		pop di
 		pop ds
@@ -742,39 +2951,166 @@ void LT_Endless_SideScroll_Map(int y){
 		draw_map_column(LT_current_x+304,LT_current_y,(LT_map_offset_Endless%LT_map.width)+(y*LT_map.width));
 		LT_map_offset_Endless++;
 	}
-	if (SCR_X > (LT_map.width<<4)) SCR_X = 0;
 	LT_last_x = LT_current_x;
 }
 
 void LT_load_font(char *file){
 	LT_Load_Sprite(file,&lt_gpnumber0,8);
-	LT_Load_Sprite(file,&lt_gpnumber1,8);
-	LT_Load_Sprite(file,&lt_gpnumber2,8);
+	farfree(lt_gpnumber0.bkg_data);
+	lt_gpnumber0.bkg_data = NULL;
+	lt_gpnumber0.bkg_data = (byte *) farcalloc(24*8,sizeof(byte));
 }
 
 void LT_gprint(byte var, word x, word y){
-	lt_gpnumber0.pos_x = SCR_X+x+18; lt_gpnumber0.pos_y = SCR_Y+y;
-	lt_gpnumber1.pos_x = SCR_X+x+9; lt_gpnumber1.pos_y = SCR_Y+y;
-	lt_gpnumber2.pos_x = SCR_X+x; lt_gpnumber2.pos_y = SCR_Y+y;
+	word fx = SCR_X+x;
+	word fy = SCR_Y+y;
+	word screen_offset0 = (lt_gpnumber0.last_y<<8)+(lt_gpnumber0.last_y<<6)+lt_gpnumber0.last_x;
+	word screen_offset1 = (fy<<8)+(fy<<6)+fx;
+	word init = lt_gpnumber0.init;
+	unsigned char *bkg_data = (unsigned char *) &lt_gpnumber0.bkg_data;
+	unsigned char *data;
+	byte d = 0;
 	
-	lt_gpnumber0.frame = var % 10;
-	LT_Draw_Sprite(&lt_gpnumber0);
+	///restore destroyed bkg chunk in last frame
+	asm{
+		push ds
+		push di
+		push si
+		
+		cmp	byte ptr [init],1 //if (s->init == 1)
+		jne	short rle_noinit
+		
+		mov 	ax,0A000h
+		mov 	es,ax						
+		mov		di,screen_offset0				
+		
+		lds		bx,[bkg_data]					
+		lds		si,ds:[bx]						
 	
-	var /= 10;
-	lt_gpnumber1.frame = var % 10;
-	LT_Draw_Sprite(&lt_gpnumber1);
+		mov 	cx,12
+		rep		movsw				// copy bytes from ds:si to es:di
+		add 	di,320 - 24
+		mov 	cx,12
+		rep		movsw				
+		add 	di,320 - 24
+		mov 	cx,12
+		rep		movsw				
+		add 	di,320 - 24
+		mov 	cx,12
+		rep		movsw				
+		add 	di,320 - 24
+		mov 	cx,12
+		rep		movsw				
+		add 	di,320 - 24
+		mov 	cx,12
+		rep		movsw				
+		add 	di,320 - 24
+		mov 	cx,12
+		rep		movsw				
+		add 	di,320 - 24
+		mov 	cx,12
+		rep		movsw
+	}
+	rle_noinit:
+	lt_gpnumber0.init = 1;	
+	//Copy bkg chunk before destroying it
+	asm{
 	
-	var /= 10;
-	lt_gpnumber2.frame = var % 10;
-	LT_Draw_Sprite(&lt_gpnumber2);
+		mov 	ax,0A000h
+		mov 	ds,ax						
+		mov		si,screen_offset1				
+		
+		les		bx,[bkg_data]					
+		les		di,es:[bx]						
+	
+		mov 	cx,12
+		rep		movsw				// copy bytes from ds:si to es:di
+		add 	si,320 - 24
+		mov 	cx,12
+		rep		movsw
+		add 	si,320 - 24
+		mov 	cx,12
+		rep		movsw
+		add 	si,320 - 24
+		mov 	cx,12
+		rep		movsw
+		add 	si,320 - 24
+		mov 	cx,12
+		rep		movsw
+		add 	si,320 - 24
+		mov 	cx,12
+		rep		movsw
+		add 	si,320 - 24
+		mov 	cx,12
+		rep		movsw
+		add 	si,320 - 24
+		mov 	cx,12
+		rep		movsw
+		
+		pop si
+		pop di
+		pop ds
+	}
+	
+	screen_offset1+=16;
+	data = (unsigned char *) &lt_gpnumber0.rle_frames[var % 10].rle_data;
+	while (d < 3){//DIGITS
+		//copy sprite and destroy bkg
+		asm{
+			push ds
+			push di
+			push si	
+			mov 	ax,0A000h
+			mov 	es,ax						
+			mov		di,screen_offset1	//es:di = vga		
+		
+			lds		bx,[data]					
+			lds		si,ds:[bx]			//ds:si = data		
+		
+			lodsw			//DS:SI -> AX (Number of runs)
+			
+			xchg dx,ax		//DX = Number of runs.
+		}
+		rle_3:				//DX = Number of runs
+		asm{
+			lodsw			//DS:SI -> AX. Number of bytes to ad to pointer DI.
+			add 	di,ax	
+			lodsw			//DS:SI -> AX. Number of bytes of pixel data that follow
+			mov 	cx,ax	//CX = AX (counter)
+			shr		cx,1	//counter / 2 because we copy words
+			jc		rle_odd //if there was a left over, it was odd, go to rle_odd
+			
+			rep 	movsw	//copy pixel data from ds:si to es:di
+			dec 	dx		//DX = Number of runs
+			jnz 	rle_3
+			jmp		rle_exit
+		}
+		rle_odd:
+		asm{
+			rep 	movsw	//copy pixel data from ds:si to es:di
+			movsb			//Copy the last byte, because the line was odd
+			dec 	dx		//DX = Number of runs	
+			jnz 	rle_3
+		}
+		rle_exit:
+		asm pop si
+		asm pop di
+		asm pop ds
+		
+		d++;
+		var /= 10;
+		data = (unsigned char *) &lt_gpnumber0.rle_frames[var % 10].rle_data;
+		screen_offset1-=8;
+	}
+	
+	lt_gpnumber0.last_x = fx;
+	lt_gpnumber0.last_y = fy;
 }
 	
 void LT_unload_font(){
 	LT_unload_sprite(&lt_gpnumber0);
-	LT_unload_sprite(&lt_gpnumber1);
-	LT_unload_sprite(&lt_gpnumber2);
 }
-                                                         
+
 void set_palette(unsigned char *palette){
 	int i;
 	outp(0x03c8,0); 
