@@ -113,15 +113,15 @@ void MCGA_Scroll(word x, word y){
 	y=(y<<6)+(y<<4);	//(y*64)+(y*16) = y*80;
 
 	//MCGA_WaitVBL
-	while ((inp(0x03da) & 0x08));
-	//change pixel panning register 
-	inp(0x3da);
-	outp(0x3c0, 0x33);
-	outp(0x3c0, p[pix]);
+	while (!(inp(0x03da) & 0x08));
+	while ((inp(0x03da) & 0x01));
 	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
 	outport(0x03d4, 0x0C | (x+y & 0xff00));
 	outport(0x03d4, 0x0D | (x+y << 8));
-	while (!(inp(0x03da) & 0x08));
+	//change pixel panning register 
+	inp(0x3da);
+	outp(0x3c0, 0x33);
+	outp(0x3c0, p[pix]);	
 
 	//-3,+5,+1,+1,
 	//-3,+5,+1,+1

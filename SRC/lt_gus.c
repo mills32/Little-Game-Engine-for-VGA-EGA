@@ -191,6 +191,8 @@ struct {
 	byte order[128];        // pattern playing orders
 } MOD;
 
+void LT_ExitDOS();
+
 // SINGLE NOTE STRUCT
 struct Note {
 	byte number:5;          // sample being played              5 bits
@@ -710,16 +712,22 @@ void Error(int code) {
 	switch (code) {
 		case 1 : printf("ULTRASND Environment variable not found..\r\n");
 				printf("Most likely cause GUS not present..\r\n");
+				LT_ExitDOS();
 				break;
 		case 2 : printf("Module not found.");
+				LT_ExitDOS();
 				break;
 		case 3 : printf("Unknown format.");
+				LT_ExitDOS();
 				break;
 		case 4 : printf("Out of GUS DRAM! go spend some more money..");
+				LT_ExitDOS();
 				break;
 		case 5 : printf("Not enough memory!..");
+				LT_ExitDOS();
 				break;
 		case 6 : printf("Usage FMOD <module name>\r\n");
+				LT_ExitDOS();
 				break;
 		default : ;
 	};
@@ -1099,7 +1107,7 @@ void PlayMOD(byte mode) {
 	_enable();  //enable interrupts	
 }
 
-int LoadMOD(char *filename) {
+int LT_LoadMOD(char *filename) {
 	FILE *handle;
 	int count=0, count2=0, pattcount, period;
 	dword gusoff, size;

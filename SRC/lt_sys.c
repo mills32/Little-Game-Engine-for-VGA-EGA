@@ -49,24 +49,31 @@ void LT_Init(){
 	int86(0x10, &regs, &regs);
 	
 	// turn off write protect */
-    word_out(0x03d4, V_RETRACE_END, 0x2c);
-    outp(MISC_OUTPUT, 0xe7);
-	
-	//This was tested and working on old crts!          
+    word_out(0x03d4, V_RETRACE_END, 0x0);
+    //outp(MISC_OUTPUT, 0xe7);
+
+	//This was tested and working on old crt's and modern GPU/display using HDMI.
+	//Does not work on modern monitors using VGA connector.
 	word_out(0x03d4,H_DISPLAY_END, (304>>2)-1);		//HORIZONTAL RESOLUTION = 304 
-	word_out(0x03d4,V_DISPLAY_END, 176<<1);  		//VERTICAL RESOLUTION = 176
+	word_out(0x03d4,V_DISPLAY_END, (176<<1)-1);  	//VERTICAL RESOLUTION = 176
 	
-	//This was not tested, it should center the screen with black borders on some monitors
+	/*
+	Not working on many monitors
+	word_out(0x03d4,H_BLANK_START, (320>>2)-1); 
+	word_out(0x03d4,V_BLANK_START, (176<<1)-1); 
 	
-	//word_out(0x03d4,H_BLANK_START, (320>>2)-1);        
-	//word_out(0x03d4,H_BLANK_END,0);
-	//word_out(0x03d4,H_RETRACE_START,3); /**/ 
-	//word_out(0x03d4,H_RETRACE_END,(320>>2)-1);  
+	word_out(0x03d4,V_TOTAL,222);
+	word_out(0x03d4,H_RETRACE_START,(320>>2)-1);
+	word_out(0x03d4,V_RETRACE_START,(222<<1)-1);
 	
-	//word_out(0x03d4,V_BLANK_START, 8>>1);   /**/ 
-	//word_out(0x03d4,V_BLANK_END, 184>>1);    /**/ 
-	//word_out(0x03d4,V_RETRACE_START, 0x0f); /**/ 
-	//word_out(0x03d4,V_RETRACE_END, 200); /**/  
+	word_out(0x03d4,H_BLANK_END, 0);
+	word_out(0x03d4,V_BLANK_END, 200<<1);
+
+	word_out(0x03d4,OVERFLOW,256);
+	
+	word_out(0x03d4,H_RETRACE_END,0x1F); 
+	word_out(0x03d4,V_RETRACE_END, 8);
+	*/
 	
     // set vertical retrace back to normal
     word_out(0x03d4, V_RETRACE_END, 0x8e);

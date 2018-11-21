@@ -78,13 +78,14 @@ void Load_Menu(){
 	LT_Load_Sprite("GFX/cursor.bmp",&sprite_cursor,16);
 	//LT_Load_Music("music/menu2.imf");
 	//LT_Start_Music(70);
-	LoadMOD("MUSIC/MOD/dyna.mod"); 
+	LT_LoadMOD("MUSIC/MOD/dyna.mod"); 
 	
 	LT_Delete_Loading_Interrupt();
 	
 	PlayMOD(0);
 	
 	MCGA_SplitScreen(63); 
+	MCGA_Scroll(SCR_X,144); //Scroll tittle
 	LT_Set_Map(0,0);
 	
 	i = 0;
@@ -142,7 +143,15 @@ void Load_TopDown(){
 	load_tiles("GFX/Toptil.bmp");
 	
 	LT_Load_Sprite("GFX/player.bmp",&sprite_player,16);
-
+	sprite_enemy = farcalloc(10,sizeof(SPRITE));
+	LT_Load_Sprite("GFX/enemy2.bmp",&sprite_enemy[0],16);
+	LT_Clone_Sprite(&sprite_enemy[1],&sprite_enemy[0]);
+	LT_Clone_Sprite(&sprite_enemy[2],&sprite_enemy[0]);
+	LT_Clone_Sprite(&sprite_enemy[3],&sprite_enemy[0]);
+	LT_Clone_Sprite(&sprite_enemy[4],&sprite_enemy[0]);
+	LT_Clone_Sprite(&sprite_enemy[5],&sprite_enemy[0]);
+	LT_Clone_Sprite(&sprite_enemy[6],&sprite_enemy[0]);
+	
 	LT_Load_Music("music/adlib/top_down.imf");
 	//LoadMOD("MUSIC/MOD/Beach.mod"); 
 	
@@ -154,22 +163,41 @@ void Load_TopDown(){
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
 	
-	sprite_player.pos_x = 8*16;
-	sprite_player.pos_y = 4*16;
-	
 	LT_Set_Map(0,0);
 	LT_MODE = 0;
 }
 
 void Run_TopDown(){
+	int n;
 	Scene = 2;
+	
+	sprite_player.pos_x = 8*16;
+	sprite_player.pos_y = 4*16;
+	
+	//Place enemies manually on map in tile units (x16)
+	//They will be drawn only if they are inside viewport.
+	LT_Set_Enemy(&sprite_enemy[0],13,7,1,0);
+	LT_Set_Enemy(&sprite_enemy[1],20,17,0,-1);
+	LT_Set_Enemy(&sprite_enemy[2],33,18,0,1);
+	LT_Set_Enemy(&sprite_enemy[3],39,9,-1,0);
+	LT_Set_Enemy(&sprite_enemy[4],70,16,0,1);
+	LT_Set_Enemy(&sprite_enemy[5],54,4,1,0);
+	LT_Set_Enemy(&sprite_enemy[6],36,25,0,-1);
+	
+	for (n = 0; n != 7; n++) LT_Set_Sprite_Animation(&sprite_enemy[n],0,2,16);
 	
 	while(Scene == 2){
 		//SCR_X and SCR_Y are predefined global variables 
 		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_Restore_Sprite_BKG(&sprite_player);
 		LT_scroll_follow(&sprite_player);
+		
+		//Restore BKG
+		for (n = 6; n != -1; n--) LT_Restore_Enemy_BKG(&sprite_enemy[n]);
+		LT_Restore_Sprite_BKG(&sprite_player);
+		
+		//Draw sprites first to avoid garbage
 		LT_Draw_Sprite(&sprite_player);
+		for (n = 0; n != 7; n++)LT_Draw_Enemy(&sprite_enemy[n]);
 		
 		//scroll_map update off screen tiles
 		LT_scroll_map();
@@ -179,13 +207,18 @@ void Run_TopDown(){
 		//In this mode sprite is controlled using U D L R
 		LT_Player_Col = LT_move_player(&sprite_player);
 		
-		//If collision tile = ?, end level
-		if (LT_Player_Col.tilecol_number == 10) Scene = 1;
+		//Player animations
 		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,6,4);
 		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(&sprite_player,6,6,4);
 		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(&sprite_player,12,6,4);
 		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(&sprite_player,18,6,4);
 		else sprite_player.animate = 0;
+		
+		//Move the enemy
+		for (n = 0; n != 7; n++) LT_Enemy_walker(&sprite_enemy[n],0);
+		
+		//If collision tile = ?, end level
+		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
 		
 		cycle_palette(&cycle_water,4);
 
@@ -193,6 +226,7 @@ void Run_TopDown(){
 	}
 	//StopMOD(1);
 	LT_unload_sprite(&sprite_player); //manually free sprites
+	farfree(sprite_enemy); sprite_enemy = NULL; 
 }
 
 void Load_Platform(){
@@ -212,12 +246,11 @@ void Load_Platform(){
 	LT_Clone_Sprite(&sprite_enemy[4],&sprite_enemy[0]);
 	LT_Clone_Sprite(&sprite_enemy[5],&sprite_enemy[0]);
 	LT_Clone_Sprite(&sprite_enemy[6],&sprite_enemy[0]);
-	LT_Load_Music("music/ADLIB/platform.imf");
+	LT_Load_Music("music/Adlib/platform.imf");
 	
 	LT_Delete_Loading_Interrupt();
 	
 	LT_Start_Music(70);
-	
 	//animate water
 	cycle_init(&cycle_water,palette_cycle_water);
 	
@@ -225,23 +258,23 @@ void Load_Platform(){
 }
 
 void Run_Platform(){
-	int n,pos_x,pos_y;
+	int n;
 	startp:
 	LT_Set_Map(0,0);
 	sprite_player.pos_x = 4*16;
 	sprite_player.pos_y = 4*16;
 	
-	LT_Set_Enemy(&sprite_enemy[0],17*16,20*16,1,0);
-	LT_Set_Enemy(&sprite_enemy[1],61*16,19*16,-1,0);
-	LT_Set_Enemy(&sprite_enemy[2],61*16,13*16,-1,0);
-	LT_Set_Enemy(&sprite_enemy[3],92*16,15*16,1,0);
-	LT_Set_Enemy(&sprite_enemy[4],117*16,18*16,-1,0);
-	LT_Set_Enemy(&sprite_enemy[5],163*16,20*16,1,0);
-	LT_Set_Enemy(&sprite_enemy[6],192*16,12*16,-1,0);
+	//Place enemies manually on map in tile units (x16)
+	//They will be drawn only if they are inside viewport.
+	LT_Set_Enemy(&sprite_enemy[0],17,20,1,0);
+	LT_Set_Enemy(&sprite_enemy[1],61,19,-1,0);
+	LT_Set_Enemy(&sprite_enemy[2],61,13,-1,0);
+	LT_Set_Enemy(&sprite_enemy[3],92,15,1,0);
+	LT_Set_Enemy(&sprite_enemy[4],117,18,-1,0);
+	LT_Set_Enemy(&sprite_enemy[5],163,20,1,0);
+	LT_Set_Enemy(&sprite_enemy[6],192,12,-1,0);
 	
 	Scene = 2;
-	
-	if ((pos_x > SCR_X)&&(pos_x < (SCR_X+288))&&(pos_y > SCR_Y)&&(pos_y < (SCR_Y+160))) n = 0;
 	
 	while(Scene == 2){
 		//SCR_X and SCR_Y are global variables predefined 
@@ -268,23 +301,22 @@ void Run_Platform(){
 		else sprite_player.animate = 0;
 		
 		//Move the enemy
-		for (n = 0; n != 7; n++) LT_platform_walker(&sprite_enemy[n]);
+		for (n = 0; n != 7; n++) LT_Enemy_walker(&sprite_enemy[n],1);
 		
 		//Flip
 		for (n = 0; n != 7; n++){
-			if (sprite_enemy[n].speed_x > 0) LT_Set_Sprite_Animation(&sprite_enemy[n],0,6,4);
-			if (sprite_enemy[n].speed_x < 0) LT_Set_Sprite_Animation(&sprite_enemy[n],6,6,4);	
+			if (sprite_enemy[n].speed_x > 0) LT_Set_Sprite_Animation(&sprite_enemy[n],0,6,5);
+			if (sprite_enemy[n].speed_x < 0) LT_Set_Sprite_Animation(&sprite_enemy[n],6,6,5);	
 		}
 		
 		//if water, reset level
 		if (LT_Player_Col.tile_number == 182) {
 			MCGA_Fade_out(); 
 			sprite_player.init = 0;
-			LT_Set_Map(0,0);
 			goto startp;
 		}
 		//If collision tile = ?, end level
-		if (LT_Player_Col.tilecol_number == 10) Scene = 1;
+		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
 
 		//water palette animation
 		cycle_palette(&cycle_water,2);
@@ -372,7 +404,7 @@ void Run_Puzzle(){
 		}
 
 		//If collision tile = ?, end level
-		if (LT_Player_Col.tilecol_number == 10) Scene = 1;
+		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
 		
 		cycle_palette(&cycle_water,2);
 
@@ -554,7 +586,7 @@ void main(){
 	//LT_Check_CPU(); //still causing trouble
 	//LT_Adlib_Detect(); 
 	
-	LT_Init_GUS(8);
+	LT_Init_GUS(12);
 	LT_Init();
 	gotoxy(17,13);
 	printf("LOADING");

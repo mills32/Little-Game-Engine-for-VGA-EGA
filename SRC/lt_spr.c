@@ -216,9 +216,12 @@ void LT_Load_Sprite(char *file,SPRITE *s, byte size){
 	s->anim_counter = 0;
 	s->speed_x = 0;
 	s->speed_y = 0;
+	s->s_x = 0;
+	s->s_y = 0;
 	s->fpos_x = 0;
 	s->fpos_y = 0;
 	s->s_delete = 0;
+	s->misc = 0;
 }
 
 void LT_Clone_Sprite(SPRITE *c,SPRITE *s){
@@ -240,9 +243,12 @@ void LT_Clone_Sprite(SPRITE *c,SPRITE *s){
 	c->anim_counter = 0;
 	c->speed_x = 0;
 	c->speed_y = 0;
+	c->s_x = 0;
+	c->s_y = 0;
 	c->fpos_x = 0;
 	c->fpos_y = 0;
-	c->s_delete = 0;	
+	c->s_delete = 0;
+	c->misc = 0;
 }
 
 void LT_Add_Sprite(SPRITE *s,word x, word y) {
@@ -475,8 +481,8 @@ void LT_Draw_Enemy(SPRITE *s){
 }
 
 void LT_Set_Enemy(SPRITE *s, word x, word y, int sx, int sy){
-	s->pos_x = x;
-	s->pos_y = y;
+	s->pos_x = x<<4;
+	s->pos_y = y<<4;
 	s->speed_x = sx;
 	s->speed_y = sy;
 }
@@ -823,8 +829,8 @@ LT_Col LT_Bounce_Ball(SPRITE *s){
 		tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x)>>4)];
 		if (tile_number_VR == 1) col_y = 1;
 		if (tile_number_VL == 1) col_y = 1;
-		if (tile_number_VR == 5) {col_y = 1; LT_Edit_MapTile( x, y, 0, 0);}
-		if (tile_number_VL == 5) {col_y = 1; LT_Edit_MapTile((s->pos_x)>>4, y, 0, 0);}
+		if (tile_number_VR == 5) {col_y = 1; LT_Collision.col_y = 5; LT_Edit_MapTile( x, y, 0, 0);}
+		if (tile_number_VL == 5) {col_y = 1; LT_Collision.col_y = 5; LT_Edit_MapTile((s->pos_x)>>4, y, 0, 0);}
 		if (col_y == 1) s->speed_y *= -1;
 	}
 	if (s->speed_y > 0){	//DOWN
@@ -835,8 +841,8 @@ LT_Col LT_Bounce_Ball(SPRITE *s){
 		tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x)>>4)];
 		if (tile_number_VR == 1) col_y = 1;
 		if (tile_number_VL == 1) col_y = 1;
-		if (tile_number_VR == 5) {col_y = 1; LT_Edit_MapTile( x, y, 0, 0);}
-		if (tile_number_VL == 5) {col_y = 1; LT_Edit_MapTile((s->pos_x)>>4,y, 0, 0);}
+		if (tile_number_VR == 5) {col_y = 1; LT_Collision.col_y = 5; LT_Edit_MapTile( x, y, 0, 0);}
+		if (tile_number_VL == 5) {col_y = 1; LT_Collision.col_y = 5; LT_Edit_MapTile((s->pos_x)>>4,y, 0, 0);}
 		if (col_y == 1) s->speed_y *= -1;
 	}
 	if (s->speed_x < 0){	//LEFT
@@ -847,8 +853,8 @@ LT_Col LT_Bounce_Ball(SPRITE *s){
 		tile_number_HD = LT_map.collision[( y * LT_map.width) + x];	
 		if (tile_number_HU == 1) col_x = 1;
 		if (tile_number_HD == 1) col_x = 1;
-		if (tile_number_HU == 5) {col_x = 1; LT_Edit_MapTile( x, (s->pos_y)>>4, 0, 0);}
-		if (tile_number_HD == 5) {col_x = 1; LT_Edit_MapTile( x, y, 0, 0);}
+		if (tile_number_HU == 5) {col_x = 1; LT_Collision.col_x = 5; LT_Edit_MapTile( x, (s->pos_y)>>4, 0, 0);}
+		if (tile_number_HD == 5) {col_x = 1; LT_Collision.col_x = 5; LT_Edit_MapTile( x, y, 0, 0);}
 		if (col_x == 1) s->speed_x *= -1;
 	}
 	if (s->speed_x > 0){	//RIGHT
@@ -859,8 +865,8 @@ LT_Col LT_Bounce_Ball(SPRITE *s){
 		tile_number_HD = LT_map.collision[( y * LT_map.width) + x];
 		if (tile_number_HU == 1) col_x = 1;
 		if (tile_number_HD == 1) col_x = 1;
-		if (tile_number_HU == 5) {col_x = 1; LT_Edit_MapTile( x, (s->pos_y)>>4, 0, 0);}
-		if (tile_number_HD == 5) {col_x = 1; LT_Edit_MapTile( x, y, 0, 0);}
+		if (tile_number_HU == 5) {col_x = 1; LT_Collision.col_x = 5; LT_Edit_MapTile( x, (s->pos_y)>>4, 0, 0);}
+		if (tile_number_HD == 5) {col_x = 1; LT_Collision.col_x = 5; LT_Edit_MapTile( x, y, 0, 0);}
 		if (col_x == 1) s->speed_x *= -1;
 	}
 	col_x = 0;
@@ -872,58 +878,76 @@ LT_Col LT_Bounce_Ball(SPRITE *s){
 	return LT_Collision;
 }
 
-void LT_platform_walker(SPRITE *s){//ONLY WALKS ON PLATFORMS UNTILL IT REACHES EDGES OR SOLID TILES
+void LT_Enemy_walker(SPRITE *s, byte mode){
 	byte col_x = 0;
 	byte col_y = 0;
 	int x,y;
-	byte size = s->width;
 	byte siz = s->width+1;
 	byte si = s->width>>1;
 
-	if (s->speed_y < 0){	//UP
-		col_y = 0;
-		y = (s->pos_y+2)>>4;
-		tile_number_VR = LT_map.collision[( y * LT_map.width) + ((s->pos_x+siz-3)>>4)];
-		tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x+4)>>4)];
-		if (tile_number_VR == 1) col_y = 1;
-		if (tile_number_VL == 1) col_y = 1;
-		if (col_y == 1) s->speed_y *= -1;
+	if (mode == 0){ //WALKS ON TOP VIEW
+		y = (s->pos_y+si>>4);
+		if (s->speed_x < 0){	//LEFT
+			col_x = 0;
+			x = (s->pos_x-1)>>4;
+			tile_number_HU = LT_map.collision[( y * LT_map.width) + x];	
+			if (tile_number_HU == 1) col_x = 1;
+			if (col_x == 1) s->speed_x *= -1;
+		}
+		if (s->speed_x > 0){	//RIGHT
+			col_x = 0;
+			x = (s->pos_x+siz)>>4;
+			tile_number_HU = LT_map.collision[( y * LT_map.width) + x];
+			if (tile_number_HU == 1) col_x = 1;
+			if (col_x == 1) s->speed_x *= -1;
+		}
+		x = (s->pos_x+si)>>4;
+		if (s->speed_y < 0){	//UP
+			col_y = 0;
+			y = (s->pos_y-1)>>4;
+			tile_number_VR = LT_map.collision[( y * LT_map.width) + x];	
+			if (tile_number_VR == 1) col_y = 1;
+			if (col_y == 1) s->speed_y *= 1;
+		}
+		if (s->speed_y > 0){	//DOWN
+			col_y = 0;
+			y = (s->pos_y+siz)>>4;
+			tile_number_VR = LT_map.collision[( y * LT_map.width) + x];	
+			if (tile_number_VR == 1) col_y = 1;
+			if (col_y == 1) s->speed_y *= -1;
+		}
+	}	
+	if (mode == 1){ //ONLY WALKS ON PLATFORMS UNTILL IT REACHES EDGES  OR SOLID TILES
+		if (s->speed_x < 0){	//LEFT
+			col_x = 0;
+			x = (s->pos_x-1)>>4;
+			tile_number_HU = LT_map.collision[(((s->pos_y+si)>>4) * LT_map.width) + x];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + x];	
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 10) col_x = 1;  //Platform edge
+			if (col_x == 1) s->speed_x *= -1;
+		}
+		if (s->speed_x > 0){	//RIGHT
+			col_x = 0;
+			x = (s->pos_x+siz)>>4;
+			tile_number_HU = LT_map.collision[(((s->pos_y+si>>4)) * LT_map.width) + x];
+			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + x];
+			if (tile_number_HU == 1) col_x = 1;
+			if (tile_number_HD == 10) col_x = 1; //Platform edge
+			if (col_x == 1) s->speed_x *= -1;
+		}
 	}
-	if (s->speed_y > 0){	//DOWN
-		col_y = 0;
-		y = (s->pos_y+size-2)>>4;
-		tile_number_VR = LT_map.collision[( y * LT_map.width) + ((s->pos_x+siz-3)>>4)];
-		tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x+4)>>4)];
-		if (tile_number_VR == 1) col_y = 1;
-		if (tile_number_VL == 1) col_y = 1;
-		if (col_y == 1) s->speed_y *= -1;
-	}
-	
-	if (s->speed_x < 0){	//LEFT
-		col_x = 0;
-		x = (s->pos_x-1)>>4;
-		tile_number_HU = LT_map.collision[(((s->pos_y+si)>>4) * LT_map.width) + x];
-		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + x];	
-		if (tile_number_HU == 1) col_x = 1;
-		if (tile_number_HD == 6) col_x = 1;
-		if (col_x == 1) s->speed_x *= -1;
-	}
-	if (s->speed_x > 0){	//RIGHT
-		col_x = 0;
-		x = (s->pos_x+siz)>>4;
-		tile_number_HU = LT_map.collision[(((s->pos_y+si>>4)) * LT_map.width) + x];
-		tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + x];
-		if (tile_number_HU == 1) col_x = 1;
-		if (tile_number_HD == 6) col_x = 1;
-		if (col_x == 1) s->speed_x *= -1;
-	}
-
 	col_x = 0;
 	col_y = 0;
 	
-	s->pos_x += s->speed_x;
-	s->pos_y += s->speed_y;
+	//SPEED CONTROL TO MAKE ENEMIES TO MOVE SLOWER THAN +=1
+	if (s->s_x == 2) s->s_x = 0;
+	if (s->s_y == 2) s->s_y = 0;
+	s->pos_x += s->speed_x*s->s_x;
+	s->pos_y += s->speed_y*s->s_y;
 	
+	s->s_x ++;
+	s->s_y ++; 
 	return;
 }
 
