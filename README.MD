@@ -2,6 +2,13 @@
 Little Game Engine for MCGA/VGA and 8086/286
 --------------------------------------------
 
+If yu just want to test it:
+	Arrow keys = move player and menu.
+	Enter = Select option.
+	D = Jump.
+	S = Hit ball.
+	ESC = Back to menu / Exit to DOS.
+
 A lot of code from David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
 
@@ -40,7 +47,7 @@ Little Engine functions:
 The "BAD" things:
 - An 8088 will run the engine, but it will have slowdowns and flickering.
 - I think a 8088 won't be able to use a GUS card.
-- A bit low resolution (304x176) it's needed to hide the borders being updated.	
+- A bit low resolution (304x176) it's needed to hide the borders being updated. It does not work on some monitors.	
 
 Please feel free to copy this source code.
 
@@ -75,6 +82,13 @@ NOTES
 	
 "Little Game Engine" para MCGA/VGA y 8086/286
 ---------------------------------------------
+
+So solamente quieres probarlo:
+	Arrow keys = mover jugador y menu.
+	Enter = Seleccionar opción.
+	D = Saltar.
+	S = Lanzar bola.
+	ESC = Volver al menu / Salir a DOS.
 
 Un montón de código copiado de David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
@@ -115,7 +129,7 @@ Funciones de Little Engine:
 Las cosas "MALAS":
 - Un 8088 con VGA cargará el motor, pero tendrá ralentizaciones y parpadeos.
 - Por lo que se, para usar una tarjeta Gravis Ultrasound necesitas como mínimo un 8086.
-- Baja resolución de 304x176, necesaria para ocultar los bordes que son actualizados para el scroll.	
+- Baja resolución de 304x176, necesaria para ocultar los bordes que son actualizados para el scroll. No funciona en algunos monitores.	
 
 Este código es complétamente libre, cópialo o haz lo que quieras con él.
 
