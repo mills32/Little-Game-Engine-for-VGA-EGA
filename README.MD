@@ -3,10 +3,17 @@ Little Game Engine for MCGA/VGA and 8086/286
 --------------------------------------------
 
 If yu just want to test it:
+
+	enable GUS emulation or connect a GUS to your retro PC, then run "setgus.bat".
+	
 	Arrow keys = move player and menu.
+	
 	Enter = Select option.
+	
 	D = Jump.
+	
 	S = Hit ball.
+	
 	ESC = Back to menu / Exit to DOS.
 
 A lot of code from David Brackeen                                   
@@ -84,10 +91,17 @@ NOTES
 ---------------------------------------------
 
 So solamente quieres probarlo:
+
+	Activa la emulacion GUS en el emulador, o conecta una tarjeta GUS al retro PC (8086+). Después ejecuta "setgus.bat"
+
 	Arrow keys = mover jugador y menu.
+	
 	Enter = Seleccionar opción.
+	
 	D = Saltar.
+	
 	S = Lanzar bola.
+	
 	ESC = Volver al menu / Salir a DOS.
 
 Un montón de código copiado de David Brackeen                                   
