@@ -474,6 +474,7 @@ void LT_Draw_Enemy(SPRITE *s){
 	s->last_y = s->pos_y;
 	
 	s->s_delete = 1;
+  
   }
   else if (s->s_delete == 1) {LT_Delete_Sprite(s); s->s_delete = 0;}
 	s->last_x = s->pos_x;
@@ -907,7 +908,7 @@ void LT_Enemy_walker(SPRITE *s, byte mode){
 			y = (s->pos_y-1)>>4;
 			tile_number_VR = LT_map.collision[( y * LT_map.width) + x];	
 			if (tile_number_VR == 1) col_y = 1;
-			if (col_y == 1) s->speed_y *= 1;
+			if (col_y == 1) s->speed_y *= -1;
 		}
 		if (s->speed_y > 0){	//DOWN
 			col_y = 0;
@@ -941,13 +942,12 @@ void LT_Enemy_walker(SPRITE *s, byte mode){
 	col_y = 0;
 	
 	//SPEED CONTROL TO MAKE ENEMIES TO MOVE SLOWER THAN +=1
-	if (s->s_x == 2) s->s_x = 0;
-	if (s->s_y == 2) s->s_y = 0;
-	s->pos_x += s->speed_x*s->s_x;
-	s->pos_y += s->speed_y*s->s_y;
-	
+	if (s->s_x == 2) {
+		s->s_x = 0;
+		s->pos_x += s->speed_x;
+		s->pos_y += s->speed_y;
+	}
 	s->s_x ++;
-	s->s_y ++; 
 	return;
 }
 

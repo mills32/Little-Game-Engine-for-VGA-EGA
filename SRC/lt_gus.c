@@ -1239,10 +1239,11 @@ int LT_LoadMOD(char *filename) {
 void LT_Init_GUS(byte channels){
 	char *ptr;
 	ptr = getenv("ULTRASND");               // grab ULTRASND env variable
-	if (ptr == NULL) Error(1);              // if it doesnt exist spit it
+	if (ptr == NULL) ;//Error(1);              // if it doesnt exist spit it
 	else Base = ((ptr[1]-48)*0x10)+0x200;   // else grab the hex base address
 	GUSReset(channels);             				// initialize GUS with 14 voices (44.1khz)
 	printf("\nGUS OK at Base Port %x.\n", Base);
+	sleep(1);
 }
 
 

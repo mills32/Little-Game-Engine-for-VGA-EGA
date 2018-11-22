@@ -15,6 +15,7 @@
 #include <mem.h>
 #include <math.h>
 #undef outp
+#undef outpw
 #define VIDEO_INT           0x10      // the BIOS video interrupt.
 #define SET_MODE            0x00      // BIOS func to set the video mode.
 #define VGA_256_COLOR_MODE  0x13      // use to set 256-color mode. 
@@ -37,6 +38,7 @@
 #define H_RETRACE_END       0x05
 #define V_TOTAL             0x06
 #define OVERFLOW            0x07
+#define PRESET_ROW_SCAN     0x08 
 #define MAX_SCAN_LINE       0x09
 #define V_RETRACE_START     0x10
 #define V_RETRACE_END       0x11
@@ -154,10 +156,14 @@ typedef struct tagSPRITE{				// structure for a sprite
 	float fpos_y;
 	int speed_x;
 	int speed_y;
+	byte s_x;		//To control speed
+	byte s_y;
+	byte misc;
 	byte state;		//0 no speed
 	byte frame;
 	byte nframes;
 	byte *bkg_data;
+	byte s_delete;
 	SPRITEFRAME *rle_frames;	
 } SPRITE;
 
@@ -227,9 +233,14 @@ void cycle_palette(COLORCYCLE *cycle, byte speed);
 
 //SPRITE
 void LT_Load_Sprite(char *file,SPRITE *s, byte size);
+void LT_Clone_Sprite(SPRITE *c,SPRITE *s);
 void LT_Set_Sprite_Animation(SPRITE *s, byte baseframe, byte frames, byte speed);
 void LT_Draw_Sprite(SPRITE *b);
+void LT_Draw_Enemy(SPRITE *b);
+void LT_Set_Enemy(SPRITE *s, word x, word y, int sx, int sy);
+void LT_Restore_Sprite_BKG(SPRITE *s);
 LT_Col LT_move_player(SPRITE *s);
+void LT_Enemy_walker(SPRITE *s, byte mode);
 LT_Col LT_Bounce_Ball(SPRITE *s);
 void LT_Delete_Sprite(SPRITE *s);
 void LT_load_font(char *file);
@@ -246,7 +257,7 @@ void LT_Unload_Music();
 
 //GUS
 void LT_Init_GUS(byte channels);
-int LoadMOD(char *filename);
+int LT_LoadMOD(char *filename);
 void PlayMOD(byte mode);//0 normal; 1 disable effects for slow cpu (8088-8086).
 void StopMOD();
 

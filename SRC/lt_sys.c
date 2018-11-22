@@ -28,8 +28,8 @@ void LT_Check_CPU(){
         popf                    // replace current FLAGS value
         pushf                   // get new FLAGS
         pop     ax              // store new FLAGS in AX
-        and     ax, 0f000h      // if bits 12-15 are set, then
-        cmp     ax, 0f000h      //   processor is an 8086/8088
+        and     ax, 0f000h      // if bits 12-15 are set, then processor is an 8086/8088
+        cmp     ax, 0f000h       
         je      _8086_8088		// jump if processor is 8086/8088
 	}
 	printf("\nCPU: 286+ - Little engine will work great!!\n");
@@ -37,7 +37,7 @@ void LT_Check_CPU(){
 	return;
 	_8086_8088:
 	printf("\nCPU: 8088 - Little engine will work a bit slow\n");
-	printf("\nCPU: 8086 - Little engine will work great!!\n (Just don't use more than 4 sprites)\n");
+	printf("\nCPU: 8086 - Little engine will work OK!!\n");
 	sleep(5);
 	return;
 }

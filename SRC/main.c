@@ -204,6 +204,8 @@ void Run_TopDown(){
 		
 		LT_gprint(LT_Player_Col.tile_number,240,160);
 		
+		cycle_palette(&cycle_water,4);
+		
 		//In this mode sprite is controlled using U D L R
 		LT_Player_Col = LT_move_player(&sprite_player);
 		
@@ -219,10 +221,9 @@ void Run_TopDown(){
 		
 		//If collision tile = ?, end level
 		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
-		
-		cycle_palette(&cycle_water,4);
 
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
+		
 	}
 	//StopMOD(1);
 	LT_unload_sprite(&sprite_player); //manually free sprites
@@ -558,11 +559,11 @@ void Run_Shooter(){
 	LT_MODE = 3; //SIDE SCROLL
 	LT_Set_Sprite_Animation(&sprite_ship,8,4,4);
 	while(Scene == 4){
-		
 		MCGA_Scroll(SCR_X,SCR_Y);
 		LT_Restore_Sprite_BKG(&sprite_ship);
 		LT_Draw_Sprite(&sprite_ship);
 		LT_Endless_SideScroll_Map(0);
+		
 		LT_Player_Col = LT_move_player(&sprite_ship);
 		if (LT_Player_Col.col_x == 1) {
 			LT_Set_Sprite_Animation(&sprite_ship,12,4,4);
@@ -585,7 +586,6 @@ void main(){
 	system("cls");
 	//LT_Check_CPU(); //still causing trouble
 	//LT_Adlib_Detect(); 
-	
 	LT_Init_GUS(12);
 	LT_Init();
 	gotoxy(17,13);
