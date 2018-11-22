@@ -90,7 +90,7 @@ NOTES
 "Little Game Engine" para MCGA/VGA y 8086/286
 ---------------------------------------------
 
-So solamente quieres probarlo:
+Si solamente quieres probarlo:
 
 	Activa la emulacion GUS en el emulador, o conecta una tarjeta GUS al retro PC (8086+). Después ejecuta "setgus.bat"
 
