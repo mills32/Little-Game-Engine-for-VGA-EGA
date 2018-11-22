@@ -2,7 +2,7 @@
 Little Game Engine for MCGA/VGA and 8086/286
 --------------------------------------------
 
-If yu just want to test it:
+If you just want to test it:
 
 	enable GUS emulation or connect a GUS to your retro PC, then run "setgus.bat".
 	
