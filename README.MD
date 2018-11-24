@@ -110,7 +110,7 @@ http://www.brackeen.com/home/vga/
 Este es un programa de 16-bit, funcionará en MS-DOS, FreeDos y Windows 98.                     
 Recuerda que hay que compilarlo usando el "LARGE memory model".                        
 
-Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA.
+Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA. Lo he probado en el emulador PCem con una VGA - 8 bit ISA, que ha tenido una velocidad de transferencia de 550 characteres/ms en "landmark system speed benchmark".
 
 Requisitos mínimos (mover mapa + sprites 8x8 + Adlib): 
 - CPU 8088 4.77 Mhz
