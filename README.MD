@@ -22,7 +22,7 @@ http://www.brackeen.com/home/vga/
 This is a 16-bit MS-DOS program, it will only work on MS-DOS, FreeDos and windows 98.                     
 Remember to compile in the LARGE memory model!                        
 
-Little engine works on every toaster, potato or emulator, as long as it finds an 8088 (or any x86 based CPU) and a VGA compatible video card.
+Little engine works on every toaster, potato or emulator, as long as it finds an 8088 (or any x86 based CPU) and a VGA compatible video card. I tested it using PCem with 8 bit ISA VGA, which had a transfer speed of around 550 characters/ms on landmark system speed benchmark.
 
 Minimum requirements (scroll map + sprites 8x8 + Adlib):
 - CPU 8088 4.77 Mhz
