@@ -2,6 +2,10 @@
 Little Game Engine for MCGA/VGA and 8086/286
 --------------------------------------------
 
+To play: 
+-You need adlib and/or GUS, 8088 and VGA. 
+-Controls: UP DOWN LEFT RIGHT S D ENTER ESC. 
+
 A lot of code from David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
 
@@ -76,6 +80,10 @@ NOTES
 	
 "Little Game Engine" para MCGA/VGA y 8086/286
 ---------------------------------------------
+
+Para jugar: 
+-Necesitas adlib y/o GUS, 8088 y VGA. 
+-Controles: Teclas ireccionales, S, D, ENTER, ESC. 
 
 Un montón de código copiado de David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
