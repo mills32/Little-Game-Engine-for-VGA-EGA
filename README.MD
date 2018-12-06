@@ -1,5 +1,5 @@
-# Little-Game-Engine-for-VGA-MCGA
-Little Game Engine for MCGA/VGA and 8086/286
+# Little-Game-Engine-for-VGA
+Little Game Engine for VGA and 8088/8086/286
 --------------------------------------------
 
 To play: 
@@ -78,7 +78,7 @@ NOTES
 	So every time you load a map, tileset or music, the last one is overwritten.
 	
 	
-"Little Game Engine" para MCGA/VGA y 8086/286
+"Little Game Engine" para VGA y 8088/8086/286
 ---------------------------------------------
 
 Para jugar: 
