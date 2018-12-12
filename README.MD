@@ -92,7 +92,7 @@ Este es un programa de 16-bit, funcionará en MS-DOS, FreeDos y Windows 98.
 Recuerda que hay que compilarlo usando el "LARGE memory model".                        
 
 Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA.
-El motor ha sido portado al "MODO-X" de VGA, y ahora funciona má rápido, ya que las funciones de dibujado se hacen por transferencia de VRAM a VRAM (de 4 en 4 pixels).
+El motor ha sido portado al "MODO-X" de VGA, y ahora funciona más rápido, ya que las funciones de dibujado se hacen por transferencia de VRAM a VRAM (de 4 en 4 pixels).
 
 Requisitos mínimos: scroll de mapas a 60 fps, adlib, y varios sprites de 8x8 o 16x16, con parpadeos.
 - CPU 8088 4.77 Mhz
@@ -103,7 +103,7 @@ Requisitos mínimos: scroll de mapas a 60 fps, adlib, y varios sprites de 8x8 o 
 Requisitos medios: scroll de mapas a 60 fps, adlib y MOD(sin efectos especiales), sprites de hasta 32x32, con pocos parpadeos.
 - CPU 8086 8 Mhz
 - RAM 640 Kb
-- GRÁFICOS MCGA/VGA
+- GRÁFICOS VGA
 - SONIDO Adlib o compatible
 - GRAVIS ULTRASOUND (para reproducir módulos Protracker - MOD)
 
