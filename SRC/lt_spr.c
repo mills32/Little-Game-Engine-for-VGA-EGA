@@ -19,6 +19,8 @@
 
 #include "lt__eng.h"
 
+SPRITE *sprite;
+
 //Player
 byte tile_number = 0;		//Tile a sprite is on
 byte tilecol_number = 0;	//Collision Tile a sprite is on
@@ -29,6 +31,10 @@ byte tile_number_HD = 0;	//Tile horizontal down
 
 byte LT_SpriteStack = 0;
 
+//NON SCROLLING WINDOW
+extern byte LT_Window; 				//Displaces everything (16 pixels) in case yo use the 320x16 window in the game
+
+void LT_Error(char *error, char *file);
 
 //player movement modes
 //MODE TOP = 0;
@@ -45,166 +51,118 @@ int LT_player_jump_pos[] = {
 	 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
 
-void LT_scroll_follow(SPRITE *s){
+//FUNCTIONS IN SPRC.ASM
+int x_compile_bitmap(word logical_screen_width, char *bitmap, char *output);       
+void x_run_compiled_sprite(word XPos, word YPos, char *CompiledBitmap);
+
+void LT_scroll_follow(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
 	//LIMITS
-	int y_limU = SCR_Y + 64;
-	int y_limD = SCR_Y + 120;
 	int x_limL = SCR_X + 80;
-	int x_limR = SCR_X + 200;
+	int x_limR = SCR_X + 240;
+	int y_limU = SCR_Y + 80;
+	int y_limD = SCR_Y + 140;
 	int wmap = LT_map.width<<4;
 	int hmap = LT_map.height<<4;
 	int x = abs(s->last_x - s->pos_x);
-	int y = abs(s->last_y - s->pos_y);
+	int y = abs(s->last_y - (s->pos_y+LT_Window));
+	int px = s->pos_x;
+	int py = s->pos_y+LT_Window;
 	//clamp limits
-	if ((SCR_X > -1) && ((SCR_X+303)<wmap) && (SCR_Y > -1) && ((SCR_Y+175)<hmap)){
-		if (s->pos_y > y_limD) SCR_Y+=y;
-		if (s->pos_y < y_limU) SCR_Y-=y;
-		if (s->pos_x < x_limL) SCR_X-=x;
-		if (s->pos_x > x_limR) SCR_X+=x;
+	if ((SCR_X > -1) && ((SCR_X+319)<wmap) && (SCR_Y > -1) && ((SCR_Y+239)<hmap)){
+		if (py > y_limD) SCR_Y+=y;
+		if (py < y_limU) SCR_Y-=y;
+		if (px < x_limL) SCR_X-=x;
+		if (px > x_limR) SCR_X+=x;
 	}
 	if (SCR_X < 0) SCR_X = 0; 
-	if ((SCR_X+304) > wmap) SCR_X = wmap-304;
+	if ((SCR_X+320) > wmap) SCR_X = wmap-320;
 	if (SCR_Y < 0) SCR_Y = 0; 
-	if ((SCR_Y+176) > hmap) SCR_Y = hmap-176; 
+	if ((SCR_Y+240) > hmap) SCR_Y = hmap-240; 
 }
 
-//load RLE sprites with transparency (size = 8,16,32)
-void LT_Load_Sprite(char *file,SPRITE *s, byte size){
-	FILE *fp;
+//load sprites with transparency (size = 8,16,32,64!)
+void LT_Load_Sprite(char *file, int sprite_number, byte size){
+	SPRITE *s = &sprite[sprite_number];
 	long index,offset;
 	word num_colors;
-	byte x,y;
+	word x,y;
 	word i,j;
 	word frame = 0;
+	word fsize = 0;
 	byte tileX;
 	byte tileY;
 	
-	word number_of_runs = 0;
-	byte pixel = 0; //this is to know if a scan line is empty
-	word e_sskip = 0;
-	word e_bskip = 0;
-	word foffset = 0; //offset in final data
-	word frame_size;
-	word run_sskip[256];
-	byte run_bskip[256];
-	byte run_startx[256];
-	word run_length[256];
-	byte current_byte;
-	byte last_byte = 0;
+	FILE *fp;
+
+    int code_size;
 	
 	fp = fopen(file,"rb");
-	if(!fp){
-		printf("can't find %s.\n",file);
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);
-	} 
+	
+	if(!fp) LT_Error("Can't find ",file);
+	
+	fseek(fp, 2, SEEK_CUR);
 
-	fskip(fp,18);
+	fseek(fp, 16, SEEK_CUR);
 	fread(&s->width, sizeof(word), 1, fp);
-	fskip(fp,2);
+	fseek(fp, 2, SEEK_CUR);
 	fread(&s->height,sizeof(word), 1, fp);
-	fskip(fp,22);
+	fseek(fp, 22, SEEK_CUR);
 	fread(&num_colors,sizeof(word), 1, fp);
-	fskip(fp,6);
+	fseek(fp, 6, SEEK_CUR);
 
 	if (num_colors==0) num_colors=256;
+
 	for(index=0;index<num_colors;index++){
-		fgetc(fp);
-		fgetc(fp);
-		fgetc(fp);
-		fgetc(fp);
+		s->palette[(int)(index*3+2)] = fgetc(fp) >> 2;
+		s->palette[(int)(index*3+1)] = fgetc(fp) >> 2;
+		s->palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+		x=fgetc(fp);
 	}
 
-	for(index=(s->height-1)*s->width;index>=0;index-=s->width)
-		for(x=0;x<s->width;x++)
-		LT_tile_datatemp[index+x]=(byte)fgetc(fp);
+	for(index=(s->height-1)*s->width;index>=0;index-=s->width){
+		for(x=0;x<s->width;x++){
+			LT_tile_tempdata[index+x]=(byte)fgetc(fp);
+		}
+	}
 	fclose(fp);
-
-	index = 0;
 	
-	//Rearrange tiles one after another in memory (in a column)
+	index = 16384; //use a chunk of temp allocated RAM to rearrange the sprite frames
+	//Rearrange sprite frames one after another in temp memory
 	for (tileY=0;tileY<s->height;tileY+=size){
 		for (tileX=0;tileX<s->width;tileX+=size){
 			offset = (tileY*s->width)+tileX;
+			LT_tile_tempdata[index] = size;
+			LT_tile_tempdata[index+1] = size;
+			index+=2;
 			for(x=0;x<size;x++){
-				memcpy(&LT_sprite_tiledatatemp[index],&LT_tile_datatemp[offset+(x*s->width)],size);
+				memcpy(&LT_tile_tempdata[index],&LT_tile_tempdata[offset+(x*s->width)],size);
 				index+=size;
 			}
 		}
 	}
+	
 	s->nframes = (s->width/size) * (s->height/size);
+	
+	//calculate frames size
+	if ((s->frames = farcalloc(s->nframes,sizeof(SPRITEFRAME))) == NULL) 
+		LT_Error("Error loading ",file);
+	
+	//Estimated size
+	fsize = (size * size * 7) / 2 + 25;
+	for (frame = 0; frame < s->nframes; frame++){
+		if ((s->frames[frame].compiled_code = farcalloc(fsize,sizeof(unsigned char))) == NULL){
+			LT_Error("Not enough RAM to allocate frames ",file);
+		}
+		//COMPILE SPRITE FRAME TO X86 MACHINE CODE		
+		code_size = x_compile_bitmap(84, &LT_tile_tempdata[16384+(frame*2)+(frame*(size*size))],s->frames[frame].compiled_code);
+		s->frames[frame].compiled_code = farrealloc(s->frames[frame].compiled_code, code_size);
+	}
+	
+	//IINIT SPRITE
+	//s->bkg_data set in init function (sys.c)
 	s->width = size;
 	s->height = size;
-
-	//calculate frames size
-	s->rle_frames = farcalloc(s->nframes,sizeof(SPRITEFRAME));
-	//CONVERT AND STORE EVERY FRAME IN RLE FORMAT
-	for(j=0;j<s->nframes;j++){
-		offset = 0;
-		foffset = 0;
-		frame = (size*size)*j;
-		number_of_runs = 0;
-		e_sskip = 0;
-		e_bskip = 0;
-		for(y = 0; y < size; y++) {
-			last_byte = 0;
-			pixel = 0;
-			for(x = 0; x < size; x++) {
-				//Get pixel value
-				current_byte = LT_sprite_tiledatatemp[(size*y)+x+frame]; 
-				//I found a Pixel, start a run
-				if (last_byte == 0 && current_byte != 0){
-					run_startx[number_of_runs] = x;
-					run_sskip[number_of_runs] = e_sskip;
-					run_bskip[number_of_runs] = e_bskip;
-					e_sskip = 0;
-					e_bskip = 0;
-					pixel = 1;
-				}
-				//I found the end of a run
-				if (last_byte != 0 && current_byte == 0){
-					run_length[number_of_runs] = x - run_startx[number_of_runs];
-					number_of_runs++;
-					pixel = 2;
-				}
-				//If 0, skip
-				if (current_byte == 0){e_sskip++;e_bskip++;}
-				last_byte = current_byte;
-			}
-			//I didn't find the end of a run, and the scan line ended
-			if (pixel == 1){
-				run_length[number_of_runs] = x - run_startx[number_of_runs];
-				number_of_runs++;
-				e_bskip = 0;
-			}
-			//I didn't find any pixel, or the last part was empty, and the scan line ended. Do nothing
-			//Next scan line
-			e_sskip+=320-size;
-		}
-		
-		//ALLOCATE SPACE FOR CURRENT FRAME
-		frame_size = 2; //word "number of runs"
-		for(i = 0; i < number_of_runs; i++) 
-			frame_size+= (4 + run_length[i]); //word skip + word number of pixels + length
-		s->rle_frames[j].rle_data = (byte*) farcalloc(frame_size,sizeof(byte));
-
-		//copy RLE data to struct
-		memcpy(&s->rle_frames[j].rle_data[0],&number_of_runs,2);
-		foffset+=2;
-		for(i = 0; i < number_of_runs; i++) {
-			memcpy(&s->rle_frames[j].rle_data[foffset],&run_sskip[i],2); //bytes to skip on vga screen
-			foffset+=2;
-			memcpy(&s->rle_frames[j].rle_data[foffset],&run_length[i],2); //Number of bytes of pixel data that follow
-			foffset+=2;
-			offset+=run_bskip[i];
-			memcpy(&s->rle_frames[j].rle_data[foffset],&LT_sprite_tiledatatemp[offset+frame],run_length[i]); //copy pixel data;
-			foffset+=run_length[i];
-			offset+=run_length[i];
-		}
-	}
-
-	s->bkg_data = (byte *) farcalloc(size*size,sizeof(byte)); /*allocate memory for the 16x16 bkg chunk erased every time you draw the sprite*/
 	s->init = 0;
 	s->frame = 0;
 	s->baseframe = 0;
@@ -222,16 +180,23 @@ void LT_Load_Sprite(char *file,SPRITE *s, byte size){
 	s->fpos_y = 0;
 	s->s_delete = 0;
 	s->misc = 0;
+	s->mspeed_x = 1;
+	s->mspeed_y = 1;
+	s->size = s->height>>3;
+	s->siz = (s->height>>2) + 1;
+	s->next_scanline = 84 - s->siz;
 }
 
-void LT_Clone_Sprite(SPRITE *c,SPRITE *s){
+void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
+	SPRITE *c = &sprite[sprite_number_c];
+	SPRITE *s = &sprite[sprite_number];
 	int j;
 	c->nframes = s->nframes;
 	c->width = s->width;
 	c->height = s->height;
-	c->rle_frames = s->rle_frames;
-	for(j=0;j<c->nframes;j++) c->rle_frames[j].rle_data = s->rle_frames[j].rle_data;
-	c->bkg_data = (byte *) farcalloc(s->width*s->width,sizeof(byte)); /*allocate memory for the 16x16 bkg chunk erased every time you draw the sprite*/
+	c->frames = s->frames;
+	for(j=0;j<c->nframes;j++) c->frames[j].compiled_code = s->frames[j].compiled_code;
+	//sprite[sprite_number_c].bkg_data  //allocated in lt_sys
 	c->init = 0;
 	c->frame = 0;
 	c->baseframe = 0;
@@ -241,6 +206,8 @@ void LT_Clone_Sprite(SPRITE *c,SPRITE *s){
 	c->animate = 0;
 	c->anim_speed = 0;
 	c->anim_counter = 0;
+	c->mspeed_x = 1;
+	c->mspeed_y = 1;
 	c->speed_x = 0;
 	c->speed_y = 0;
 	c->s_x = 0;
@@ -249,65 +216,99 @@ void LT_Clone_Sprite(SPRITE *c,SPRITE *s){
 	c->fpos_y = 0;
 	c->s_delete = 0;
 	c->misc = 0;
+	c->size = c->height>>3;
+	c->siz = (c->height>>2) + 1;
+	c->next_scanline = 84 - c->siz;
 }
 
-void LT_Add_Sprite(SPRITE *s,word x, word y) {
-	s->pos_x = x;
-	s->pos_y = y;
+void LT_Add_Sprite(int sprite_number,word x, word y) {
+	sprite[sprite_number].pos_x = x;
+	sprite[sprite_number].pos_y = y;
 	if (LT_SpriteStack == 2) LT_SpriteStack = 0;
 	//Sprite[LT_SpriteStack].bkg_data
 	LT_SpriteStack++;
 }
 
-void LT_Set_Sprite_Animation(SPRITE *s, byte baseframe, byte frames, byte speed){
+void LT_Set_Sprite_Animation(int sprite_number, byte baseframe, byte frames, byte speed){
+	SPRITE *s = &sprite[sprite_number];
 	s->baseframe = baseframe;
 	s->aframes = frames;
 	s->speed = speed;
 	s->animate = 1;
 }
 
-void LT_Delete_Sprite(SPRITE *s){
-	unsigned char *bkg_data = (unsigned char *) &s->bkg_data;
-	word screen_offset0 = (s->last_y<<8)+(s->last_y<<6)+s->last_x;
-	word size = s->height;
-	word siz = s->height>>1;
-	word next_scanline = 320 - s->width;
+void LT_Delete_Sprite(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
+	word bkg_data = s->bkg_data;
+	word screen_offset0 = (s->last_y<<6)+(s->last_y<<4)+(s->last_y<<2)+(s->last_x>>2);
+	word size = s->height>>3;
+	word siz = (s->height>>2)+1;
 	
-	///Paste bkg chunk and delete sprite
-	asm push ds
-	asm push di
-	asm push si
-	asm{	
+	word next_scanline = 84 - siz;
+	
+	///paste bkg chunk
+	outport(SC_INDEX, ((word)0xff << 8) + MAP_MASK); //select all planes
+    outport(GC_INDEX, 0x08); 
+	asm{
+		push ds
+		push di
+		push si
+		
 		mov 	ax,0A000h
 		mov 	es,ax						
-		mov		di,screen_offset0				
+		mov		di,screen_offset0	//es:di destination vram				
 		
-		lds		bx,[bkg_data]					
-		lds		si,ds:[bx]						
+		mov		ds,ax						
+		mov		si,bkg_data			//ds:si source vram				
 		mov 	ax,size
 	}
-	delete:	
+	bkg_scanline1:	
 	asm{
 		mov 	cx,siz
-		rep		movsw				// copy bytes from ds:si to es:di
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
 		add 	di,[next_scanline]
 		dec 	ax
-		jnz		delete
+		jnz		bkg_scanline1
 	}
+
 	asm pop si
 	asm pop di
-	asm pop ds
+	asm pop ds	
+	
+	outport(GC_INDEX + 1, 0x0ff);
 	
 	s->init = 0;
 }
 
-void LT_Draw_Sprite(SPRITE *s){
-	unsigned char *data;
-	unsigned char *bkg_data = (unsigned char *) &s->bkg_data;
-	word screen_offset1 = (s->pos_y<<8)+(s->pos_y<<6)+s->pos_x;
-	word size = s->height;
-	word size2 = s->height>>1;
-	word next_scanline = 320 - s->width;
+void LT_Draw_Sprite(int sprite_number){//mierda
+	SPRITE *s = &sprite[sprite_number];
+	word py = s->pos_y+LT_Window;
+	word bkg_data = s->bkg_data;
+	word screen_offset0 = (py<<6)+(py<<4)+(py<<2)+(s->pos_x>>2);
+	word size = s->size;
+	word siz = s->siz;
+	word next_scanline = s->next_scanline;
 	
 	//animation
 	if (s->animate == 1){
@@ -320,83 +321,76 @@ void LT_Draw_Sprite(SPRITE *s){
 		s->anim_speed++;
 	}
 	
-	data = (unsigned char *) &s->rle_frames[s->frame].rle_data; 
-	//Copy bkg chunk before destroying it
+	//Copy bkg chunk to a reserved VRAM part, before destroying it
+	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
+    outport(GC_INDEX, 0x08); 
 	asm{
 		push ds
 		push di
 		push si
 		mov 	ax,0A000h
 		mov 	ds,ax						
-		mov		si,screen_offset1				
+		mov		si,screen_offset0	//ds:si source vram			
 		
-		les		bx,[bkg_data]					
-		les		di,es:[bx]						
-		mov 	ax,size
+		mov 	es,ax						
+		mov		di,bkg_data			//es:di destination
+		
+		mov		ax,size				//Scanlines
 	}
-	rle_2:	
+	bkg_scanline2:	
 	asm{
-		mov 	cx,size2
-		rep		movsw				// copy bytes from ds:si to es:di
+		mov 	cx,siz				// copy width + 4 pixels
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
 		add 	si,[next_scanline]
 		dec 	ax
-		jnz		rle_2	
-	}
-	
-	//copy sprite and destroy bkg
-	asm{
-
-		mov 	ax,0A000h
-		mov 	es,ax						
-		mov		di,screen_offset1	//es:di = vga		
-	
-		lds		bx,[data]					
-		lds		si,ds:[bx]			//ds:si = data		
-	
-		lodsw			//DS:SI -> AX (Number of runs)
+		jnz		bkg_scanline2	
 		
-		xchg dx,ax		//DX = Number of runs.
+		pop si
+		pop di
+		pop ds
 	}
-	rle_3:				//DX = Number of runs
-	asm{
-		lodsw			//DS:SI -> AX. Number of bytes to ad to pointer DI.
-		add 	di,ax	
-		lodsw			//DS:SI -> AX. Number of bytes of pixel data that follow
-		mov 	cx,ax	//CX = AX (counter)
-		shr		cx,1	//counter / 2 because we copy words
-		jc		rle_odd //if there was a left over, it was odd, go to rle_odd
-		
-		rep 	movsw	//copy pixel data from ds:si to es:di
-		dec 	dx		//DX = Number of runs
-		jnz 	rle_3
-		jmp		rle_exit
-	}
-	rle_odd:
-	asm{
-		rep 	movsw	//copy pixel data from ds:si to es:di
-		movsb			//Copy the last byte, because the line was odd
-		dec 	dx		//DX = Number of runs	
-		jnz 	rle_3
-	}
-	rle_exit:
-	asm pop si
-	asm pop di
-	asm pop ds
+	outport(GC_INDEX + 1, 0x0ff);
+	
+	//draw sprite and destroy bkg
+	x_run_compiled_sprite(s->pos_x,py,s->frames[s->frame].compiled_code);
 	
 	s->last_x = s->pos_x;
-	s->last_y = s->pos_y;
+	s->last_y = py;
 }
 
-void LT_Draw_Enemy(SPRITE *s){
+void LT_Draw_Enemy(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
+	int x = s->pos_x;
+	int y = s->pos_y+LT_Window;
   //DRAW THE ENEMY ONLY IF IT IS INSIDE THE ACTIVE MAP
-  if ((s->pos_x > SCR_X)&&(s->pos_x < (SCR_X+288))&&(s->pos_y > SCR_Y)&&(s->pos_y < (SCR_Y+160))){
-	unsigned char *data;
-	unsigned char *bkg_data = (unsigned char *) &s->bkg_data;
-	word screen_offset1 = (s->pos_y<<8)+(s->pos_y<<6)+s->pos_x;
-	word size = s->height;
-	word size2 = s->height>>1;
-	word next_scanline = 320 - s->width;	
- 
+  if ((x > SCR_X)&&(x < (SCR_X+304))&&(s->pos_y > SCR_Y)&&(s->pos_y < (SCR_Y+224))){
+	word bkg_data = s->bkg_data;
+	word screen_offset1 = (y<<6)+(y<<4)+(y<<2)+(x>>2);
+	word size = s->size;
+	word siz = s->siz;
+	word next_scanline = s->next_scanline;
+	
 	//animation
 	if (s->animate == 1){
 		s->frame = s->baseframe + s->anim_counter;
@@ -408,172 +402,220 @@ void LT_Draw_Enemy(SPRITE *s){
 		s->anim_speed++;
 	}
 	
-	data = (unsigned char *) &s->rle_frames[s->frame].rle_data; 
-	//Copy bkg chunk before destroying it
+	//Copy bkg chunk to a reserved VRAM part, before destroying it
+	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
+    outport(GC_INDEX, 0x08); 
 	asm{
 		push ds
 		push di
 		push si
 		mov 	ax,0A000h
 		mov 	ds,ax						
-		mov		si,screen_offset1				
+		mov		si,screen_offset1	//ds:si source vram			
 		
-		les		bx,[bkg_data]					
-		les		di,es:[bx]						
-		mov 	ax,size
+		mov 	es,ax						
+		mov		di,bkg_data			//es:di destination
+		
+		mov		ax,size				//Scanlines
 	}
-	rle_2:	
+	bkg_scanline2:	
 	asm{
-		mov 	cx,size2
-		rep		movsw				// copy bytes from ds:si to es:di
+		mov 	cx,siz				// copy width + 4 pixels
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	si,[next_scanline]
+		mov 	cx,siz				
+		rep		movsb				// copy bytes from ds:si to es:di
 		add 	si,[next_scanline]
 		dec 	ax
-		jnz		rle_2	
-	}	
-	//copy sprite and destroy bkg
-	asm{
-
-		mov 	ax,0A000h
-		mov 	es,ax						
-		mov		di,screen_offset1	//es:di = vga		
-	
-		lds		bx,[data]					
-		lds		si,ds:[bx]			//ds:si = data		
-	
-		lodsw			//DS:SI -> AX (Number of runs)
+		jnz		bkg_scanline2	
 		
-		xchg dx,ax		//DX = Number of runs.
+		pop si
+		pop di
+		pop ds
 	}
-	rle_3:				//DX = Number of runs
-	asm{
-		lodsw			//DS:SI -> AX. Number of bytes to ad to pointer DI.
-		add 	di,ax	
-		lodsw			//DS:SI -> AX. Number of bytes of pixel data that follow
-		mov 	cx,ax	//CX = AX (counter)
-		shr		cx,1	//counter / 2 because we copy words
-		jc		rle_odd //if there was a left over, it was odd, go to rle_odd
-		
-		rep 	movsw	//copy pixel data from ds:si to es:di
-		dec 	dx		//DX = Number of runs
-		jnz 	rle_3
-		jmp		rle_exit
-	}
-	rle_odd:
-	asm{
-		rep 	movsw	//copy pixel data from ds:si to es:di
-		movsb			//Copy the last byte, because the line was odd
-		dec 	dx		//DX = Number of runs	
-		jnz 	rle_3
-	}
-	rle_exit:
-	asm pop si
-	asm pop di
-	asm pop ds
+	outport(GC_INDEX + 1, 0x0ff);
+	//draw sprite and destroy bkg
+	x_run_compiled_sprite(x,y,s->frames[s->frame].compiled_code);
 	
-	s->last_x = s->pos_x;
-	s->last_y = s->pos_y;
-	
+	s->last_x = x;
+	s->last_y = y;
 	s->s_delete = 1;
-  
   }
-  else if (s->s_delete == 1) {LT_Delete_Sprite(s); s->s_delete = 0;}
-	s->last_x = s->pos_x;
-	s->last_y = s->pos_y;
+  else if (s->s_delete == 1) {LT_Delete_Sprite(sprite_number); s->s_delete = 0;}
+	s->last_x = x;
+	s->last_y = y;
 }
 
-void LT_Set_Enemy(SPRITE *s, word x, word y, int sx, int sy){
+void LT_Set_Enemy(int sprite_number, word x, word y, int sx, int sy){
+	SPRITE *s = &sprite[sprite_number];
 	s->pos_x = x<<4;
 	s->pos_y = y<<4;
 	s->speed_x = sx;
 	s->speed_y = sy;
 }
 
-void LT_Restore_Sprite_BKG(SPRITE *s){
-	unsigned char *bkg_data = (unsigned char *) &s->bkg_data;
-	word screen_offset0 = (s->last_y<<8)+(s->last_y<<6)+s->last_x;
+void LT_Restore_Sprite_BKG(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
+	word bkg_data = s->bkg_data;
+	word screen_offset0 = (s->last_y<<6)+(s->last_y<<4)+(s->last_y<<2)+(s->last_x>>2);
 	word init = s->init;
-	word size = s->height;
-	word size2 = s->height>>1;
-	word next_scanline = 320 - s->width;
+	word size = s->size;
+	word siz = s->siz;
+	word next_scanline = s->next_scanline;
 	
 	///restore destroyed bkg chunk in last frame
+	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
+    outport(GC_INDEX, 0x08); 
 	asm{
 		push ds
 		push di
 		push si
 		
-		cmp	byte ptr [init],1 //if (s->init == 1)
+		cmp	byte ptr [init],1 //if (sprite[sprite_number].init != 1)
 		jne	short rle_noinit
 		
 		mov 	ax,0A000h
 		mov 	es,ax						
-		mov		di,screen_offset0				
+		mov		di,screen_offset0	//es:di destination vram				
 		
-		lds		bx,[bkg_data]					
-		lds		si,ds:[bx]						
+		mov		ds,ax						
+		mov		si,bkg_data			//ds:si source vram				
 		mov 	ax,size
 	}
-	rle_1:	
+	bkg_scanline1:	
 	asm{
-		mov 	cx,size2
-		rep		movsw				// copy bytes from ds:si to es:di
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
 		add 	di,[next_scanline]
 		dec 	ax
-		jnz		rle_1
+		jnz		bkg_scanline1
 	}
 	rle_noinit:
 	s->init = 1;
-		
+
 	asm pop si
 	asm pop di
 	asm pop ds	
+	
+	outport(GC_INDEX + 1, 0x0ff);
 }
 
-void LT_Restore_Enemy_BKG(SPRITE *s){
+void LT_Restore_Enemy_BKG(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
+	int x = s->pos_x;
+	int y = s->pos_y;
+  
   //DRAW THE ENEMY ONLY IF IT IS INSIDE THE ACTIVE MAP
-  if ((s->pos_x > SCR_X)&&(s->pos_x < (SCR_X+288))&&(s->pos_y > SCR_Y)&&(s->pos_y < (SCR_Y+160))){
-	unsigned char *bkg_data = (unsigned char *) &s->bkg_data;
-	word screen_offset0 = (s->last_y<<8)+(s->last_y<<6)+s->last_x;
+  if ((x > SCR_X)&&(x < (SCR_X+304))&&(y > SCR_Y)&&(y < (SCR_Y+224))){
+	int lx = s->last_x;
+	int ly = s->last_y;
+	word bkg_data = s->bkg_data;
+	word screen_offset0 = (ly<<6)+(ly<<4)+(ly<<2)+(lx>>2);
 	word init = s->init;
-	word size = s->height;
-	word size2 = s->height>>1;
-	word next_scanline = 320 - s->width;
+	word size = s->size;
+	word siz = s->siz;
+	word next_scanline = s->next_scanline;
 	
 	///restore destroyed bkg chunk in last frame
+	outport(SC_INDEX, ((word)0xff << 8) + MAP_MASK); //select all planes
+    outport(GC_INDEX, 0x08); 
 	asm{
 		push ds
 		push di
 		push si
 		
-		cmp	byte ptr [init],1 //if (s->init == 1)
+		cmp	byte ptr [init],1 //if (sprite[sprite_number].init == 1)
 		jne	short rle_noinit
 		
 		mov 	ax,0A000h
 		mov 	es,ax						
-		mov		di,screen_offset0				
+		mov		di,screen_offset0	//es:di destination vram				
 		
-		lds		bx,[bkg_data]					
-		lds		si,ds:[bx]						
+		mov		ds,ax						
+		mov		si,bkg_data			//ds:si source vram				
 		mov 	ax,size
 	}
-	rle_1:	
+	bkg_scanline1:	
 	asm{
-		mov 	cx,size2
-		rep		movsw				// copy bytes from ds:si to es:di
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
+		add 	di,[next_scanline]
+		mov 	cx,siz
+		rep		movsb				// copy bytes from ds:si to es:di
 		add 	di,[next_scanline]
 		dec 	ax
-		jnz		rle_1
+		jnz		bkg_scanline1
 	}
 	rle_noinit:
 	s->init = 1;
-		
+	
 	asm pop si
 	asm pop di
-	asm pop ds
+	asm pop ds	
+	
+	outport(GC_INDEX + 1, 0x0ff);
   }
 }
 
-LT_Col LT_move_player(SPRITE *s){
+LT_Col LT_move_player(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
 	LT_Col LT_Collision;
 	byte col_x = 0;
 	byte col_y = 0;
@@ -698,7 +740,7 @@ LT_Col LT_move_player(SPRITE *s){
 			tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x+4)>>4)];
 			if (tile_number_VR == 1) col_y = 1;
 			if (tile_number_VL == 1) col_y = 1;
-			if (col_y == 1) s->speed_y *= -1;
+			if (col_y == 1) {s->speed_y *= -1;s->speed_y-=16;}
 		}
 		if (s->speed_y > 0){	//DOWN
 			col_y = 0;
@@ -707,7 +749,7 @@ LT_Col LT_move_player(SPRITE *s){
 			tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x+4)>>4)];
 			if (tile_number_VR == 1) col_y = 1;
 			if (tile_number_VL == 1) col_y = 1;
-			if (col_y == 1) s->speed_y *= -1;
+			if (col_y == 1) {s->speed_y *= -1;s->speed_y+=16;}
 		}
 		if (s->speed_x < 0){	//LEFT
 			col_x = 0;
@@ -716,7 +758,7 @@ LT_Col LT_move_player(SPRITE *s){
 			tile_number_HD = LT_map.collision[(((s->pos_y+siz-4)>>4) * LT_map.width) + x];	
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 1) col_x = 1;
-			if (col_x == 1) s->speed_x *= -1;
+			if (col_x == 1) {s->speed_x *= -1;s->speed_x-=16;}
 		}
 		if (s->speed_x > 0){	//RIGHT
 			col_x = 0;
@@ -725,7 +767,7 @@ LT_Col LT_move_player(SPRITE *s){
 			tile_number_HD = LT_map.collision[(((s->pos_y+siz-4)>>4) * LT_map.width) + x];
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 1) col_x = 1;
-			if (col_x == 1) s->speed_x *= -1;
+			if (col_x == 1) {s->speed_x *= -1;s->speed_x+=16;}
 		}
 		if (tilecol_number == 0){ //FRICTION
 			if (s->speed_x > 0) s->speed_x-=2;
@@ -739,13 +781,13 @@ LT_Col LT_move_player(SPRITE *s){
 		col_x = 0;
 		col_y = 0;
 		//FORCE UP
-		if (tilecol_number == 6)s->speed_y-=9;
+		if (tilecol_number == 6)s->speed_y-=16;
 		//FORCE DOWN
-		if (tilecol_number == 7)s->speed_y+=9;
+		if (tilecol_number == 7)s->speed_y+=16;
 		//FORCE LEFT
-		if (tilecol_number == 8)s->speed_x-=9;
+		if (tilecol_number == 8)s->speed_x-=16;
 		//FORCE RIGHT
-		if (tilecol_number == 9)s->speed_x+=9;
+		if (tilecol_number == 9)s->speed_x+=16;
 
 		if (s->speed_x > 400) s->speed_x = 400;
 		if (s->speed_x < -400) s->speed_x = -400;
@@ -814,14 +856,14 @@ LT_Col LT_move_player(SPRITE *s){
 	return LT_Collision;
 }
 
-LT_Col LT_Bounce_Ball(SPRITE *s){
+LT_Col LT_Bounce_Ball(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
 	LT_Col LT_Collision;
-	byte col_x = 0;
-	byte col_y = 0;
-	byte size = s->width;
-	byte siz = s->width -1;
+	word col_x = 0;
+	word col_y = 0;
+	word size = s->width;
+	word siz = s->width -1;
 	int x,y;
-	
 	if (s->speed_y < 0){	//UP
 		col_y = 0;
 		x = (s->pos_x+siz)>>4;
@@ -837,7 +879,7 @@ LT_Col LT_Bounce_Ball(SPRITE *s){
 	if (s->speed_y > 0){	//DOWN
 		col_y = 0;
 		x = (s->pos_x+siz)>>4;
-		y = (s->pos_y+size+1)>>4;
+		y = (s->pos_y+size)>>4;
 		tile_number_VR = LT_map.collision[( y * LT_map.width) + x];
 		tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x)>>4)];
 		if (tile_number_VR == 1) col_y = 1;
@@ -879,89 +921,111 @@ LT_Col LT_Bounce_Ball(SPRITE *s){
 	return LT_Collision;
 }
 
-void LT_Enemy_walker(SPRITE *s, byte mode){
-	byte col_x = 0;
+void LT_Enemy_walker(int sprite_number, byte mode){
+	SPRITE *s = &sprite[sprite_number];
+	int px = s->pos_x;
+	int py = s->pos_y;
+	
+  //CALCULATE ONLY IF IT IS INSIDE THE ACTIVE MAP
+  if ((px > SCR_X)&&(px < (SCR_X+304))&&(py > SCR_Y)&&(py < (SCR_Y+224))){	
+    byte col_x = 0;
 	byte col_y = 0;
 	int x,y;
+	int sx = s->mspeed_x;
+	int sy = s->mspeed_y;
 	byte siz = s->width+1;
 	byte si = s->width>>1;
 
-	if (mode == 0){ //WALKS ON TOP VIEW
-		y = (s->pos_y+si>>4);
-		if (s->speed_x < 0){	//LEFT
+	switch (mode){
+	  case 0:{ //WALKS ON TOP VIEW
+		y = (py+si>>4);
+		switch (sx){
+			case -1:	//LEFT
 			col_x = 0;
-			x = (s->pos_x-1)>>4;
+			x = (px-1)>>4;
 			tile_number_HU = LT_map.collision[( y * LT_map.width) + x];	
 			if (tile_number_HU == 1) col_x = 1;
-			if (col_x == 1) s->speed_x *= -1;
-		}
-		if (s->speed_x > 0){	//RIGHT
+			if (col_x == 1) s->mspeed_x *= -1;
+			break;
+			case 1:		//RIGHT
 			col_x = 0;
-			x = (s->pos_x+siz)>>4;
+			x = (px+siz)>>4;
 			tile_number_HU = LT_map.collision[( y * LT_map.width) + x];
 			if (tile_number_HU == 1) col_x = 1;
-			if (col_x == 1) s->speed_x *= -1;
+			if (col_x == 1) s->mspeed_x *= -1;
+			break;
 		}
-		x = (s->pos_x+si)>>4;
-		if (s->speed_y < 0){	//UP
+		x = (px+si)>>4;
+		switch (sy){
+			case -1:	//UP
 			col_y = 0;
-			y = (s->pos_y-1)>>4;
+			y = (py-1)>>4;
 			tile_number_VR = LT_map.collision[( y * LT_map.width) + x];	
 			if (tile_number_VR == 1) col_y = 1;
-			if (col_y == 1) s->speed_y *= -1;
-		}
-		if (s->speed_y > 0){	//DOWN
+			if (col_y == 1) s->mspeed_y *= -1;
+			break;
+			case 1:		//DOWN
 			col_y = 0;
-			y = (s->pos_y+siz)>>4;
+			y = (py+siz)>>4;
 			tile_number_VR = LT_map.collision[( y * LT_map.width) + x];	
 			if (tile_number_VR == 1) col_y = 1;
-			if (col_y == 1) s->speed_y *= -1;
+			if (col_y == 1) s->mspeed_y *= -1;
+			break;
 		}
-	}	
-	if (mode == 1){ //ONLY WALKS ON PLATFORMS UNTILL IT REACHES EDGES  OR SOLID TILES
-		if (s->speed_x < 0){	//LEFT
+	  break;}
+	  case 1:{ //ONLY WALKS ON PLATFORMS UNTILL IT REACHES EDGES  OR SOLID TILES
+		switch (sx){
+			case -1:	//LEFT
 			col_x = 0;
-			x = (s->pos_x-1)>>4;
-			tile_number_HU = LT_map.collision[(((s->pos_y+si)>>4) * LT_map.width) + x];
-			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + x];	
+			x = (px-1)>>4;
+			tile_number_HU = LT_map.collision[(((py+si)>>4) * LT_map.width) + x];
+			tile_number_HD = LT_map.collision[(((py+siz)>>4) * LT_map.width) + x];	
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 10) col_x = 1;  //Platform edge
-			if (col_x == 1) s->speed_x *= -1;
-		}
-		if (s->speed_x > 0){	//RIGHT
+			if (col_x == 1) s->mspeed_x *= -1;
+			break;
+			case 1:		//RIGHT
 			col_x = 0;
-			x = (s->pos_x+siz)>>4;
-			tile_number_HU = LT_map.collision[(((s->pos_y+si>>4)) * LT_map.width) + x];
-			tile_number_HD = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + x];
+			x = (px+siz)>>4;
+			tile_number_HU = LT_map.collision[(((py+si>>4)) * LT_map.width) + x];
+			tile_number_HD = LT_map.collision[(((py+siz)>>4) * LT_map.width) + x];
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 10) col_x = 1; //Platform edge
-			if (col_x == 1) s->speed_x *= -1;
+			if (col_x == 1) s->mspeed_x *= -1;
+			break;
 		}
+	  break;}
 	}
 	col_x = 0;
 	col_y = 0;
-	
+
 	//SPEED CONTROL TO MAKE ENEMIES TO MOVE SLOWER THAN +=1
-	if (s->s_x == 2) {
-		s->s_x = 0;
-		s->pos_x += s->speed_x;
-		s->pos_y += s->speed_y;
+	if (s->speed_x != 0){
+		if (s->s_x == s->speed_x) {
+			s->s_x = 0;
+			s->pos_x += s->mspeed_x;
+		}
+		s->s_x ++;
 	}
-	s->s_x ++;
-	return;
+	if (s->speed_y != 0){
+		if (s->s_y == s->speed_y) {
+			s->s_y = 0;
+			s->pos_y += s->mspeed_y;
+		}
+		s->s_y ++;
+	}
+  }
 }
 
-void LT_unload_sprite(SPRITE *s){
+void LT_unload_sprite(int sprite_number){
+	SPRITE *s = &sprite[sprite_number];
 	int i;
 	s->init = 0;
-	LT_Delete_Sprite(s);
-	farfree(s->bkg_data); s->bkg_data = NULL;
+	LT_Delete_Sprite(sprite_number);
 	for (i=0;i<s->nframes;i++){
-		farfree(s->rle_frames[i].rle_data);
-		s->rle_frames[i].rle_data = NULL;
+		farfree(s->frames[i].compiled_code);
+		s->frames[i].compiled_code = NULL;
 	}
-	farfree(s->rle_frames); s->rle_frames = NULL;
-	s = NULL;
+	farfree(s->frames); s->frames = NULL;
 }	
-
 

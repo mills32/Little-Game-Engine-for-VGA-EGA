@@ -41,6 +41,8 @@ typedef struct tagIMFsong{
 	byte *sdata;
 } IMFsong;
 
+void LT_Error(char *error, char *file);
+
 extern IMFsong LT_music;
 extern void GUSPoke(dword, byte);
 extern void GUSSetVolume(byte Voice, byte Volume);

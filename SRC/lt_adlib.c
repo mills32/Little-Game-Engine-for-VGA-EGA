@@ -9,6 +9,8 @@
 
 extern void interrupt (*LT_old_time_handler)(void); 
 
+void LT_Error(char *error, char *file);
+
 //ADLIB
 IMFsong LT_music;	// One song in ram stored at "LT_music"
 
@@ -84,18 +86,9 @@ void LT_Load_Music(char *fname){
 	outportb(0x40, 0xFF);	//hi-byte*/
 	setvect(0x1C, LT_old_time_handler);
 	
-	if (!imfile){
-		printf("Can't find %s.\n",fname);
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);
-	}
-	if (fread(rb, sizeof(char), 2, imfile) != 2){
-		printf("Error openning %s.\n",fname);
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);
-	}
+	if (!imfile) LT_Error("Can't find ",fname);
+		
+	if (fread(rb, sizeof(char), 2, imfile) != 2) LT_Error("Error in ",fname);
 	
 	//IMF
 	if (rb[0] == 0 && rb[1] == 0){

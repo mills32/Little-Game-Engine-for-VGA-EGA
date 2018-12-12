@@ -17,6 +17,12 @@ int Free_RAM;
 void interrupt (*LT_old_time_handler)(void); 	
 void interrupt (*LT_old_key_handler)(void);
 
+word ScrnPhysicalByteWidth = 0;		//Physical width in bytes of screen
+word ScrnPhysicalPixelWidth = 0;	//Physical width in pixels of screen
+word ScrnPhysicalHeight = 0;		//Physical Height of screen
+word ScrnLogicalByteWidth = 0;		//Logical width in bytes of screen
+word ScrnLogicalPixelWidth = 0;		//Logical width in pixels of screen
+word ScrnLogicalHeight = 0;			//Logical Height of screen
 
 void LT_Check_CPU(){
 	asm{
@@ -42,38 +48,82 @@ void LT_Check_CPU(){
 	return;
 }
 
+void LT_Text_Mode(){
+	union REGS regs;
+	VGA_Fade_out();
+	VGA_SplitScreen(0x0ffff);
+	regs.h.ah = 0x00;
+	regs.h.al = TEXT_MODE;
+	int86(0x10, &regs, &regs);
+}
+
+void LT_Error(char *error, char *file){
+	LT_Text_Mode();
+	printf("%s %s \n",error,file);
+	sleep(2);
+	LT_ExitDOS();
+	exit(1);
+} 
+
 void LT_Init(){
 	union REGS regs;
+	word i;
+
+	//FIXED SPRITE BKG ADDRESSES IN VRAM
+	byte sprite_number;
+	word sprite_bkg[33] = 
+	{	
+		//8x8
+		0xB280,0xB298,0xB2B0,0xB2C8,0xB2E0,0xB2F8,0xB310,0xB328,
+		0xB340,0xB358,0xB370,0xB388,0xB3A0,0xB3B8,0xB3D0,0xB3E8,
+		//16x16
+		0xB400,0xB450,0xB4A0,0xB4F0,0xB540,0xB590,0xB5E0,0xB630,
+		0xB680,0xB6D0,0xB720,0xB770,
+		//32x32
+		0xB7C0,0xB8E0,0xBA00,0xBB20,
+		//64x64
+		0xBC40
+	};
+	
+	//SET MODE X
 	regs.h.ah = 0x00;
-	regs.h.al = VGA_256_COLOR_MODE;
+	regs.h.al = 0x13;
 	int86(0x10, &regs, &regs);
 	
-	// turn off write protect */
-    word_out(0x03d4, V_RETRACE_END, 0x0);
-    //outp(MISC_OUTPUT, 0xe7);
+	outp(SC_INDEX,  MEMORY_MODE);       // turn off chain-4 mode
+	outp(SC_DATA,   0x06);
+	outport(SC_INDEX, ALL_PLANES);      // set map mask to all 4 planes
+	outp(CRTC_INDEX,UNDERLINE_LOCATION);// turn off long mode
+	outp(CRTC_DATA, 0x00);
+	outp(CRTC_INDEX,MODE_CONTROL);      // turn on byte mode
+	outp(CRTC_DATA, 0xe3);
 
-	//This was tested and working on old crt's and modern GPU/display using HDMI.
-	//Does not work on modern monitors using VGA connector.
-	word_out(0x03d4,H_DISPLAY_END, (304>>2)-1);		//HORIZONTAL RESOLUTION = 304 
-	word_out(0x03d4,V_DISPLAY_END, (176<<1)-1);  	//VERTICAL RESOLUTION = 176
+	//outp(MISC_OUTPUT, 0x00); //Memory map 64 Kb?
 	
-	/*
-	Not working on many monitors
-	word_out(0x03d4,H_BLANK_START, (320>>2)-1); 
-	word_out(0x03d4,V_BLANK_START, (176<<1)-1); 
-	
-	word_out(0x03d4,V_TOTAL,222);
-	word_out(0x03d4,H_RETRACE_START,(320>>2)-1);
-	word_out(0x03d4,V_RETRACE_START,(222<<1)-1);
-	
-	word_out(0x03d4,H_BLANK_END, 0);
-	word_out(0x03d4,V_BLANK_END, 200<<1);
+	/* turn off write protect */
+    word_out(CRTC_INDEX, V_RETRACE_END, 0x2c);
 
-	word_out(0x03d4,OVERFLOW,256);
+	//320x240 60Hz
+    word_out(CRTC_INDEX, V_TOTAL, 0x0d);
+    word_out(CRTC_INDEX, OVERFLOW, 0x3e);
+    word_out(CRTC_INDEX, V_RETRACE_START, 0xea);
+    word_out(CRTC_INDEX, V_RETRACE_END, 0xac);
+    word_out(CRTC_INDEX, V_DISPLAY_END, 0xdf);
+    word_out(CRTC_INDEX, V_BLANK_START, 0xe7);
+    word_out(CRTC_INDEX, V_BLANK_END, 0x06);
 	
-	word_out(0x03d4,H_RETRACE_END,0x1F); 
-	word_out(0x03d4,V_RETRACE_END, 8);
-	*/
+	//LOGICAL WIDTH = 320 + 16
+	word_out(0x03d4,OFFSET,42);
+    
+	// set vertical retrace back to normal
+    word_out(0x03d4, V_RETRACE_END, 0x8e);	
+	
+	ScrnPhysicalByteWidth = 80;
+	ScrnPhysicalPixelWidth = 320;
+	ScrnPhysicalHeight = 240;
+	ScrnLogicalByteWidth = 84;
+	ScrnLogicalPixelWidth = 336;
+	ScrnLogicalHeight = 240;
 	
     // set vertical retrace back to normal
     word_out(0x03d4, V_RETRACE_END, 0x8e);
@@ -82,67 +132,40 @@ void LT_Init(){
 	LT_old_key_handler = getvect(9);    
 	LT_install_key_handler();
 	
-	//Allocate 272Kb + 64 RAM for:
-	// 64kb Tileset
-	// 64kb Temp Tileset
-	// 16kb Temp Sprites
-	// 64Kb (4*16) Sprites
+	//Allocate 192 Kb:
+	// 64kb Temp Data (Load Tilesets, Load Sprites)
 	// 32kb Map + 32kb collision map
 	// 64kb Music 
-	if ((LT_tileset.tdata = farcalloc(65535,sizeof(byte))) == NULL){
-		printf("Error allocating 64kb for tile data\n");
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);
-	}	
-	if ((LT_tile_datatemp = farcalloc(65535,sizeof(byte))) == NULL){
-		printf("Error allocating 64kb for temp data\n");
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);		
+
+	if ((LT_tile_tempdata = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 64 Kb of temp data\n",0);
+	if ((LT_map.data = farcalloc(32767,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 32 Kb of map data",0);
+	if ((LT_map.collision = farcalloc(32767,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 32 Kb of collision map data",0);
+	if ((LT_music.sdata = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 64 Kb of music data",0);
+	
+	//33 fixed sprites:
+	//	8x8   (16 sprites: 0 - 15)	
+	//	16x16 (12 sprites: 16 - 27)
+	//	32x32 ( 4 sprites: 28 - 31)
+	//	64x64 (sprite 32)
+	
+	if ((sprite = farcalloc(33,sizeof(SPRITE))) == NULL) LT_Error("Not enough RAM to allocate 35 predefined sprites",0);
+	
+	//STORE BKG AT FIXED VRAM ADDRESS
+	for (sprite_number = 0; sprite_number != 33; sprite_number++){
+		sprite[sprite_number].bkg_data = sprite_bkg[sprite_number];
 	}
-	if ((LT_sprite_tiledatatemp = farcalloc(16384,sizeof(byte))) == NULL){
-		printf("Error allocating 16kb for temp data\n");
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);	
-	}
-	if ((LT_map.data = farcalloc(32767,sizeof(byte))) == NULL){
-		printf("Error allocating 32kb for map\n");
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);
-	}
-	if ((LT_map.collision = farcalloc(32767,sizeof(byte))) == NULL){
-		printf("Error allocating 32kb for collision map\n");
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);	
-	}
-	if ((LT_music.sdata = farcalloc(65535,sizeof(byte))) == NULL){
-		printf("Error allocating 64kb for music data\n");
-		sleep(2);
-		LT_ExitDOS();
-		exit(1);	
-	}
-	MCGA_SplitScreen(0x0ffff);
+	//VGA_SplitScreen(0x0ffff);
 }
 
 void LT_ExitDOS(){
-	union REGS regs;
-	MCGA_Fade_out();
-	MCGA_SplitScreen(0x0ffff);
-	regs.h.ah = 0x00;
-	regs.h.al = TEXT_MODE;
-	int86(0x10, &regs, &regs);
+	LT_Text_Mode();
 	StopMOD();
 	LT_Stop_Music();
 	LT_Unload_Music();
 	LT_unload_tileset();
 	LT_unload_map();
-	LT_unload_font();
 	LT_reset_key_handler();
-	
+	farfree(sprite); sprite = NULL; 
 	exit(1);
 }
 
