@@ -38,6 +38,89 @@ int x,y = 0;
 int i,j = 0;
 int Scene = 0;
 
+void _x_set_start_addr(word x,word y){
+	push si
+
+	mov  si,[x]
+	mov  ax,[_ScrnLogicalByteWidth]     ; Calculate Offset increment
+	mov  cx,[y]                         ; for Y
+	mul  cx
+PageFlipEntry1:
+	add  ax,[_Page0_Offs]               ; no - add page 0 offset
+	jmp  short @@AddColumn
+
+PageFlipEntry2:
+
+	mov  [_PhysicalStartPixelX],si
+	mov  [_PhysicalStartY],cx
+
+@@AddColumn:
+	mov  cx,si
+	shr  cx,2
+	mov  [_PhysicalStartByteX],cx
+	add  ax,cx                          ; add the column offset for X
+	mov  bh,al                          ; setup CRTC start addr regs and
+						; values in word registers for
+	mov  ch,ah                          ; fast word outs
+
+StartAddrEntry:
+	mov  bl,ADDR_LOW
+	mov  cl,ADDR_HIGH
+	and  si,0003h             ; select pel pan register value for the
+	mov  ah,PelPanMask[si]    ; required x coordinate
+	mov  al,PEL_PANNING+20h
+	mov  si,ax
+
+	cmp  [_VsyncHandlerActive],TRUE
+	jne   @@NoVsyncHandler
+; NEW STUFF
+@@WaitLast:
+	cmp   [_StartAddressFlag],0
+	jne   @@WaitLast
+	cli
+	mov  [_WaitingStartLow],bx
+	mov  [_WaitingStartHigh],cx
+	mov  [_WaitingPelPan],si
+	mov  [_StartAddressFlag],1
+	sti
+	jmp  short @@Return
+
+@@NoVsyncHandler:
+	mov  dx,INPUT_STATUS_0    ;Wait for trailing edge of Vsync pulse
+@@WaitDE:
+	in   al,dx
+	test al,01h
+	jnz  @@WaitDE            ;display enable is active low (0 = active)
+
+	mov  dx,CRTC_INDEX
+	mov  ax,bx
+	cli
+	out  dx,ax               ;start address low
+	mov  ax,cx
+	out  dx,ax               ;start address high
+	sti
+
+; Now wait for vertical sync, so the other page will be invisible when
+; we start drawing to it.
+	mov  dx,INPUT_STATUS_0    ;Wait for trailing edge of Vsync pulse
+@@WaitVS:
+	in   al,dx
+	test al,08h
+	jz @@WaitVS           ;display enable is active low (0 = active)
+
+
+	mov  dx,AC_INDEX
+	mov  ax,si                ; Point the attribute controller to pel pan
+	cli
+	out  dx,al                ; reg. Bit 5 also set to prevent blanking
+	mov  al,ah
+	out  dx,al                ; load new Pel Pan setting.
+	sti
+
+}
+
+
+
 void Load_Puzzle2(){
 	LT_Set_Loading_Interrupt(); 
 	

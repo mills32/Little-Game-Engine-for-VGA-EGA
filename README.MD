@@ -57,7 +57,7 @@ SOUND
 -----
 
 To use the adlib music player, just enable adlib or soundblaster in the emulator, or connect an Adlib/SB card to a retro PC.
-Adlib IMF files must be 70 tics/second to work well on slow CPU's like the 8088.
+Adlib IMF files must be 60/70 tics/second to work well on slow CPU's like the 8088.
 
 To use MOD player, enable GUS emulation or connect a GUS to your retro PC, then run "setgus.bat" I think that's all, (no drivers needed)
 The GUS can play MOD files with samples up to 44100Hz and also you can use more than 4 channels.

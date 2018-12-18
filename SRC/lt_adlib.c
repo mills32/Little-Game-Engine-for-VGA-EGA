@@ -74,6 +74,18 @@ void interrupt play_music(void){
 	outportb(0x20, 0x20);	//PIC, EOI
 }
 
+void do_play_music(){
+    while (!LT_imfwait){
+        LT_imfwait = LT_music.sdata[LT_music.offset+2] | (LT_music.sdata[LT_music.offset+3]) << 8;
+        opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
+		LT_music.offset+=4;
+		if (LT_music.offset > LT_music.size) LT_music.offset = 4;
+	}
+	
+	LT_imfwait--;
+	outportb(0x20, 0x20);	//PIC, EOI
+}
+
 void LT_Load_Music(char *fname){
 	FILE *imfile = fopen(fname, "rb");
 	unsigned char rb[16];

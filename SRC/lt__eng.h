@@ -38,7 +38,9 @@
 #define SCREEN_HEIGHT       240       // height in pixels of mode 0x13
 #define NUM_COLORS          256       // number of colors in mode 0x13
 
-#define AC_HPP              0X13 | 0X20   // Horizontal Pel Panning Register
+#define AC_HPP              0X20 | 0X13    // Horizontal Pel Panning Register
+
+#define DE_MASK				0x01     //display enable bit in status register 1
 
 #define MISC_OUTPUT         0x03c2    // VGA misc. output register
 #define S_MEMORY_MODE		0x03C4	
@@ -273,6 +275,7 @@ void LT_scroll_follow(int sprite_number);
 //ADLIB 
 void LT_Load_Music(char *filename);
 void LT_Start_Music(word freq_div);
+void do_play_music();
 void LT_Stop_Music();
 void LT_Unload_Music();
 

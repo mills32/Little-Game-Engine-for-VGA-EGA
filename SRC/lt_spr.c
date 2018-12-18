@@ -740,7 +740,7 @@ LT_Col LT_move_player(int sprite_number){
 			tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x+4)>>4)];
 			if (tile_number_VR == 1) col_y = 1;
 			if (tile_number_VL == 1) col_y = 1;
-			if (col_y == 1) {s->speed_y *= -1;s->speed_y-=16;}
+			if (col_y == 1) {s->speed_y *= -1;s->speed_y-=48;}
 		}
 		if (s->speed_y > 0){	//DOWN
 			col_y = 0;
@@ -749,7 +749,7 @@ LT_Col LT_move_player(int sprite_number){
 			tile_number_VL = LT_map.collision[( y * LT_map.width) + ((s->pos_x+4)>>4)];
 			if (tile_number_VR == 1) col_y = 1;
 			if (tile_number_VL == 1) col_y = 1;
-			if (col_y == 1) {s->speed_y *= -1;s->speed_y+=16;}
+			if (col_y == 1) {s->speed_y *= -1;s->speed_y+=48;}
 		}
 		if (s->speed_x < 0){	//LEFT
 			col_x = 0;
@@ -758,7 +758,7 @@ LT_Col LT_move_player(int sprite_number){
 			tile_number_HD = LT_map.collision[(((s->pos_y+siz-4)>>4) * LT_map.width) + x];	
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 1) col_x = 1;
-			if (col_x == 1) {s->speed_x *= -1;s->speed_x-=16;}
+			if (col_x == 1) {s->speed_x *= -1;s->speed_x-=48;}
 		}
 		if (s->speed_x > 0){	//RIGHT
 			col_x = 0;
@@ -767,7 +767,7 @@ LT_Col LT_move_player(int sprite_number){
 			tile_number_HD = LT_map.collision[(((s->pos_y+siz-4)>>4) * LT_map.width) + x];
 			if (tile_number_HU == 1) col_x = 1;
 			if (tile_number_HD == 1) col_x = 1;
-			if (col_x == 1) {s->speed_x *= -1;s->speed_x+=16;}
+			if (col_x == 1) {s->speed_x *= -1;s->speed_x+=48;}
 		}
 		if (tilecol_number == 0){ //FRICTION
 			if (s->speed_x > 0) s->speed_x-=2;

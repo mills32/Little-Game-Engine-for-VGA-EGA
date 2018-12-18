@@ -110,13 +110,13 @@ void Load_Menu(){
 	LT_Load_Map("GFX/menu.tmx");
 	LT_Load_Tiles("GFX/menutil.bmp");
 	LT_Load_Sprite("GFX/cursor.bmp",16,16);
-	//LT_Load_Music("music/menu2.imf");
+	LT_Load_Music("music/ADLIB/menu0.imf");
 	//LT_Start_Music(70);
-	LT_LoadMOD("MUSIC/MOD/dyna.mod"); 
+	//LT_LoadMOD("MUSIC/MOD/dyna.mod"); 
 	
 	LT_Delete_Loading_Interrupt();
 	
-	PlayMOD(0);
+	//PlayMOD(0);
 
 	VGA_SplitScreen(44);
 	
@@ -141,8 +141,6 @@ void Run_Menu(){
 
 		LT_Restore_Sprite_BKG(16);
 		LT_Draw_Sprite(16);
-		
-		LT_WaitVsyncStart();
 		
 		SCR_X = -54-(LT_SIN[i]>>1);
 		
@@ -171,7 +169,8 @@ void Run_Menu(){
 			LT_unload_sprite(16);
 			LT_ExitDOS();
 		}
-		
+		do_play_music();
+		LT_WaitVsyncStart();
 	}
 	StopMOD();
 	LT_unload_sprite(16);
@@ -197,7 +196,7 @@ void Load_TopDown(){
 	
 	LT_Delete_Loading_Interrupt();
 	
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
 	//PlayMOD(1);
 	
 	LT_SetWindow("GFX/window.bmp");
@@ -206,7 +205,7 @@ void Load_TopDown(){
 	LT_MODE = 0;
 	
 	//animate colours
-	cycle_init(&cycle_water,palette_cycle_water);
+	//cycle_init(&cycle_water,palette_cycle_water);
 	Scene = 2;
 }
 
@@ -249,7 +248,7 @@ void Run_TopDown(){
 		
 		LT_Print_Window_Variable(32,LT_Player_Col.tile_number);
 		
-		cycle_palette(&cycle_water,4);
+		//cycle_palette(&cycle_water,4);
 		
 		
 		//In this mode sprite is controlled using U D L R
@@ -275,6 +274,7 @@ void Run_TopDown(){
 
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
+		do_play_music();
 		LT_WaitVsyncStart();
 	}
 	//StopMOD(1);
@@ -302,7 +302,7 @@ void Load_Platform(){
 	
 	LT_Delete_Loading_Interrupt();
 	
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
 	
 	LT_SetWindow("GFX/window.bmp");
 	
@@ -379,6 +379,7 @@ void Run_Platform(){
 		//esc go to menu
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
+		do_play_music();
 		LT_WaitVsyncStart();
 	}
 	
@@ -401,7 +402,7 @@ void Load_Puzzle(){
 	
 	LT_Delete_Loading_Interrupt();
 	
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
 	
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
@@ -468,6 +469,7 @@ void Run_Puzzle(){
 
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
+		do_play_music();
 		LT_WaitVsyncStart();
 	}
 	
@@ -487,7 +489,7 @@ void Load_Puzzle2(){
 	LT_Load_Music("music/ADLIB/top_down.imf");
 	
 	LT_Delete_Loading_Interrupt();
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
 	
 	LT_SetWindow("GFX/window.bmp");
 	
@@ -537,6 +539,7 @@ void Run_Puzzle2(){
 
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
+		do_play_music();
 		LT_WaitVsyncStart();
 	}
 	LT_Unload_Sprite(0);
@@ -636,7 +639,7 @@ void Run_Shooter(){
 	}
 
 	//SIDE SCROLL
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
 	LT_MODE = 3;
 	LT_Set_Sprite_Animation(28,8,4,4);
 	while(Scene == 4){
@@ -657,11 +660,13 @@ void Run_Shooter(){
 			sleep(2); 
 			Scene = -1;
 		}
+		
 		if (LT_Keys[LT_ESC]) Scene = -1; //esc exit
 		
 		cycle_palette(&cycle_water,2);
 		LT_Print_Window_Variable(32,LT_Player_Col.tile_number);
 		
+		do_play_music();
 		LT_WaitVsyncStart();
 	}
 	

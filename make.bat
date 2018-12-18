@@ -3,7 +3,7 @@ rem compile c files
 cd src
 tcc -G -O -Ic:\tc\include -ml -c lt_sys.c lt_key.c lt_gfx.c lt_spr.c lt_adlib.c lt_gus.c main.c 
 rem compile assembly files
-tasm /dl lt_sprc.asm
+tasm /dc lt_sprc.asm
 rem create lib
 del *.LIB
 tlib lt_lib.lib +lt_sys.obj+lt_key.obj+lt_gfx.obj+lt_spr.obj+lt_sprc.obj+lt_adlib.obj+lt_gus.obj

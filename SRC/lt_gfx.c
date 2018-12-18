@@ -181,11 +181,10 @@ void interrupt LT_Loading(void){
 void LT_Set_Loading_Interrupt(){
 	unsigned long spd = 1193182/30;
 	int i;
-	
+	LT_Stop_Music();
 	VGA_Fade_out();
 	
 	LT_WaitVsyncEnd();
-	LT_Stop_Music();
 	VGA_Scroll(0, 0);
 	VGA_SplitScreen(0x0ffff); //disable split screen
 	LT_ResetWindow();
@@ -233,7 +232,7 @@ void VGA_ClearScreen(){
 	memset(&VGA[0],0,(336>>2)*240);
 }
 
-byte p[8] = {0,2,4,6};
+byte p[5] = {0,2,4,6,8};
 byte pix;
 
 //wait for the VGA to stop drawing, and set scroll and Pel panning
@@ -241,39 +240,43 @@ void LT_WaitVsyncStart(){
 	word x = SCR_X;
 	word y = SCR_Y+LT_Window;
 	
-	asm CLI
+	y = (y<<6)+(y<<4)+(y<<2) + (x>>2);	//(y*64)+(y*16)+(y*4) = y*84;
+	
+	asm mov		dx,INPUT_STATUS_0
+	WaitDELoop:
+	asm in      al,dx
+	asm and     al,DE_MASK
+	asm jnz     WaitDELoop
+
+	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
+	outport(0x03d4, 0x0D | (y << 8));
+	outport(0x03d4, 0x0C | (y & 0xff00));
+	
 	asm mov		dx,INPUT_STATUS_0
 	WaitNotVsync:
 	asm in      al,dx
 	asm test    al,08h
-	asm jnz     WaitNotVsync
-	
-	y = (y<<6)+(y<<4)+(y<<2) + (x>>2);	//(y*64)+(y*16)+(y*4) = y*84;
-
-	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
-	outport(0x03d4, 0x0C | (y & 0xff00));
-	outport(0x03d4, 0x0D | (y << 8));
-	
+	asm jnz		WaitNotVsync
 	WaitVsync:
 	asm in      al,dx
 	asm test    al,08h
-	asm jz      WaitVsync
+	asm jz		WaitVsync
 	
 	//pixel panning value
+	inportb(0x3DA); //Reset the VGA flip/flop
 	pix = SCR_X & 3; 			
 	outportb(AC_INDEX, AC_HPP);
-	outportb(AC_INDEX, p[pix]);
-	asm STI
+	outportb(AC_INDEX, (byte) p[pix]);
 }
 
 //wait for the VGA to start drawing
 void LT_WaitVsyncEnd(){
 	asm mov		dx,INPUT_STATUS_0
-WaitVsync2:
+	WaitVsync2:
 	asm in      al,dx
 	asm test    al,08h
 	asm jz      WaitVsync2
-WaitNotVsync2:
+	WaitNotVsync2:
 	asm in      al,dx
 	asm test    al,08h
 	asm jnz     WaitNotVsync2
@@ -3684,11 +3687,11 @@ void VGA_Fade_in(unsigned char *palette){
 	for(j=0;j<256*3;j++) LT_Temp_palette[j] = 0x00;
 	i = 0;
 	//Fade in
-	while (i < 64){
+	while (i < 15){
 		LT_WaitVsyncEnd();
 		outp(0x03c8,0);
 		for(j=0;j<256*3;j++){
-			if (LT_Temp_palette[j] < palette[j]) LT_Temp_palette[j]++;
+			if (LT_Temp_palette[j] < palette[j]) LT_Temp_palette[j]+=4;
 			outp(0x03c9,LT_Temp_palette[j]);
 		}
 		i ++;
@@ -3701,10 +3704,10 @@ void VGA_Fade_out(){
 	i = 0;
 	//Fade to black
 	outp(0x03c8,0);
-	while (i < 64){
+	while (i < 15){
 		LT_WaitVsyncEnd();
 		for(j=0;j<256*3;j++){
-			if (LT_Temp_palette[j] > 0) LT_Temp_palette[j]--;
+			if (LT_Temp_palette[j] > 0) LT_Temp_palette[j]-=4;
 			outp(0x03c9,LT_Temp_palette[j]);
 		}
 		while ((inp(0x03da) & 0x08));
