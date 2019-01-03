@@ -37,7 +37,7 @@ LT_Col LT_Player_Col;
 int x,y = 0;
 int i,j = 0;
 int Scene = 0;
-
+/*
 void _x_set_start_addr(word x,word y){
 	push si
 
@@ -119,84 +119,148 @@ StartAddrEntry:
 
 }
 
-
+*/
 
 void Load_Puzzle2(){
 	LT_Set_Loading_Interrupt(); 
 	
 	Scene = 2;
-	LT_Load_Map("GFX/sample.tmx");
-	LT_Load_Tiles("GFX/atiles.bmp");
-	LT_Load_Sprite("GFX/aball.bmp",16,16);
-	LT_Clone_Sprite(17,16);
-	LT_Clone_Sprite(18,16);
-	LT_Clone_Sprite(19,16);
-	LT_Clone_Sprite(20,16);
-	LT_Clone_Sprite(21,16);
-	LT_Clone_Sprite(22,16);
-	LT_Clone_Sprite(23,16);
+	LT_Load_Map("GFX/rick2m0.tmx");
+	LT_Load_Tiles("GFX/rick2til.bmp");
+	LT_Load_Sprite("GFX/player.bmp",16,16);
+	LT_Load_Sprite("GFX/enemy.bmp",17,16);
+	LT_Clone_Sprite(18,17);
+	LT_Clone_Sprite(19,17);
+	LT_Clone_Sprite(20,17);
+	LT_Clone_Sprite(21,17);
+	LT_Clone_Sprite(22,17);
+	LT_Clone_Sprite(23,17);
 	
-	//LT_Load_Music("music/ADLIB/top_down.imf");
+	LT_Load_Music("music/top_down.imf");
 	
 	LT_Delete_Loading_Interrupt();
-	//LT_Start_Music(70);
+	LT_SetWindow("GFX/window.bmp");
 	
-	LT_Set_Map(0,0);
-	LT_MODE = 0; 
+	LT_Set_Map(0,9);
+	LT_MODE = 1; 
 }
 
 void Run_Puzzle2(){
-	int n = 0;
+	int map_chunk = 0;
 	int score = 0;
-	Scene = 2;
+	Scene = 0;
 	
-	sprite[16].pos_x = 4*16;
-	sprite[16].pos_y = 8*16;
-	sprite[16].speed_x = 1;
-	sprite[16].speed_y = -1;
-	sprite[17].pos_x = 5*16;
-	sprite[17].pos_y = 5*16;
-	sprite[17].speed_x = -1;
-	sprite[17].speed_y = -1;
-	sprite[18].pos_x = 6*16;
-	sprite[18].pos_y = 12*16;
-	sprite[18].speed_x = 1;
-	sprite[18].speed_y = 1;
-	sprite[19].pos_x = 7*16;
-	sprite[19].pos_y = 8*16;
-	sprite[19].speed_x = -1;
-	sprite[19].speed_y = -1;
-	sprite[20].pos_x = 8*16;
-	sprite[20].pos_y = 4*16;
-	sprite[20].speed_x = 1;
-	sprite[20].speed_y = 1;
-	sprite[21].pos_x = 9*16;
-	sprite[21].pos_y = 11*16;
-	sprite[21].speed_x = 1;
-	sprite[21].speed_y = -1;
-	sprite[22].pos_x = 10*16;
-	sprite[22].pos_y = 13*16;
-	sprite[22].speed_x = 1;
-	sprite[22].speed_y = -1;
-	sprite[23].pos_x = 11*16;
-	sprite[23].pos_y = 6*16;
-	sprite[23].speed_x = 1;
-	sprite[23].speed_y = 1;
-	
-	while(Scene == 2){
+	sprite[16].pos_x = 2*16;
+	sprite[16].pos_y = 21*16;
+
+	while(Scene == 0){
 		LT_WaitVsyncEnd();
 
-		for (n = 19; n != 15; n--) LT_Restore_Sprite_BKG(n);
-		for (n = 16; n != 20; n++) LT_Draw_Sprite(n);
-		for (n = 16; n != 20; n++) LT_Bounce_Ball(n);
+		LT_scroll_follow(16);
+		
+		LT_Restore_Sprite_BKG(16);
+		LT_Draw_Sprite(16);
 
+		LT_scroll_map();
+		
+		//In this mode sprite is controlled using L R and Jump
+		LT_Player_Col = LT_move_player(16);
+
+		//set player animations
+		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,6,4);
+		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,6,6,4);
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
+		if (LT_Player_Col.tilecol_number == 11){// ? change map chunk
+			map_chunk++;
+			if (map_chunk == 1) {
+				LT_Load_Map("GFX/rick2m1.tmx");
+				LT_Set_Map(0,12);
+				sprite[16].pos_x = 5*16;
+				sprite[16].pos_y = 24*16;
+			}
+			if (map_chunk == 2){
+				LT_Load_Map("GFX/rick2m2.tmx");
+				LT_Set_Map(12,12);
+				sprite[16].pos_x = 27*16;
+				sprite[16].pos_y = 25*16;
+			}
+			if (map_chunk == 3){
+				LT_Load_Map("GFX/rick2m3.tmx");
+				LT_Set_Map(26,0);
+				sprite[16].pos_x = 33*16;
+				sprite[16].pos_y = 0*16;
+			}
+		}
+		do_play_music();
 		LT_WaitVsyncStart();
 	}
 	LT_Unload_Sprite(16); //manually free sprites
 }
 
+void Load_Hocus(){
+	LT_Set_Loading_Interrupt(); 
+	
+	Scene = 2;
+	LT_Load_Map("GFX/hpmap.tmx");
+	LT_Load_Tiles("GFX/hptil.bmp");
+	LT_Load_Sprite("GFX/hplayer.bmp",16,16);
+	LT_Load_Sprite("GFX/enemy.bmp",17,16);
+	LT_Clone_Sprite(18,17);
+	LT_Clone_Sprite(19,17);
+	LT_Clone_Sprite(20,17);
+	LT_Clone_Sprite(21,17);
+	LT_Clone_Sprite(22,17);
+	LT_Clone_Sprite(23,17);
+	
+	LT_Load_Music("music/hocus.imf");
+	
+	LT_Delete_Loading_Interrupt();
+	LT_SetWindow("GFX/window.bmp");
+	
+	LT_Set_Map(0,0);
+	LT_MODE = 1; 	
+}
+
+void Run_Hocus(){
+	int map_chunk = 0;
+	int score = 0;
+	Scene = 0;
+	
+	sprite[16].pos_x = 2*16;
+	sprite[16].pos_y = 2*16;
+
+	while(Scene == 0){
+		LT_WaitVsyncEnd();
+
+		LT_scroll_follow(16);
+		
+		LT_Restore_Sprite_BKG(16);
+		
+		//EDIT MAP: GET DIAMONDS
+		if ((LT_Player_Col.tile_number == 20) || (LT_Player_Col.tile_number == 21)){
+			LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 4, 0);
+		}
+		
+		LT_Draw_Sprite(16);
+
+		LT_scroll_map();
+		
+		//In this mode sprite is controlled using L R and Jump
+		LT_Player_Col = LT_move_player(16);
+		
+		LT_Print_Window_Variable(32,LT_Player_Col.tile_number);
+		
+		//set player animations
+		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,1,4);
+		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,1,1,4);
+		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
+		
+		do_play_music();
+		LT_WaitVsyncStart();
+	}
+	LT_Unload_Sprite(16); //manually free sprites	
+}
 
 void main(){
 
@@ -209,8 +273,10 @@ void main(){
 	LT_Load_Animation("GFX/loading.bmp",32);
 	LT_Set_Animation(0,4,2);
 	
-	Load_Puzzle2();
-	Run_Puzzle2();
+	LT_Load_Font("GFX/font.bmp");
+	
+	Load_Hocus();
+	Run_Hocus();
 	
 	LT_ExitDOS();
 	
