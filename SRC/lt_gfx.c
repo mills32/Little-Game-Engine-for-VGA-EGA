@@ -35,6 +35,9 @@ void LT_Error(char *error, char *file);
 
 //GLOBAL VARIABLES
 
+word FONT_VRAM = 0xC040; //0xC040
+word TILE_VRAM = 0xC2C0; //0xC2C0
+
 //Palette for fading
 byte LT_Temp_palette[256*3];
 
@@ -467,7 +470,7 @@ void LT_Load_Font(char *file){
 		
 		outp(SC_INDEX, MAP_MASK);          
 		outp(SC_DATA, 1 << plane);
-		VGA_index = 0xC048;	//VRAM FONT ADDRESS  //586*(336/4);
+		VGA_index = FONT_VRAM;	//VRAM FONT ADDRESS  //586*(336/4);
 		
 		//SCAN ALL TILES
 		for (tileY = h; tileY > 0 ; tileY--){
@@ -494,6 +497,7 @@ void LT_Load_Font(char *file){
 
 //Print a three digit variable on the window, only 40 positions available 
 void LT_Print_Window_Variable(byte x, word var){
+	word FONT_ADDRESS = FONT_VRAM;
 	word screen_offset = (84<<2) + (x<<1) + 6;
 
 	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
@@ -514,7 +518,7 @@ void LT_Print_Window_Variable(byte x, word var){
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C048h;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
+		mov		si,FONT_ADDRESS;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
 		mov		cl,4						//dx*16
@@ -561,7 +565,7 @@ void LT_Print_Window_Variable(byte x, word var){
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C048h;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
+		mov		si,FONT_ADDRESS;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
 		mov		cl,4						//dx*16
@@ -611,7 +615,7 @@ void LT_Print_Window_Variable(byte x, word var){
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C048h;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
+		mov		si,FONT_ADDRESS;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
 		mov		cl,4						//dx*16
@@ -660,7 +664,7 @@ void LT_Print_Window_Variable(byte x, word var){
 
 // load_16x16 tiles to VRAM
 void LT_Load_Tiles(char *file){
-	word VGA_index = 0;
+	dword VGA_index = 0;
 	word w = 0;
 	word h = 0;
 	word ty = 0;
@@ -714,7 +718,7 @@ void LT_Load_Tiles(char *file){
 		
 		outp(SC_INDEX, MAP_MASK);          
 		outp(SC_DATA, 1 << plane);
-		VGA_index = 0xC240;	//VRAM TILE ADDRESS  //590*(336/4);
+		VGA_index = TILE_VRAM;
 		
 		//SCAN ALL TILES
 		for (tileY = h; tileY > 0 ; tileY--){
@@ -726,6 +730,7 @@ void LT_Load_Tiles(char *file){
 				for(y = 0; y < 64; y++){
 					VGA[VGA_index] = LT_tile_tempdata[offset];
 					VGA_index++;
+					if (VGA_index > 0x10080) LT_Error("Too many tiles\n",0);
 					offset +=4;
 					x++;
 					if (x == 4){
@@ -833,6 +838,7 @@ void LT_Set_Map(int x, int y){
 }
 
 void LT_Edit_MapTile(word x, word y, byte ntile, byte col){
+	word TILE_ADDRESS = TILE_VRAM;
 	word tile = (y * LT_map.width) + x;
 	word screen_offset;
 	x = x<<4;
@@ -840,7 +846,7 @@ void LT_Edit_MapTile(word x, word y, byte ntile, byte col){
 	screen_offset = (y<<6)+(y<<4)+(y<<2) + (x>>2);
 	LT_map.collision[tile] = col;
 	
-	LT_WaitVsyncEnd();
+	//LT_WaitVsyncEnd();
 	
 	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
     outport(GC_INDEX, 0x08); 
@@ -852,7 +858,7 @@ void LT_Edit_MapTile(word x, word y, byte ntile, byte col){
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si source VRAM TILE ADDRESS  //590*(336/4);
+		mov		si,TILE_ADDRESS				//ds:si source VRAM TILE ADDRESS  //590*(336/4);
 		
 		mov		al,byte ptr [ntile]		//go to desired tile
 		mov		ah,0	
@@ -927,6 +933,7 @@ void LT_Edit_MapTile(word x, word y, byte ntile, byte col){
 }
 
 void draw_map_column(word x, word y, word map_offset){
+	word TILE_ADDRESS = TILE_VRAM;
 	word screen_offset = (y<<6)+(y<<4)+(y<<2)+(x>>2);
 	word width = LT_map.width;
 	unsigned char *mapdata = LT_map.data;
@@ -941,7 +948,7 @@ void draw_map_column(word x, word y, word map_offset){
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		les		bx,[mapdata]
 		add		bx,map_offset
@@ -1011,7 +1018,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1081,7 +1088,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1151,7 +1158,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1221,7 +1228,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1291,7 +1298,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1361,7 +1368,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1431,7 +1438,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1501,7 +1508,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1571,7 +1578,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1641,7 +1648,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1711,7 +1718,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1781,7 +1788,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1851,7 +1858,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1921,7 +1928,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -1991,7 +1998,7 @@ void draw_map_column(word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		add		ax,[width]
@@ -2068,6 +2075,7 @@ void draw_map_column(word x, word y, word map_offset){
 }
 
 void draw_map_row( word x, word y, word map_offset){
+	word TILE_ADDRESS = TILE_VRAM;
 	unsigned char *mapdata = LT_map.data;
 	word screen_offset = (y<<6)+(y<<4)+(y<<2) + (x>>2);
 	
@@ -2081,7 +2089,7 @@ void draw_map_row( word x, word y, word map_offset){
 			
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		les		bx,[mapdata]
 		add		bx,map_offset
@@ -2151,7 +2159,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2224,7 +2232,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2297,7 +2305,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2370,7 +2378,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2443,7 +2451,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2516,7 +2524,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2589,7 +2597,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2662,7 +2670,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2735,7 +2743,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2808,7 +2816,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2881,7 +2889,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -2954,7 +2962,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3027,7 +3035,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3100,7 +3108,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3173,7 +3181,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3246,7 +3254,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3319,7 +3327,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3392,7 +3400,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3465,7 +3473,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax
@@ -3538,7 +3546,7 @@ void draw_map_row( word x, word y, word map_offset){
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,0C240h				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
 
 		mov		ax,map_offset
 		inc		ax

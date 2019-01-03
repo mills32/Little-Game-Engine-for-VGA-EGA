@@ -166,7 +166,10 @@ typedef struct tagSPRITE{				// structure for a sprite
 	word ground;	//platform touch ground
 	word jump;
 	word jump_frame;
-	word pos_x;		
+	word climb;
+	word tile_x;
+	word tile_y;
+	word pos_x;	
 	word pos_y;
 	word last_x;
 	word last_y;

@@ -24,6 +24,7 @@ SPRITE *sprite;
 //Player
 byte tile_number = 0;		//Tile a sprite is on
 byte tilecol_number = 0;	//Collision Tile a sprite is on
+byte tilecol_number_down = 0;//Collision Tile down
 byte tile_number_VR = 0;	//Tile vertical right
 byte tile_number_VL = 0;	//Tile vertical left
 byte tile_number_HU = 0;	//Tile horizontal up
@@ -58,8 +59,8 @@ void x_run_compiled_sprite(word XPos, word YPos, char *CompiledBitmap);
 void LT_scroll_follow(int sprite_number){
 	SPRITE *s = &sprite[sprite_number];
 	//LIMITS
-	int x_limL = SCR_X + 80;
-	int x_limR = SCR_X + 240;
+	int x_limL = SCR_X + 120;
+	int x_limR = SCR_X + 200;
 	int y_limU = SCR_Y + 80;
 	int y_limD = SCR_Y + 140;
 	int wmap = LT_map.width<<4;
@@ -169,6 +170,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte size){
 	s->ground = 0;
 	s->jump = 2;
 	s->jump_frame = 0;
+	s->climb = 0;
 	s->animate = 0;
 	s->anim_speed = 0;
 	s->anim_counter = 0;
@@ -203,6 +205,7 @@ void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
 	c->ground = 0;
 	c->jump = 2;
 	c->jump_frame = 0;
+	c->climb = 0;
 	c->animate = 0;
 	c->anim_speed = 0;
 	c->anim_counter = 0;
@@ -625,8 +628,11 @@ LT_Col LT_move_player(int sprite_number){
 	byte si = s->width>>1;
 	
 	//GET TILE POS
-	tile_number = LT_map.data[(((s->pos_y+si)>>4) * LT_map.width) + ((s->pos_x+si)>>4)];
+	s->tile_x = (s->pos_x+si)>>4;
+	s->tile_y = (s->pos_y+si)>>4;
+	tile_number = LT_map.data[( s->tile_y * LT_map.width) + s->tile_x];
 	tilecol_number = LT_map.collision[(((s->pos_y+si)>>4) * LT_map.width) + ((s->pos_x+si)>>4)];
+	tilecol_number_down = LT_map.collision[(((s->pos_y+siz)>>4) * LT_map.width) + ((s->pos_x+si)>>4)];
 	
 	//PREDEFINED GAME TYPES
 	switch (LT_MODE){
@@ -671,47 +677,90 @@ LT_Col LT_move_player(int sprite_number){
 	case 1:{//PLATFORM
 		if ((s->ground == 1) && (LT_Keys[LT_JUMP])) {s->ground = 0; s->jump_frame = 0; s->jump = 1;}
 		if (s->jump == 1){//JUMP
-				col_y = 0;
-				y = (s->pos_y-1)>>4;
-				if (LT_player_jump_pos[s->jump_frame] < 0){
+			col_y = 0;
+			y = (s->pos_y-1)>>4;
+			if (LT_player_jump_pos[s->jump_frame] < 0){
 				tile_number_VR = LT_map.collision[( y * LT_map.width) + ((s->pos_x+siz)>>4)];
 				tile_number_VL = LT_map.collision[( y * LT_map.width) + (s->pos_x>>4)];
 				if (tile_number_VR == 1) col_y = 1; 
 				if (tile_number_VL == 1) col_y = 1; 
 			} else {
-				platform_y = 1+(((s->pos_y+size)>>4)<<4);
+				int platform_y = 1+(((s->pos_y+size)>>4)<<4);
 				y = (s->pos_y+size)>>4;
 				tile_number_VR = LT_map.collision[( y * LT_map.width) + ((s->pos_x+siz)>>4)];
 				tile_number_VL = LT_map.collision[( y * LT_map.width) + (s->pos_x>>4)];
 				if (tile_number_VR == 1) col_y = 1; 
-				if (tile_number_VL == 1) col_y = 1; 			
-				if ((tile_number_VR == 2)&&(s->pos_y+size < platform_y)) col_y = 1;
-				if ((tile_number_VL == 2)&&(s->pos_y+size < platform_y)) col_y = 1;
+				if (tile_number_VL == 1) col_y = 1;  			
+				if (tile_number_VR == 2) col_y = 1;  
+				if (tile_number_VL == 2) col_y = 1;
+				if (tile_number_VR == 3) col_y = 2;  
+				if (tile_number_VL == 3) col_y = 2;  
+				end_col1:
+				if ((col_y == 1)&&(s->pos_y+size > platform_y)) col_y = 0;
 			}
 			if (col_y == 0){
 				s->pos_y += LT_player_jump_pos[s->jump_frame];
 				s->jump_frame++;
 				if (s->jump_frame == 76) {s->jump_frame = 0; s->jump = 2;}
 			}
-			if (col_y == 1){
+			if (col_y > 0){
 				s->jump_frame = 0; 
 				s->jump = 2;
 			}
 		}
 		if (s->jump == 2){//DOWN
+			int platform_y = 1+(((s->pos_y+size)>>4)<<4);
 			col_y = 0;
-			platform_y = 1+(((s->pos_y+size)>>4)<<4);
 			y = (s->pos_y+size)>>4;
 			tile_number_VR = LT_map.collision[( y * LT_map.width) + ((s->pos_x+siz)>>4)];
 			tile_number_VL = LT_map.collision[( y * LT_map.width) + (s->pos_x>>4)];
 			if (tile_number_VR == 1) col_y = 1;
 			if (tile_number_VL == 1) col_y = 1;
-			if ((tile_number_VR == 2)&&(s->pos_y+size < platform_y)) col_y = 1;
-			if ((tile_number_VL == 2)&&(s->pos_y+size < platform_y)) col_y = 1;
-			
+			if (tile_number_VR == 2) col_y = 1;
+			if (tile_number_VL == 2) col_y = 1;
+			if (tile_number_VR == 3) col_y = 2;  
+			if (tile_number_VL == 3) col_y = 2;  
+			if ((col_y == 1)&&(s->pos_y+size > platform_y)) col_y = 0;
 			if (col_y == 0) {s->ground = 0; s->pos_y+=2;}
-			if (col_y == 1) s->ground = 1;
+			if (col_y > 0) s->ground = 1;
 		}
+		
+		if(LT_Keys[LT_UP]){//CLIMB UP
+			if ((tilecol_number == 3) || (tilecol_number == 4) || (tilecol_number_down == 3)){
+				s->ground = 1;
+				s->jump = 3;
+				col_y = 0;
+				y = (s->pos_y-1)>>4;
+				tile_number_VR = LT_map.collision[( y * LT_map.width) + ((s->pos_x+siz)>>4)];
+				tile_number_VL = LT_map.collision[( y * LT_map.width) + (s->pos_x>>4)];
+				if (tile_number_VR == 1) col_y = 1; 
+				if (tile_number_VL == 1) col_y = 1; 
+				if (col_y == 0) s->pos_y--;
+			}
+		}
+		if(LT_Keys[LT_DOWN]){//CLIMB DOWN
+			if ((tilecol_number == 3) || (tilecol_number == 4) || (tilecol_number_down == 3)){
+				s->jump = 3;
+				s->ground = 1;
+				col_y = 0;
+				y = (s->pos_y+size)>>4;
+				tile_number_VR = LT_map.collision[( y * LT_map.width) + ((s->pos_x+siz)>>4)];
+				tile_number_VL = LT_map.collision[( y * LT_map.width) + (s->pos_x>>4)];
+				if (tile_number_VR == 1) col_y = 1;
+				if (tile_number_VL == 1) col_y = 1;
+				if (tile_number_VR == 2) col_y = 1; 
+				if (tile_number_VL == 2) col_y = 1;
+				if (col_y == 0) s->pos_y++;
+				else s->climb = 0;
+			}
+		}
+		if (s->jump == 3){
+			if ((tilecol_number != 3) && (tilecol_number != 4)){//DISABLE CLIMB
+				s->climb = 0;
+				s->jump = 2;
+			}
+		}
+		
 		if (LT_Keys[LT_LEFT]){	//LEFT
 			col_x = 0;
 			x = (s->pos_x-1)>>4;
@@ -730,6 +779,7 @@ LT_Col LT_move_player(int sprite_number){
 			if (tile_number_HD == 1) col_x = 1;
 			if (col_x == 0) s->pos_x++;
 		} 
+	
 	break;}	
 	case 2:{//PHYSICS 2 
 		

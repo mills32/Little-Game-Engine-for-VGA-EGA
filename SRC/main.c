@@ -6,12 +6,27 @@
 	A lot of code from David Brackeen                                   
 	http://www.brackeen.com/home/vga/                                     
 
-	This is a 16-bit program.                     
-	Remember to compile in the LARGE memory model!                        
+	Sprite loader and bliter from xlib
+	
+	This is a 16-bit program, Remember to compile in the LARGE memory model!                        
 	
 	All code is 8086 / 8088 compatible
 	
 	Please feel free to copy this source code.                            
+	
+
+	LT_MODE = player movement modes
+
+	//MODE TOP = 0;
+	//MODE PLATFORM = 1;
+	//MODE PUZZLE = 2;
+	//MODE SIDESCROLL = 3;
+	
+	//33 fixed sprites:
+	//	8x8   (16 sprites: 0 - 15)	
+	//	16x16 (12 sprites: 16 - 27)
+	//	32x32 ( 4 sprites: 28 - 31)
+	//	64x64 ( 1 sprite: 32)
 	
 ##########################################################################*/
 
@@ -38,54 +53,73 @@ unsigned char palette_cycle_water[] = {//generated with gimp, then divided by 4 
 	0x35,0x3b,0x3f
 };
 
-SPRITE font, pointer, sprite_cursor, sprite_player, sprite_ball, *sprite_enemy, sprite_ship;
-COLORCYCLE cycle_water;
-
-int i = 0;
-int j = 0;
+unsigned char palette_cycle_space[] = {//generated with gimp, then divided by 4 (max = 64).
+	//2 copies of 8 colour cycle
+	0x35,0x35,0x3f,//
+	0x00,0x00,0x22,
+	0x18,0x29,0x3f,
+	0x09,0x1d,0x3e,
+	0x12,0x0f,0x3f,
+	0x17,0x22,0x3f,
+	0x1c,0x2d,0x3e,
+	0x24,0x33,0x3e,
+	0x35,0x35,0x3f,//
+	0x00,0x00,0x22,
+	0x18,0x29,0x3f,
+	0x09,0x1d,0x3e,
+	0x12,0x0f,0x3f,
+	0x17,0x22,0x3f,
+	0x1c,0x2d,0x3e,
+	0x24,0x33,0x3e
+};
 
 LT_Col LT_Player_Col;
+COLORCYCLE cycle_water;
 
+int x,y = 0;
+int i,j = 0;
 int Scene = 0;
 int menu_option = 0;
-int menu_pos[10] = {7.3*16,2*16,7.3*16,3*16,7.3*16,4*16,7.3*16,5*16,7.3*16,6*16};
+int menu_pos[10] = {7.3*16,4*16,7.3*16,5*16,7.3*16,6*16,7.3*16,7*16,7.3*16,8*16};
 int game = 0;
 int random;
 
 void Load_Logo(){
-	Load_map("GFX/Logo.tmx");
-	load_tiles("GFX/Logotil.bmp");
-	MCGA_Fade_out();
+	LT_Load_Map("GFX/Logo.tmx");
+	LT_Load_Tiles("GFX/Logotil.bmp");
+	VGA_Fade_out();
 	LT_Set_Map(0,0);
 }
 
 void Run_Logo(){
-	while (SCR_Y < 152){
-		MCGA_Scroll(SCR_X,SCR_Y);
+	while (y < 144){
+		LT_WaitVsyncEnd();
+		VGA_Scroll(x,y);
 		LT_scroll_map();
-		SCR_Y++;
-		if (LT_Keys[1]) {SCR_Y= 200; goto exit;}//esc exit
+		y++;
+		if (LT_Keys[LT_ESC]) {VGA_Scroll(0,0); goto exit;}//esc exit
+		LT_WaitVsyncStart();
 	}
-	sleep(1);
 	exit:
+	sleep(1);
 }
 
 void Load_Menu(){
 	LT_Set_Loading_Interrupt(); 
 	
-	Load_map("GFX/menu.tmx");
-	load_tiles("GFX/menutil.bmp");
-	LT_Load_Sprite("GFX/cursor.bmp",&sprite_cursor,16);
-	//LT_Load_Music("music/menu2.imf");
+	LT_Load_Map("GFX/menu.tmx");
+	LT_Load_Tiles("GFX/menutil.bmp");
+	LT_Load_Sprite("GFX/cursor.bmp",16,16);
+	LT_Load_Music("music/ADLIB/menu0.imf");
 	//LT_Start_Music(70);
-	LT_LoadMOD("MUSIC/MOD/dyna.mod"); 
+	//LT_LoadMOD("MUSIC/MOD/dyna.mod"); 
 	
 	LT_Delete_Loading_Interrupt();
 	
-	PlayMOD(0);
+	//PlayMOD(0);
+
+	VGA_SplitScreen(44);
 	
-	MCGA_SplitScreen(63); 
-	MCGA_Scroll(SCR_X,144); //Scroll tittle
 	LT_Set_Map(0,0);
 	
 	i = 0;
@@ -97,20 +131,25 @@ void Run_Menu(){
 	Scene = 1;
 	game = 0;
 	menu_option = 0;
-	LT_Set_Sprite_Animation(&sprite_cursor,0,8,6);
+	
+	x = 0;
+	y = 0;
+	
+	LT_Set_Sprite_Animation(16,0,8,6);
 	while(Scene == 1){
-		MCGA_Scroll(SCR_X,144); //Scroll tittle
-		SCR_X = LT_SIN[i]>>1;
+		LT_WaitVsyncEnd();
+
+		LT_Restore_Sprite_BKG(16);
+		LT_Draw_Sprite(16);
 		
-		sprite_cursor.pos_x = menu_pos[menu_option] + (LT_COS[j]>>3);
-		sprite_cursor.pos_y = menu_pos[menu_option+1];
+		SCR_X = -54-(LT_SIN[i]>>1);
 		
-		LT_Restore_Sprite_BKG(&sprite_cursor);
-		LT_Draw_Sprite(&sprite_cursor);
+		sprite[16].pos_x = menu_pos[menu_option] + (LT_COS[j]>>3);
+		sprite[16].pos_y = menu_pos[menu_option+1];
 		
 		if (i > 360) i = 0;
 		i+=2;
-		if (j > 356) {j = 0; sprite_cursor.anim_counter = 0;}
+		if (j > 356) {j = 0; sprite[16].anim_counter = 0;}
 		j+=8;
 		
 		if (delay == 10){
@@ -127,131 +166,146 @@ void Run_Menu(){
 		
 		if (LT_Keys[LT_ENTER]) Scene = 2;
 		if (LT_Keys[LT_ESC]) {
-			LT_unload_sprite(&sprite_cursor);
+			LT_unload_sprite(16);
 			LT_ExitDOS();
 		}
+		do_play_music();
+		LT_WaitVsyncStart();
 	}
 	StopMOD();
-	LT_unload_sprite(&sprite_cursor);
+	LT_unload_sprite(16);
 }
 
 void Load_TopDown(){
 	LT_Set_Loading_Interrupt(); 
 	
-	Scene = 2;
-	load_map("GFX/Topdown.tmx");
-	load_tiles("GFX/Toptil.bmp");
+	LT_Load_Map("GFX/Topdown.tmx");
+	LT_Load_Tiles("GFX/Toptil.bmp");
 	
-	LT_Load_Sprite("GFX/player.bmp",&sprite_player,16);
-	sprite_enemy = farcalloc(10,sizeof(SPRITE));
-	LT_Load_Sprite("GFX/enemy2.bmp",&sprite_enemy[0],16);
-	LT_Clone_Sprite(&sprite_enemy[1],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[2],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[3],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[4],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[5],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[6],&sprite_enemy[0]);
+	LT_Load_Sprite("GFX/player.bmp",16,16);
+	LT_Load_Sprite("GFX/enemy2.bmp",17,16);
+	LT_Clone_Sprite(18,17);
+	LT_Clone_Sprite(19,17);
+	LT_Clone_Sprite(20,17);
+	LT_Clone_Sprite(21,17);
+	LT_Clone_Sprite(22,17);
+	LT_Clone_Sprite(23,17);
 	
 	LT_Load_Music("music/adlib/top_down.imf");
 	//LoadMOD("MUSIC/MOD/Beach.mod"); 
 	
 	LT_Delete_Loading_Interrupt();
 	
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
 	//PlayMOD(1);
 	
-	//animate colours
-	cycle_init(&cycle_water,palette_cycle_water);
+	LT_SetWindow("GFX/window.bmp");
 	
 	LT_Set_Map(0,0);
 	LT_MODE = 0;
+	
+	//animate colours
+	//cycle_init(&cycle_water,palette_cycle_water);
+	Scene = 2;
 }
 
 void Run_TopDown(){
 	int n;
 	Scene = 2;
-	
-	sprite_player.pos_x = 8*16;
-	sprite_player.pos_y = 4*16;
+	x = 0;
+	y = 0;
+	sprite[16].pos_x = 8*16;
+	sprite[16].pos_y = 4*16;
 	
 	//Place enemies manually on map in tile units (x16)
 	//They will be drawn only if they are inside viewport.
-	LT_Set_Enemy(&sprite_enemy[0],13,7,1,0);
-	LT_Set_Enemy(&sprite_enemy[1],20,17,0,-1);
-	LT_Set_Enemy(&sprite_enemy[2],33,18,0,1);
-	LT_Set_Enemy(&sprite_enemy[3],39,9,-1,0);
-	LT_Set_Enemy(&sprite_enemy[4],70,16,0,1);
-	LT_Set_Enemy(&sprite_enemy[5],54,4,1,0);
-	LT_Set_Enemy(&sprite_enemy[6],36,25,0,-1);
+	LT_Set_Enemy(17,13,7,4,0);
+	LT_Set_Enemy(18,20,17,4,0);
+	LT_Set_Enemy(19,54,4,4,0);
+	LT_Set_Enemy(20,36,25,4,0);
 	
-	for (n = 0; n != 7; n++) LT_Set_Sprite_Animation(&sprite_enemy[n],0,2,16);
+	LT_Set_Enemy(21,33,18,0,4);
+	LT_Set_Enemy(22,39,9,0,4);
+	LT_Set_Enemy(23,70,16,0,4);
+	
+	for (n = 17; n != 21; n++) LT_Set_Sprite_Animation(n,6,2,8);
+	for (n = 21; n != 24; n++) LT_Set_Sprite_Animation(n,2,2,8);
 	
 	while(Scene == 2){
+		LT_WaitVsyncEnd();
 		//SCR_X and SCR_Y are predefined global variables 
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_scroll_follow(&sprite_player);
+		LT_scroll_follow(16);
 		
 		//Restore BKG
-		for (n = 6; n != -1; n--) LT_Restore_Enemy_BKG(&sprite_enemy[n]);
-		LT_Restore_Sprite_BKG(&sprite_player);
-		
+		for (n = 23; n != 16; n--) LT_Restore_Enemy_BKG(n);
+		LT_Restore_Sprite_BKG(16);
 		//Draw sprites first to avoid garbage
-		LT_Draw_Sprite(&sprite_player);
-		for (n = 0; n != 7; n++)LT_Draw_Enemy(&sprite_enemy[n]);
+		LT_Draw_Sprite(16);
+		for (n = 17; n != 24; n++)LT_Draw_Enemy(n);
 		
 		//scroll_map update off screen tiles
 		LT_scroll_map();
 		
-		LT_gprint(LT_Player_Col.tile_number,240,160);
+		LT_Print_Window_Variable(32,LT_Player_Col.tile_number);
 		
-		cycle_palette(&cycle_water,4);
+		//cycle_palette(&cycle_water,4);
+		
 		
 		//In this mode sprite is controlled using U D L R
-		LT_Player_Col = LT_move_player(&sprite_player);
+		LT_Player_Col = LT_move_player(16);
 		
 		//Player animations
-		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,6,4);
-		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(&sprite_player,6,6,4);
-		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(&sprite_player,12,6,4);
-		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(&sprite_player,18,6,4);
-		else sprite_player.animate = 0;
+		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,6,4);
+		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,6,6,4);
+		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,12,6,4);
+		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,6,4);
+		else sprite[16].animate = 0;
 		
 		//Move the enemy
-		for (n = 0; n != 7; n++) LT_Enemy_walker(&sprite_enemy[n],0);
+		for (n = 17; n != 24; n++) LT_Enemy_walker(n,0);
+		
+		//Enemy animations
+		//for (n = 17; n != 24; n++){
+		//	if (sprite[n].speed_x > 0) LT_Set_Sprite_Animation(n,0,6,5);
+		//	if (sprite[n].speed_x < 0) LT_Set_Sprite_Animation(n,6,6,5);	}
 		
 		//If collision tile = ?, end level
 		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
 
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
+		do_play_music();
+		LT_WaitVsyncStart();
 	}
 	//StopMOD(1);
-	LT_unload_sprite(&sprite_player); //manually free sprites
-	farfree(sprite_enemy); sprite_enemy = NULL; 
+	LT_unload_sprite(16); //manually free sprites
+	LT_unload_sprite(17);
 }
 
 void Load_Platform(){
 	LT_Set_Loading_Interrupt(); 
 	
 	Scene = 2;
-	load_map("GFX/Platform.tmx");
-	load_tiles("GFX/Platil.bmp");
-	//LT_load_font("GFX/font.bmp");
+	LT_Load_Map("GFX/Platform.tmx");
+	LT_Load_Tiles("GFX/Platil.bmp");
 	
-	LT_Load_Sprite("GFX/player.bmp",&sprite_player,16);
-	sprite_enemy = farcalloc(10,sizeof(SPRITE));
-	LT_Load_Sprite("GFX/enemy.bmp",&sprite_enemy[0],16);
-	LT_Clone_Sprite(&sprite_enemy[1],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[2],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[3],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[4],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[5],&sprite_enemy[0]);
-	LT_Clone_Sprite(&sprite_enemy[6],&sprite_enemy[0]);
+	LT_Load_Sprite("GFX/player.bmp",16,16);
+	LT_Load_Sprite("GFX/enemy.bmp",17,16);
+	LT_Clone_Sprite(18,17);
+	LT_Clone_Sprite(19,17);
+	LT_Clone_Sprite(20,17);
+	LT_Clone_Sprite(21,17);
+	LT_Clone_Sprite(22,17);
+	LT_Clone_Sprite(23,17);
+	
 	LT_Load_Music("music/Adlib/platform.imf");
 	
 	LT_Delete_Loading_Interrupt();
 	
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
+	
+	LT_SetWindow("GFX/window.bmp");
+	
 	//animate water
 	cycle_init(&cycle_water,palette_cycle_water);
 	
@@ -260,60 +314,74 @@ void Load_Platform(){
 
 void Run_Platform(){
 	int n;
+	int diamonds = 0;
 	startp:
 	LT_Set_Map(0,0);
-	sprite_player.pos_x = 4*16;
-	sprite_player.pos_y = 4*16;
+	sprite[16].pos_x = 4*16;
+	sprite[16].pos_y = 4*16;
 	
 	//Place enemies manually on map in tile units (x16)
 	//They will be drawn only if they are inside viewport.
-	LT_Set_Enemy(&sprite_enemy[0],17,20,1,0);
-	LT_Set_Enemy(&sprite_enemy[1],61,19,-1,0);
-	LT_Set_Enemy(&sprite_enemy[2],61,13,-1,0);
-	LT_Set_Enemy(&sprite_enemy[3],92,15,1,0);
-	LT_Set_Enemy(&sprite_enemy[4],117,18,-1,0);
-	LT_Set_Enemy(&sprite_enemy[5],163,20,1,0);
-	LT_Set_Enemy(&sprite_enemy[6],192,12,-1,0);
+	LT_Set_Enemy(17,17,20,2,0);
+	LT_Set_Enemy(18,61,19,2,0);
+	LT_Set_Enemy(19,61,13,2,0);
+	LT_Set_Enemy(20,92,15,2,0);
+	LT_Set_Enemy(21,117,18,2,0);
+	LT_Set_Enemy(22,163,20,2,0);
+	LT_Set_Enemy(23,192,12,2,0);
 	
 	Scene = 2;
 	
 	while(Scene == 2){
-		//SCR_X and SCR_Y are global variables predefined 
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_scroll_follow(&sprite_player);
+		LT_WaitVsyncEnd();
 		
+		LT_scroll_follow(16);
+
 		//Restore BKG
-		for (n = 6; n != -1; n--) LT_Restore_Enemy_BKG(&sprite_enemy[n]);
-		LT_Restore_Sprite_BKG(&sprite_player);
+		for (n = 23; n != 16; n--) LT_Restore_Enemy_BKG(n);
+		LT_Restore_Sprite_BKG(16);
+		
+		//EDIT MAP: GET DIAMONDS
+		switch (LT_Player_Col.tile_number){
+			case 234: LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 39, 0); diamonds++; break;
+			case 235: LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 26, 0); diamonds++; break;
+			case 236: LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 13, 0); diamonds++; break;
+			case 237: LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 0, 0); diamonds++; break;
+			case 238: LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 52, 0); diamonds++; break;
+			case 239: LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 77, 0); diamonds++; break;
+			case 240: LT_Edit_MapTile(sprite[16].tile_x,sprite[16].tile_y, 173, 0); diamonds++; break;
+		} 
 		
 		//Draw sprites first to avoid garbage
-		LT_Draw_Sprite(&sprite_player);
-		for (n = 0; n != 7; n++)LT_Draw_Enemy(&sprite_enemy[n]);
+		LT_Draw_Sprite(16);
+		for (n = 17; n != 24; n++) LT_Draw_Enemy(n);
 		
 		//scroll_map and draw borders
 		LT_scroll_map();
-		
+	
 		//In this mode sprite is controlled using L R and Jump
-		LT_Player_Col = LT_move_player(&sprite_player);
+		LT_Player_Col = LT_move_player(16);
 		
 		//set player animations
-		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(&sprite_player,0,6,4);
-		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(&sprite_player,6,6,4);
-		else sprite_player.animate = 0;
-		
+		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,6,4);
+		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,6,6,4);
+		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,12,6,4);
+		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,6,4);
+		else sprite[16].animate = 0;
+	
 		//Move the enemy
-		for (n = 0; n != 7; n++) LT_Enemy_walker(&sprite_enemy[n],1);
+		for (n = 17; n != 24; n++) LT_Enemy_walker(n,1);
 		
 		//Flip
-		for (n = 0; n != 7; n++){
-			if (sprite_enemy[n].speed_x > 0) LT_Set_Sprite_Animation(&sprite_enemy[n],0,6,5);
-			if (sprite_enemy[n].speed_x < 0) LT_Set_Sprite_Animation(&sprite_enemy[n],6,6,5);	
+		for (n = 17; n != 24; n++){
+			if (sprite[n].mspeed_x > 0) LT_Set_Sprite_Animation(n,0,6,5);
+			if (sprite[n].mspeed_x < 0) LT_Set_Sprite_Animation(n,6,6,5);	
 		}
 		
 		//if water, reset level
 		if (LT_Player_Col.tile_number == 182) {
-			MCGA_Fade_out(); 
-			sprite_player.init = 0;
+			VGA_Fade_out(); 
+			sprite[16].init = 0;
 			goto startp;
 		}
 		//If collision tile = ?, end level
@@ -325,28 +393,32 @@ void Run_Platform(){
 		//esc go to menu
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
+		LT_Print_Window_Variable(32,diamonds);
+		
+		do_play_music();
+		LT_WaitVsyncStart();
 	}
-	LT_unload_sprite(&sprite_player); //manually free sprites
-	farfree(sprite_enemy); sprite_enemy = NULL; 
+	
+	LT_unload_sprite(16); //manually free sprites
+	LT_unload_sprite(17);
 }
 
 void Load_Puzzle(){
 	LT_Set_Loading_Interrupt(); 
 	
 	Scene = 2;
-	load_map("GFX/puzzle.tmx");
-	load_tiles("GFX/puztil.bmp");
-	//LT_load_font("GFX/font.bmp");
+	LT_Load_Map("GFX/puzzle.tmx");
+	LT_Load_Tiles("GFX/puztil.bmp");
 	
-	LT_Load_Sprite("GFX/ball.bmp",&sprite_player,16);
-	LT_Load_Sprite("GFX/cursor2.bmp",&pointer,8);
-	LT_Set_Sprite_Animation(&pointer,0,8,2);
+	LT_Load_Sprite("GFX/ball.bmp",16,16);
+	LT_Load_Sprite("GFX/cursor2.bmp",0,8);
+	LT_Set_Sprite_Animation(0,0,8,2);
 	
 	LT_Load_Music("music/ADLIB/puzzle.imf");
 	
 	LT_Delete_Loading_Interrupt();
 	
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
 	
 	//animate colours
 	cycle_init(&cycle_water,palette_cycle_water);
@@ -360,48 +432,50 @@ void Run_Puzzle(){
 	int power = 40;
 	Scene = 2;
 	
-	sprite_player.pos_x = 4*16;
-	sprite_player.pos_y = 3*16;
+	sprite[16].pos_x = 4*16;
+	sprite[16].pos_y = 3*16;
 	
 	//To simulate floats
-	sprite_player.fpos_x = sprite_player.pos_x;
-	sprite_player.fpos_y = sprite_player.pos_y;
-	sprite_player.speed_x = 0;
-	sprite_player.speed_y = 0;
+	sprite[16].fpos_x = sprite[16].pos_x;
+	sprite[16].fpos_y = sprite[16].pos_y;
+	sprite[16].speed_x = 0;
+	sprite[16].speed_y = 0;
+	
 	while(Scene == 2){
+		LT_WaitVsyncEnd();
 		//SCR_X and SCR_Y are predefined global variables 
-		MCGA_Scroll(SCR_X,SCR_Y);
 		
-		LT_Restore_Sprite_BKG(&pointer);
-		LT_Restore_Sprite_BKG(&sprite_player);
+		LT_Restore_Sprite_BKG(0);
+		LT_Restore_Sprite_BKG(16);
 		
-		LT_scroll_follow(&sprite_player);
-		LT_Draw_Sprite(&sprite_player);
-		if (sprite_player.state == 0)LT_Draw_Sprite(&pointer);
-		LT_gprint(LT_Player_Col.tilecol_number,240,160);
+		LT_scroll_follow(16);
+		LT_Draw_Sprite(16);
+		//Draw pointer if ball stopped
+		if (sprite[16].state == 0) LT_Draw_Sprite(0);
+
 		//scroll_map update off screen tiles
 		LT_scroll_map();
 		
 		//In mode 3, sprite is controlled using the speed.
 		//Also there are physics using the collision tiles
-		LT_Player_Col = LT_move_player(&sprite_player);
+		LT_Player_Col = LT_move_player(16);
 		
 		if(rotate == 360) rotate = 0;
 		if(rotate < 0) rotate = 360;
-		pointer.pos_x = sprite_player.pos_x + 4 + (LT_COS[rotate]>>2);
-		pointer.pos_y = sprite_player.pos_y + 4 + (LT_SIN[rotate]>>2);
+		sprite[0].pos_x = sprite[16].pos_x + 4 + (LT_COS[rotate]>>2);
+		sprite[0].pos_y = sprite[16].pos_y + 4 + (LT_SIN[rotate]>>2);
 		
 		//ROTATE 
 		if (LT_Keys[LT_RIGHT]) rotate++;
 		if (LT_Keys[LT_LEFT]) rotate--;
 		
 		//HIT BALL
-		if ((LT_Keys[LT_ACTION]) && (sprite_player.state == 0)){
-			LT_Delete_Sprite(&pointer);
-			sprite_player.state = 1; //Move
+		if ((LT_Keys[LT_ACTION]) && (sprite[16].state == 0)){
+			LT_Delete_Sprite(0);
+			sprite[16].state = 1; //Move
 			//All this trouble to simulate floats :(
-			sprite_player.speed_x = (LT_COS[rotate]/16)*80;
-			sprite_player.speed_y = (LT_SIN[rotate]/16)*80;
+			sprite[16].speed_x = (LT_COS[rotate]/16)*80;
+			sprite[16].speed_y = (LT_SIN[rotate]/16)*80;
 		}
 
 		//If collision tile = ?, end level
@@ -410,26 +484,30 @@ void Run_Puzzle(){
 		cycle_palette(&cycle_water,2);
 
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
+		
+		do_play_music();
+		LT_WaitVsyncStart();
 	}
 	
-	LT_Unload_Sprite(&pointer);
-	LT_unload_sprite(&sprite_player); //manually free sprites
+	LT_Unload_Sprite(0);
+	LT_unload_sprite(16); //manually free sprites
 }
 
 void Load_Puzzle2(){
 	LT_Set_Loading_Interrupt(); 
 	
 	Scene = 2;
-	load_map("GFX/arkanoid.tmx");
-	load_tiles("GFX/atiles.bmp");
-	LT_load_font("GFX/font.bmp");
+	LT_Load_Map("GFX/arkanoid.tmx");
+	LT_Load_Tiles("GFX/atiles.bmp");
 	
-	LT_Load_Sprite("GFX/bar.bmp",&sprite_player,16);
-	LT_Load_Sprite("GFX/aball.bmp",&sprite_ball,8);
+	LT_Load_Sprite("GFX/bar.bmp",16,16);
+	LT_Load_Sprite("GFX/aball.bmp",0,8);
 	LT_Load_Music("music/ADLIB/top_down.imf");
 	
 	LT_Delete_Loading_Interrupt();
-	LT_Start_Music(70);
+	//LT_Start_Music(70);
+	
+	LT_SetWindow("GFX/window.bmp");
 	
 	LT_Set_Map(0,0);
 	LT_MODE = 0; 
@@ -439,63 +517,68 @@ void Run_Puzzle2(){
 	int score = 0;
 	Scene = 2;
 	
-	sprite_player.pos_x = 10*16;
-	sprite_player.pos_y = 9*16;
-	sprite_ball.pos_x = 10*16;
-	sprite_ball.pos_y = 10*16;
-	//To simulate floats
-	sprite_ball.speed_x = 1;
-	sprite_ball.speed_y = -1;
+	sprite[16].pos_x = 10*16;
+	sprite[16].pos_y = 12*16;
+	
+	sprite[0].pos_x = 10*16;
+	sprite[0].pos_y = 10*16;
+	
+	//To bounce ball
+	sprite[0].speed_x = 1;
+	sprite[0].speed_y = -1;
+	
 	while(Scene == 2){
+		LT_WaitVsyncEnd();
 		//SCR_X and SCR_Y are predefined global variables 
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_Restore_Sprite_BKG(&sprite_ball);
-		LT_Restore_Sprite_BKG(&sprite_player);
-		LT_Draw_Sprite(&sprite_player);
-		LT_Draw_Sprite(&sprite_ball);
-		LT_gprint(score,240,160);
-
+		VGA_Scroll(SCR_X,SCR_Y);
+		
 		//simple physics to bounce a ball
-		LT_Player_Col = LT_Bounce_Ball(&sprite_ball);
+		LT_Player_Col = LT_Bounce_Ball(0);
+		
+		LT_Restore_Sprite_BKG(0);
+		LT_Restore_Sprite_BKG(16);
+		
+		LT_Draw_Sprite(16);
+		LT_Draw_Sprite(0);
+
 		if (LT_Player_Col.col_x == 5) score++;
 		if (LT_Player_Col.col_y == 5) score++;
 		
 		//ROTATE 
-		if (LT_Keys[LT_RIGHT]) sprite_player.pos_x++;
-		if (LT_Keys[LT_LEFT]) sprite_player.pos_x--;
+		if (LT_Keys[LT_RIGHT]) sprite[16].pos_x++;
+		if (LT_Keys[LT_LEFT]) sprite[16].pos_x--;
 		
 		//HIT BALL
-		if ((LT_Keys[LT_ACTION]) && (sprite_player.state == 0)){
-			LT_Delete_Sprite(&pointer);
-			sprite_ball.state = 1; //Move
-			//All this trouble to simulate floats :(
-			sprite_ball.speed_x = 1;
-			sprite_ball.speed_y = -1;
+		if ((LT_Keys[LT_ACTION]) && (sprite[16].state == 0)){
+			sprite[0].state = 1; //Move
+			sprite[0].speed_x = 1;
+			sprite[0].speed_y = -1;
 		}
 
-		//If collision tile = ?, end level
-		if (LT_Player_Col.tilecol_number == 10) Scene = 1;
-
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
+		
+		do_play_music();
+		LT_WaitVsyncStart();
 	}
-	LT_Unload_Sprite(&sprite_ball);
-	LT_unload_sprite(&sprite_player); //manually free sprites
+	LT_Unload_Sprite(0);
+	LT_unload_sprite(16); //manually free sprites
 }
 
 void Load_Shooter(){
 	LT_Set_Loading_Interrupt(); 
 	
 	Scene = 2;
-	load_map("GFX/Shooter.tmx");
-	load_tiles("GFX/stiles.bmp");
+	LT_Load_Map("GFX/Shooter.tmx");
+	LT_Load_Tiles("GFX/stiles.bmp");
 	
-	LT_Load_Sprite("GFX/player.bmp",&sprite_player,16);
-	LT_Load_Sprite("GFX/Ship.bmp",&sprite_ship,32);
+	LT_Load_Sprite("GFX/player.bmp",16,16);
+	LT_Load_Sprite("GFX/ship.bmp",28,32);
 	
 	LT_Load_Music("music/ADLIB/shooter.imf");
 	
 	LT_Delete_Loading_Interrupt();
 
+	LT_SetWindow("GFX/window.bmp");
 }
 
 void Run_Shooter(){
@@ -503,118 +586,139 @@ void Run_Shooter(){
 	start:
 	timer = 0;
 	Scene = 0;
-	sprite_ship.pos_x = 8*16;
-	sprite_ship.pos_y = 13*16;
-	LT_Set_Sprite_Animation(&sprite_ship,0,1,0);
-	
-	sprite_player.pos_x = -16;
-	sprite_player.pos_y = 14*16;
-	LT_Set_Sprite_Animation(&sprite_player,0,6,4);
+	sprite[28].pos_x = 8*16;
+	sprite[28].pos_y = 16*16;
+	LT_Set_Sprite_Animation(28,0,1,4);
+	sprite[16].pos_x = 0;
+	sprite[16].pos_y = 17*16;
+	LT_Set_Sprite_Animation(16,0,6,4);
 	
 	LT_Set_Map(0,5);
 	
+	cycle_init(&cycle_water,palette_cycle_space);
+	
+	//WALK TO SHIP
 	while (Scene == 0){
+		LT_WaitVsyncEnd();
+
+		LT_Restore_Sprite_BKG(16);
+		LT_Restore_Sprite_BKG(28);
 		
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_Restore_Sprite_BKG(&sprite_player);
-		LT_Restore_Sprite_BKG(&sprite_ship);
-		LT_Draw_Sprite(&sprite_ship);
-		LT_Draw_Sprite(&sprite_player);
-		sprite_player.pos_x++;
-		if (sprite_player.pos_x == sprite_ship.pos_x+2) Scene = 1; //esc exit
+		LT_Draw_Sprite(28);
+		LT_Draw_Sprite(16);
+		
+		sprite[16].pos_x++;
+		
+		if (sprite[16].pos_x == sprite[28].pos_x+8) Scene = 1; 
+		cycle_palette(&cycle_water,2);
+		LT_WaitVsyncStart();
 	}
 	
-	LT_Set_Sprite_Animation(&sprite_ship,1,4,12);
+	//CLOSE SHIP
+	LT_Set_Sprite_Animation(28,1,4,12);
 	while (Scene == 1){
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_Restore_Sprite_BKG(&sprite_ship);
-		LT_Draw_Sprite(&sprite_ship);
-		if (sprite_ship.frame == 4) Scene = 2; //esc exit
+		LT_WaitVsyncEnd();
+
+		LT_Restore_Sprite_BKG(28);
+		LT_Draw_Sprite(28);
+		if (sprite[28].frame == 4) Scene = 2; 
+		cycle_palette(&cycle_water,2);
+		LT_WaitVsyncStart();
 	}
-	
-	sleep(0.5);	
-	sprite_ship.animate = 0;
+	//FLY UP
+	sprite[28].animate = 0;
 	while (Scene == 2){
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_Restore_Sprite_BKG(&sprite_ship);
-		LT_scroll_follow(&sprite_ship);
-		LT_Draw_Sprite(&sprite_ship);
+		LT_WaitVsyncEnd();
+
+		LT_Restore_Sprite_BKG(28);
+		LT_scroll_follow(28);
+		LT_Draw_Sprite(28);
 		
-		sprite_ship.pos_y--;
+		sprite[28].pos_y--;
 		if (SCR_Y == 0) Scene = 3; 
 		
 		LT_scroll_map();
+		cycle_palette(&cycle_water,2);
+		LT_WaitVsyncStart();
 	}
-	LT_Set_Sprite_Animation(&sprite_ship,4,4,5);
+	
+	//START ENGINE
+	LT_Set_Sprite_Animation(28,4,4,5);
 	while (Scene == 3){
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_Restore_Sprite_BKG(&sprite_ship);
-		LT_Draw_Sprite(&sprite_ship);
+		LT_WaitVsyncEnd();
+
+		LT_Restore_Sprite_BKG(28);
+		LT_Draw_Sprite(28);
 
 		timer++;
 		if (timer == 100) Scene = 4; 
+		cycle_palette(&cycle_water,2);
+		LT_WaitVsyncStart();
 	}
-	
-	LT_Start_Music(70);
-	LT_MODE = 3; //SIDE SCROLL
-	LT_Set_Sprite_Animation(&sprite_ship,8,4,4);
+
+	//SIDE SCROLL
+	//LT_Start_Music(70);
+	LT_MODE = 3;
+	LT_Set_Sprite_Animation(28,8,4,4);
 	while(Scene == 4){
-		MCGA_Scroll(SCR_X,SCR_Y);
-		LT_Restore_Sprite_BKG(&sprite_ship);
-		LT_Draw_Sprite(&sprite_ship);
+		LT_WaitVsyncEnd();
+		SCR_X++;
+		LT_Restore_Sprite_BKG(28);
+		
+		LT_Draw_Sprite(28);
+		
 		LT_Endless_SideScroll_Map(0);
 		
-		LT_Player_Col = LT_move_player(&sprite_ship);
+		LT_Player_Col = LT_move_player(28);
 		if (LT_Player_Col.col_x == 1) {
-			LT_Set_Sprite_Animation(&sprite_ship,12,4,4);
+			LT_Set_Sprite_Animation(28,12,4,4);
 		}
-		if (sprite_ship.frame == 15) {
-			sprite_ship.init = 0;
+		if (sprite[28].frame == 15) {
+			sprite[28].init = 0;
 			sleep(2); 
 			Scene = -1;
 		}
+		
 		if (LT_Keys[LT_ESC]) Scene = -1; //esc exit
-		SCR_X++;
+		
+		cycle_palette(&cycle_water,2);
+		LT_Print_Window_Variable(32,LT_Player_Col.tile_number);
+		
+		do_play_music();
+		LT_WaitVsyncStart();
 	}
 	
-	LT_unload_sprite(&sprite_ship);
-	LT_unload_sprite(&sprite_player);
+	LT_unload_sprite(28);
+	LT_unload_sprite(16);
 }
 
+
 void main(){
-	
+
 	system("cls");
+	printf("LOADING");
 	//LT_Check_CPU(); //still causing trouble
 	//LT_Adlib_Detect(); 
 	LT_Init_GUS(12);
-	LT_Init();
-	gotoxy(17,13);
-	printf("LOADING");
-	gotoxy(0,0);
+    LT_init();
 	
 	//You can use a custom loading animation for the Loading_Interrupt
-	LT_Load_Animation("GFX/loading.bmp",&LT_Loading_Animation,32);
-	LT_Set_Animation(&LT_Loading_Animation,0,16,2);
-
-	LT_load_font("GFX/font.bmp");
+	LT_Load_Animation("GFX/loading.bmp",32);
+	LT_Set_Animation(0,8,2);
 	
-	//LT_MODE = player movement modes
-	//MODE TOP = 0;
-	//MODE PLATFORM = 1;
-	//MODE PUZZLE = 2;
-	//MODE SIDESCROLL = 3;
-	LT_MODE = 0;
+	LT_Load_Font("GFX/font.bmp");
 	
-	//LOGO
 	Load_Logo();
 	Run_Logo();
-
+	
+	LT_MODE = 0;
+	
 	//MENU
 	menu:
 	
 	Load_Menu();
 	Run_Menu();
-
+	
 	if (game == 0){
 		Load_TopDown();
 		Run_TopDown();
@@ -625,41 +729,23 @@ void main(){
 		Run_Platform();
 		goto menu;
 	}
-	if (game == 2){
+    if (game == 2){
 		Load_Puzzle();
 		Run_Puzzle();
 		goto menu;
-	}	
-	if (game == 3){
+	}
+ 	if (game == 3){
 		Load_Puzzle2();
 		Run_Puzzle2();
 		goto menu;
-	}
+	}   
 	if (game == 4){
 		Load_Shooter();
 		Run_Shooter();
 		goto menu;
 	}
 	
-	exit:
-
-	LT_ExitDOS(); //frees map, tileset, font and music.
+	LT_ExitDOS();
 	
-	return;
 }
 
-	//debug
-	//printf("debug 1 = %f\n",t1);
-	//printf("debug 2 = %f\n",t2);
-	//sleep(3);
-/*
-
-	start=*my_clock;
-	for (i = 0;i<100;i++) LT_Draw_Sprite(&sprite_ship);
-	t1=(*my_clock-start)/18.2;
-	sleep(1);
-	start=*my_clock;
-	for (i = 0;i<100;i++) LT_Draw_Sprite2(&sprite_ship);
-	t2=(*my_clock-start)/18.2;	
-*/
-	
