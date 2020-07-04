@@ -227,8 +227,7 @@ void LT_Delete_Loading_Interrupt();
 
 //MCGA/VGA Hardware scroll
 void VGA_Scroll(word x, word y);
-void LT_WaitVsyncStart();
-void LT_WaitVsyncEnd();
+void LT_WaitVsync();
 void VGA_ClearScreen();
 void VGA_SplitScreen();
 

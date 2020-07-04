@@ -14,7 +14,7 @@
 	
 	Please feel free to copy this source code.                            
 	
-
+ 
 	LT_MODE = player movement modes
 
 	//MODE TOP = 0;
@@ -32,7 +32,27 @@
 
 #include "lt__eng.h"
 
-unsigned char palette_cycle_water[] = {//generated with gimp, then divided by 4 (max = 64).
+const unsigned char palette_cycle_logo[] = {//generated with gimp, then divided by 4 (max = 64).
+	//2 copies of 8 colour cycle
+	0xff,0xff,0xff,//
+	0xff,0xff,0xff,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0xff,0xff,0xff,//
+	0xff,0xff,0xff,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00,
+	0x00,0x00,0x00
+};
+
+const unsigned char palette_cycle_water[] = {//generated with gimp, then divided by 4 (max = 64).
 	//2 copies of 8 colour cycle
 	0x35,0x3b,0x3f,//
 	0x26,0x39,0x3f,
@@ -53,7 +73,7 @@ unsigned char palette_cycle_water[] = {//generated with gimp, then divided by 4 
 	0x35,0x3b,0x3f
 };
 
-unsigned char palette_cycle_space[] = {//generated with gimp, then divided by 4 (max = 64).
+const unsigned char palette_cycle_space[] = {//generated with gimp, then divided by 4 (max = 64).
 	//2 copies of 8 colour cycle
 	0x35,0x35,0x3f,//
 	0x00,0x00,0x22,
@@ -75,6 +95,7 @@ unsigned char palette_cycle_space[] = {//generated with gimp, then divided by 4 
 
 LT_Col LT_Player_Col;
 COLORCYCLE cycle_water;
+COLORCYCLE cycle_logo;
 
 extern byte LT_AI_Stack_Table[];
 
@@ -85,25 +106,76 @@ int menu_option = 0;
 int menu_pos[10] = {7.3*16,4*16,7.3*16,5*16,7.3*16,6*16,7.3*16,7*16,7.3*16,8*16};
 int game = 0;
 int random;
-
+int logotimer = 0;
 void Load_Logo(){
 	LT_Load_Map("GFX/Logo.tmx");
 	LT_Load_Tiles("GFX/Logotil.bmp");
 	VGA_Fade_out();
 	LT_Set_Map(0,0);
+	cycle_init(&cycle_logo,palette_cycle_logo);
 }
 
 void Run_Logo(){
-	while (y < 144){
-		LT_WaitVsyncEnd();
+	while (logotimer < 512){
 		VGA_Scroll(x,y);
 		LT_scroll_map();
-		y++;
+		if (y<144)y++;
+		cycle_palette(&cycle_logo,2);
 		if (LT_Keys[LT_ESC]) {VGA_Scroll(0,0); goto exit;}//esc exit
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
+		logotimer++;
 	}
 	exit:
-	sleep(1);
+}
+
+
+
+#ifndef M_PI
+#define M_PI 3.14159
+#endif
+
+unsigned int SINEX[256];
+unsigned int SINEY[256];
+
+void Load_Test(){
+	for( i = 0; i < 256; ++i ) {
+		SINEX[ i ] = 320 * ( (sin( 2.0 * M_PI * i / 256.0 ) + 1.0 ) / 2.0 );
+		SINEY[ i ] = 200 * ( (sin( 2.0 * M_PI * i / 128.0 ) + 1.0 ) / 2.0 );
+	}
+	LT_Set_Loading_Interrupt(); 
+	LT_Load_Map("gfx/lisa.tmx");
+	LT_Load_Tiles("gfx/lisa.bmp");
+	LT_Delete_Loading_Interrupt();
+	LT_Set_Map(0,0);
+	LT_MODE = 0;
+	Scene = 0;
+	i = 0;
+}
+
+void Run_Test(){
+	while(Scene == 0){
+		if (SCR_X < SINEX[0])SCR_X++;
+		else Scene = 1;
+		if (SCR_Y < SINEY[0])SCR_Y++;
+		
+		//scroll_map and draw borders
+		LT_scroll_map();
+		//do_play_music();
+		LT_WaitVsync();		
+	}
+	
+	while(Scene == 1){
+		SCR_X = SINEX[i & 255];
+		SCR_Y = SINEY[i & 255];
+		i++;
+		//scroll_map and draw borders
+		LT_scroll_map();
+		
+		if (LT_Keys[LT_ESC]) {Scene = 2;game = 0;}
+		
+		LT_WaitVsync();
+	}
+	StopMOD();
 }
 
 void Load_Menu(){
@@ -112,14 +184,14 @@ void Load_Menu(){
 	LT_Load_Map("GFX/menu.tmx");
 	LT_Load_Tiles("GFX/menutil.bmp");
 	LT_Load_Sprite("GFX/cursor.bmp",16,16);
-	LT_Load_Sprite("GFX/Rocket.bmp",32,64);
-	//LT_Load_Music("music/ADLIB/menu0.imf");
+	LT_Load_Sprite("GFX/rocket.bmp",28,32);
+	LT_Load_Music("music/ADLIB/menu0.imf");
 	//LT_Start_Music(70);
-	LT_LoadMOD("MUSIC/MOD/enigma.mod"); 
+	//LT_LoadMOD("MUSIC/MOD/dyna.mod"); 
 	
 	LT_Delete_Loading_Interrupt();
 	
-	PlayMOD(0);
+	//PlayMOD(0);
 
 	VGA_SplitScreen(44);
 	
@@ -140,17 +212,16 @@ void Run_Menu(){
 	
 	LT_Set_Sprite_Animation(16,0,8,6);
 	while(Scene == 1){
-		LT_WaitVsyncEnd();
-
 		LT_Draw_Sprites();
 		
 		SCR_X = -54-(LT_SIN[i]>>1);
 		
-		sprite[32].pos_x = 32;
-		sprite[32].pos_y = 64+(LT_COS[j]>>3);
-		
 		sprite[16].pos_x = menu_pos[menu_option] + (LT_COS[j]>>3);
 		sprite[16].pos_y = menu_pos[menu_option+1];
+		
+		sprite[28].pos_y = 64+ (LT_COS[j]>>3);
+		sprite[28].pos_x = 32;
+		
 		if (i > 360) i = 0;
 		i+=2;
 		if (j > 356) {j = 0; sprite[16].anim_counter = 0;}
@@ -169,12 +240,13 @@ void Run_Menu(){
 		if (game > 4) game = 4;	
 		
 		if (LT_Keys[LT_ENTER]) Scene = 2;
+		if (LT_Keys[LT_JUMP]) {Scene = 2;game = 16;}
 		if (LT_Keys[LT_ESC]) {
 			LT_unload_sprite(16);
 			LT_ExitDOS();
 		}
 		do_play_music();
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	StopMOD();
 	LT_unload_sprite(16);
@@ -237,7 +309,6 @@ void Run_TopDown(){
 	for (n = 21; n != 24; n++) LT_Set_Sprite_Animation(n,2,2,8);
 	
 	while(Scene == 2){
-		LT_WaitVsyncEnd();
 		//SCR_X and SCR_Y are predefined global variables 
 		LT_scroll_follow(16);
 		
@@ -276,7 +347,7 @@ void Run_TopDown(){
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
 		do_play_music();
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	//StopMOD(1);
 	LT_unload_sprite(16); //manually free sprites
@@ -336,8 +407,6 @@ void Run_Platform(){
 	Scene = 2;
 	
 	while(Scene == 2){
-		LT_WaitVsyncEnd();
-		
 		LT_scroll_follow(16);
 		
 		//EDIT MAP: GET DIAMONDS
@@ -393,7 +462,7 @@ void Run_Platform(){
 		LT_Print_Window_Variable(32,diamonds);
 		
 		do_play_music();
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	
 	LT_unload_sprite(16); //manually free sprites
@@ -439,8 +508,6 @@ void Run_Puzzle(){
 	sprite[16].speed_y = 0;
 	
 	while(Scene == 2){
-		LT_WaitVsyncEnd();
-
 		LT_scroll_follow(16);
 		LT_Draw_Sprites();
 
@@ -481,7 +548,7 @@ void Run_Puzzle(){
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
 		do_play_music();
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	
 	LT_Unload_Sprite(0);
@@ -523,7 +590,6 @@ void Run_Puzzle2(){
 	sprite[0].speed_y = -1;
 	
 	while(Scene == 2){
-		LT_WaitVsyncEnd();
 		//SCR_X and SCR_Y are predefined global variables 
 		VGA_Scroll(SCR_X,SCR_Y);
 		
@@ -549,7 +615,7 @@ void Run_Puzzle2(){
 		if (LT_Keys[LT_ESC]) Scene = 1; //esc exit
 		
 		do_play_music();
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	LT_Unload_Sprite(0);
 	LT_unload_sprite(16); //manually free sprites
@@ -590,8 +656,6 @@ void Run_Shooter(){
 	
 	//WALK TO SHIP
 	while (Scene == 0){
-		LT_WaitVsyncEnd();
-
 		LT_Draw_Sprites();
 		
 		sprite[16].pos_x++;
@@ -601,24 +665,20 @@ void Run_Shooter(){
 			Scene = 1; 
 		} 
 		cycle_palette(&cycle_water,2);
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	
 	//CLOSE SHIP
 	LT_Set_Sprite_Animation(28,1,4,12);
 	while (Scene == 1){
-		LT_WaitVsyncEnd();
-
 		LT_Draw_Sprites();
 		if (sprite[28].frame == 4) Scene = 2; 
 		cycle_palette(&cycle_water,2);
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	//FLY UP
 	sprite[28].animate = 0;
 	while (Scene == 2){
-		LT_WaitVsyncEnd();
-
 		LT_scroll_follow(28);
 		LT_Draw_Sprites();
 		
@@ -627,20 +687,18 @@ void Run_Shooter(){
 		
 		LT_scroll_map();
 		cycle_palette(&cycle_water,2);
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	
 	//START ENGINE
 	LT_Set_Sprite_Animation(28,4,4,5);
 	while (Scene == 3){
-		LT_WaitVsyncEnd();
-
 		LT_Draw_Sprites();
 
 		timer++;
 		if (timer == 100) Scene = 4; 
 		cycle_palette(&cycle_water,2);
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 
 	//SIDE SCROLL
@@ -648,7 +706,6 @@ void Run_Shooter(){
 	LT_MODE = 3;
 	LT_Set_Sprite_Animation(28,8,4,4);
 	while(Scene == 4){
-		LT_WaitVsyncEnd();
 		SCR_X++;
 		
 		LT_Draw_Sprites();
@@ -668,10 +725,10 @@ void Run_Shooter(){
 		if (LT_Keys[LT_ESC]) Scene = -1; //esc exit
 		
 		cycle_palette(&cycle_water,2);
-		LT_Print_Window_Variable(32,LT_Player_Col.tile_number);
+		LT_Print_Window_Variable(32,SCR_X>>4);
 		
 		do_play_music();
-		LT_WaitVsyncStart();
+		LT_WaitVsync();
 	}
 	
 	LT_unload_sprite(28);
@@ -728,6 +785,12 @@ void main(){
 	if (game == 4){
 		Load_Shooter();
 		Run_Shooter();
+		goto menu;
+	}
+	
+	if (game == 16){
+		Load_Test();
+		Run_Test();
 		goto menu;
 	}
 	

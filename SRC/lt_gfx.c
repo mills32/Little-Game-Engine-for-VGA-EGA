@@ -74,6 +74,18 @@ unsigned char LT_Loading_Palette[] = {
 	0xff,0xff,0xff	//colour 1
 };
 
+void vsync(){
+	asm mov		dx,INPUT_STATUS_0
+	WaitVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jz		WaitVsync
+	WaitNotVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jnz		WaitNotVsync
+}
+
 //32x32 animation for loading scene
 void LT_Load_Animation(char *file, byte size){
 	long index,offset;
@@ -197,7 +209,12 @@ void LT_Set_Loading_Interrupt(){
 	LT_Reset_Sprite_Stack();
 	LT_Reset_AI_Stack();
 	
-	LT_WaitVsyncEnd();
+	//Wait Vsync
+	vsync();
+	//Reset scroll
+	outport(0x03d4, 0x0D | (0 << 8));
+	outport(0x03d4, 0x0C | (0 & 0xFF00));
+	
 	VGA_Scroll(0, 0);
 	VGA_SplitScreen(0x0ffff); //disable split screen
 	LT_ResetWindow();
@@ -221,7 +238,8 @@ void LT_Set_Loading_Interrupt(){
 	//set interrupt
 	setvect(0x1C, LT_Loading);		//interrupt 1C not available on NEC 9800-series PCs.
 	
-	LT_WaitVsyncStart();
+	//Wait Vsync
+	vsync();	
 	VGA_Fade_in(LT_Loading_Animation.palette);
 }
 
@@ -245,55 +263,36 @@ void VGA_ClearScreen(){
 	memset(&VGA[0],0,(336>>2)*240);
 }
 
-byte p[5] = {0,2,4,6,8};
+byte p[4] = {0,2,4,6};
 byte pix;
 
 //wait for the VGA to stop drawing, and set scroll and Pel panning
-void LT_WaitVsyncStart(){
+void LT_WaitVsync(){
+	byte ac;
 	word x = SCR_X;
 	word y = SCR_Y+LT_Window;
 	
 	y = (y<<6)+(y<<4)+(y<<2) + (x>>2);	//(y*64)+(y*16)+(y*4) = y*84;
-	
-	asm mov		dx,INPUT_STATUS_0
-	WaitDELoop:
-	asm in      al,dx
-	asm and     al,DE_MASK
-	asm jnz     WaitDELoop
 
-	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
+	//change scroll registers: LOW_ADDRESS 0x0D; HIGH_ADDRESS 0x0C;
 	outport(0x03d4, 0x0D | (y << 8));
-	outport(0x03d4, 0x0C | (y & 0xff00));
+	outport(0x03d4, 0x0C | (y & 0xFF00));
 	
-	asm mov		dx,INPUT_STATUS_0
-	WaitNotVsync:
-	asm in      al,dx
-	asm test    al,08h
-	asm jnz		WaitNotVsync
-	WaitVsync:
-	asm in      al,dx
-	asm test    al,08h
-	asm jz		WaitVsync
-	
-	//pixel panning value
-	inportb(0x3DA); //Reset the VGA flip/flop
+	//The smooth panning magic happens here
+	disable();//disable interrupts
+	//asm mov	dx,INPUT_STATUS_0
+	inp(INPUT_STATUS_0);//Read input status, to Reset the VGA flip/flop
+	ac = inp(AC_INDEX);//Store the value of the controller
 	pix = SCR_X & 3; 			
 	outportb(AC_INDEX, AC_HPP);
-	outportb(AC_INDEX, (byte) p[pix]);
+	outportb(AC_INDEX, p[pix]);
+	outportb(AC_INDEX,ac);//Restore controller value
+	enable();//enable interrupts because we finished doing crazy things
+	
+	//wait VGA vertical retrace
+	vsync();
 }
 
-//wait for the VGA to start drawing
-void LT_WaitVsyncEnd(){
-	asm mov		dx,INPUT_STATUS_0
-	WaitVsync2:
-	asm in      al,dx
-	asm test    al,08h
-	asm jz      WaitVsync2
-	WaitNotVsync2:
-	asm in      al,dx
-	asm test    al,08h
-	asm jnz     WaitNotVsync2
-}
 
 void VSYNC_HSYNC(int vpos_delay){
 	int i;
@@ -343,7 +342,7 @@ void VGA_SplitScreen(int line){
     or     al,ah                      //insert the new split screen bit 9 (works in any mode)
     out    dx,al                      //set the new split screen bit 9
 
-	//Turn on split screen pal pen suppression, so the split screen
+	//Turn on split screen pel panning suppression, so the split screen
 	//won't be subject to pel panning as is the non split screen portion.
 
 	mov  dx,INPUT_STATUS_0
@@ -528,7 +527,7 @@ void LT_Print_Window_Variable(byte x, word var){
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
-		mov		si,FONT_ADDRESS;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
+		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
 		mov		cl,4						//dx*16
@@ -785,8 +784,9 @@ void LT_Load_Map(char *file){
 		if((line[1] == '<')&&(line[2] == 't')){ // get tilecount
 			sscanf(line," <tileset firstgid=\"%i[^\"]\" name=\"%24[^\"]\" tilewidth=\"%i[^\"]\" tileheight=\"%i[^\"]\" tilecount=\"%i[^\"]\"",&tilecount,&tilecount,&tilecount,&tilecount,&tilecount);
 		}
+		//<layer id="5" name="Ground" width="40" height="30">
 		if((line[1] == '<')&&(line[2] == 'l')){// get map dimensions
-			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&LT_map.width,&LT_map.height);
+			sscanf(line," <layer id=\"%i\" name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&LT_map.width,&name,&LT_map.width,&LT_map.height);
 			start_bkg_data = 1;
 		}
 	}
@@ -3680,19 +3680,17 @@ void LT_Endless_SideScroll_Map(int y){
 void set_palette(unsigned char *palette){
 	int i = 0;
 	outp(0x03c8,0); 
-	LT_WaitVsyncEnd();
 	for(i=0;i<256*3;i+=12){
 		outp(0x03c9,palette[i]);outp(0x03c9,palette[i+1]);outp(0x03c9,palette[i+2]);
 		outp(0x03c9,palette[i+3]);outp(0x03c9,palette[i+4]);outp(0x03c9,palette[i+5]);
 		outp(0x03c9,palette[i+6]);outp(0x03c9,palette[i+7]);outp(0x03c9,palette[i+8]);
 		outp(0x03c9,palette[i+9]);outp(0x03c9,palette[i+10]);outp(0x03c9,palette[i+11]);
 	}
-	LT_WaitVsyncStart();
+	vsync();
 }
 
 void VGA_ClearPalette(){
 	int i;
-	LT_WaitVsyncEnd();
 	outp(0x03c8,0); 
 	for(i=0;i<256*3;i+=12){
 		outp(0x03c9,0);outp(0x03c9,0);outp(0x03c9,0);
@@ -3700,7 +3698,7 @@ void VGA_ClearPalette(){
 		outp(0x03c9,0);outp(0x03c9,0);outp(0x03c9,0);
 		outp(0x03c9,0);outp(0x03c9,0);outp(0x03c9,0);
 	}
-	LT_WaitVsyncStart();
+	vsync();
 }
 
 void VGA_Fade_in(unsigned char *palette){
@@ -3708,19 +3706,18 @@ void VGA_Fade_in(unsigned char *palette){
 	byte c;
 	//All colours black
 	VGA_ClearPalette();
-	LT_WaitVsyncStart();
 	for(j=0;j<256*3;j++) LT_Temp_palette[j] = 0x00;
 	i = 0;
 	//Fade in
 	while (i < 15){
-		LT_WaitVsyncEnd();
 		outp(0x03c8,0);
 		for(j=0;j<256*3;j++){
 			if (LT_Temp_palette[j] < palette[j]) LT_Temp_palette[j]+=4;
 			outp(0x03c9,LT_Temp_palette[j]);
 		}
 		i ++;
-		LT_WaitVsyncStart();
+		//Wait Vsync
+		vsync();
 	}
 }
 
@@ -3730,7 +3727,6 @@ void VGA_Fade_out(){
 	//Fade to black
 	outp(0x03c8,0);
 	while (i < 15){
-		LT_WaitVsyncEnd();
 		for(j=0;j<256*3;j++){
 			if (LT_Temp_palette[j] > 0) LT_Temp_palette[j]-=4;
 			outp(0x03c9,LT_Temp_palette[j]);
@@ -3738,7 +3734,8 @@ void VGA_Fade_out(){
 		while ((inp(0x03da) & 0x08));
 		while (!(inp(0x03da) & 0x08));
 		i ++;
-		LT_WaitVsyncStart();
+		//Wait Vsync
+		vsync();
 	}
 }
 
