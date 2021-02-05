@@ -36,3 +36,9 @@ void LT_install_key_handler(){
 void LT_reset_key_handler(){
 	setvect(9,LT_old_key_handler);     
 }
+
+void Clearkb(){
+	asm mov ah,00ch
+	asm mov al,0
+	asm int 21h
+}

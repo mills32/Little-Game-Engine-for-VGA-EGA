@@ -68,7 +68,29 @@
 #define MODE_CONTROL        0x17
 #define LINE_COMPARE		0x18      
 
+//SOUND
 #define ADLIB_PORT 			0x388
+#define SB_RESET 0x6
+#define SB_READ_DATA 0xA
+#define SB_READ_DATA_STATUS 0xE
+#define SB_WRITE_DATA 0xC
+
+#define SB_ENABLE_SPEAKER 0xD1
+#define SB_DISABLE_SPEAKER 0xD3
+#define SB_SET_PLAYBACK_FREQUENCY 0x40
+#define SB_SINGLE_CYCLE_8PCM 0x14
+#define SB_SINGLE_CYCLE_4ADPCM 0x74
+#define SB_SINGLE_CYCLE_3ADPCM 0x76
+#define SB_SINGLE_CYCLE_2ADPCM 0x16
+
+#define MASK_REGISTER 0x0A
+#define MODE_REGISTER 0x0B
+#define MSB_LSB_FLIP_FLOP 0x0C
+#define DMA_CHANNEL_0 0x87
+#define DMA_CHANNEL_1 0x83
+#define DMA_CHANNEL_3 0x82
+
+
 
 //KEYS
 #define LT_ESC				0x01
@@ -99,15 +121,24 @@ extern word *my_clock;
 extern word start;
 
 extern int LT_Keys[];
+void Clearkb();
 
 extern byte LT_MODE;
-
-typedef struct tagBITMAP{				// structure for a bitmap
-	word width;
-	word height;
-	byte palette[256*3];
-	byte *data;
-} BITMAP;
+extern byte LT_VIDEO_MODE;
+extern word LT_tileset_width;
+extern word LT_tileset_height;
+extern word LT_tileset_ntiles;
+extern byte LT_tileset_palette[256*3];
+extern byte *LT_tileset_data;
+extern word LT_map_width;
+extern word LT_map_height;
+extern word LT_map_ntiles;
+extern byte *LT_map_data;
+extern byte *LT_map_collision;
+extern byte LT_AI_Sprite[];
+extern byte LT_AI_Stack;
+extern byte LT_Sprite_Stack;
+extern byte LT_Sprite_Stack_Table[];
 
 typedef struct tagANIMATION{			// structure for an animation
 	word width;
@@ -129,24 +160,8 @@ typedef struct tagANIMATION{			// structure for an animation
 typedef struct tagCOLORCYCLE{			// structure for colour cycle
 	byte frame;
 	byte counter;
-	byte *palette;
+	const unsigned char *palette;
 } COLORCYCLE;
-
-typedef struct tagMAP{					// structure for a map
-	word width;
-	word height;
-	word ntiles;
-	byte *data;
-	byte *collision;
-} MAP;
-
-typedef struct tagTILE{					// structure for tiles
-	word width;
-	word height;
-	word ntiles;
-	byte palette[256*3];
-	byte *tdata;
-} TILE;
 
 typedef struct tagSPRITEFRAME{			// structure for a sprite frame
 	char *compiled_code;
@@ -198,8 +213,8 @@ typedef struct tagSPRITE{				// structure for a sprite
 } SPRITE;
 
 typedef struct tagIMFsong{				// structure for adlib IMF song, or MOD pattern data
-	long size;
-	long offset;
+	word size;
+	word offset;
 	byte filetype; //0 1 - imf0 imf1
 	byte *sdata;
 } IMFsong;
@@ -212,11 +227,11 @@ typedef struct tagLT_Col{				// structure to return collision data
 } LT_Col;
 
 extern IMFsong LT_music;	
-extern MAP LT_map;			
-extern TILE LT_tileset;	
+		
 extern SPRITE LT_Loading_Animation;
 extern SPRITE *sprite;
 extern unsigned char *LT_tile_tempdata; 
+extern unsigned char *LT_tile_tempdata2; 
 
 void LT_Adlib_Detect();
 void LT_Check_CPU();
@@ -225,9 +240,13 @@ void LT_Check_CPU();
 void LT_Set_Loading_Interrupt();
 void LT_Delete_Loading_Interrupt();
 
-//MCGA/VGA Hardware scroll
+//EGA/VGA Hardware scroll
 void VGA_Scroll(word x, word y);
-void LT_WaitVsync();
+extern void (*LT_WaitVsync)(void);
+void LT_WaitVsync0_EGA();
+void LT_WaitVsync0_VGA();
+void LT_WaitVsync1_EGA();
+void LT_WaitVsync1_VGA();
 void VGA_ClearScreen();
 void VGA_SplitScreen();
 
@@ -241,16 +260,25 @@ void LT_Load_Animation(char *file, byte size);
 void LT_Set_Animation(byte baseframe, byte frames, byte speed);
 void LT_Unload_Animation();
 void LT_SetWindow(char *file);
+void LT_MoveWindow(int line);
 void LT_ResetWindow();
 void LT_Load_Font(char *file);
-void LT_Print_Window_Variable(byte x, word var);
+extern void (*LT_Print_Window_Variable)(byte,word);
+void LT_Print_Window_Variable_EGA(byte x, word var);
+void LT_Print_Window_Variable_VGA(byte x, word var);
 void LT_Load_Tiles(char *file);
 void LT_unload_tileset();
 void LT_Load_Map(char *file);
 void LT_Set_Map(int x, int y);
-void LT_Edit_MapTile(word x, word y, byte ntile, byte col);
-void draw_map_column(word x, word y, word map_offset);
-void draw_map_row(word x, word y, word map_offset);
+extern void (*LT_Edit_MapTile)(word,word,byte,byte);
+void LT_Edit_MapTile_EGA(word x, word y, byte ntile, byte col);
+void LT_Edit_MapTile_VGA(word x, word y, byte ntile, byte col);
+extern void (*draw_map_column)(word, word, word);
+extern void (*draw_map_row)(word, word, word);
+void draw_map_column_vga(word x, word y, word map_offset);
+void draw_map_column_ega(word x, word y, word map_offset);
+void draw_map_row_vga(word x, word y, word map_offset);
+void draw_map_row_ega(word x, word y, word map_offset);
 void LT_unload_map();
 void LT_scroll_map();
 void LT_Endless_SideScroll_Map(int y);
@@ -258,24 +286,33 @@ void LT_Endless_SideScroll_Map(int y);
 //palettes
 void VGA_ClearPalette();                                                           
 void set_palette(unsigned char *palette);
-void VGA_Fade_in(unsigned char *palette);
+void VGA_Fade_in();
 void VGA_Fade_out(); 
-void cycle_init(COLORCYCLE *cycle,unsigned char *palette);
+void cycle_init(COLORCYCLE *cycle,const unsigned char *palette);
 void cycle_palette(COLORCYCLE *cycle, byte speed);
+void VGA_EGAMODE_CustomPalette(unsigned char *palette);
 
 //SPRITE
 void LT_Load_Sprite(char *file,int sprite_number, byte size);
 void LT_Clone_Sprite(int sprite_number_c,int sprite_number);
 void LT_Set_Sprite_Animation(int sprite_number, byte baseframe, byte frames, byte speed);
-void LT_Draw_Sprites();
+extern void (*LT_Draw_Sprites)(void);
+void LT_Draw_Sprites_EGA();
+void LT_Draw_Sprites_VGA();
+void LT_Draw_Sprites_Fast();
 void LT_Get_Item(int sprite_number, byte ntile, byte col);
-void LT_Set_AI_Sprite(int sprite_number, byte mode, word x, word y, int sx, int sy);
+void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int sy);
+void LT_Set_AI_Sprites(byte first_ai, byte number_ai);
+void LT_Unset_AI_Sprite(byte sprite_number);
 LT_Col LT_move_player(int sprite_number);
 LT_Col LT_Bounce_Ball(int sprite_number);
+int LT_Player_Col_Enemy();
 void LT_Update_AI_Sprites();
 void LT_Reset_Sprite_Stack();
 void LT_Reset_AI_Stack();
-void LT_Delete_Sprite(int sprite_number);
+extern void (*LT_Delete_Sprite)(int);
+void LT_Delete_Sprite_EGA(int sprite_number);
+void LT_Delete_Sprite_VGA(int sprite_number);
 void LT_unload_sprite(int sprite_number);
 void LT_scroll_follow(int sprite_number);
 
@@ -286,9 +323,19 @@ void do_play_music();
 void LT_Stop_Music();
 void LT_Unload_Music();
 
+//SOUND BLASTER
+extern int LT_sb_nsamples;
+extern int LT_sb_offset;
+void sb_init();
+void sb_deinit();
+void sb_load_sample(char *file_name);
+void sb_play_sample(char sample_number, int freq);
+void LT_Clear_Samples();
+
 //GUS
 void LT_Init_GUS(byte channels);
 int LT_LoadMOD(char *filename);
-void PlayMOD(byte mode);//0 normal; 1 disable effects for slow cpu (8088-8086).
+void PlayMOD(byte sp);
+void mod_player_fast();
 void StopMOD();
 

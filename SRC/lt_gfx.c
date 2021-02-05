@@ -26,9 +26,20 @@ At any moment there will only be:
 You'll have to unload a music/map/tilset before loading another.
 ********************/
 
-MAP LT_map;			// One map in ram stored at "LT_map"
-TILE LT_tileset;	// One tileset in ram stored at "LT_tileset"
-unsigned char *LT_tile_tempdata; //Temp storage of non tiled data.
+// One map in ram stored at "LT_map"
+word LT_map_width;
+word LT_map_height;
+word LT_map_ntiles;
+byte *LT_map_data;
+byte *LT_map_collision;
+// One tileset 
+word LT_tileset_width;
+word LT_tileset_height;
+word LT_tileset_ntiles;
+byte LT_tileset_palette[256*3];
+byte *LT_tileset_data;
+unsigned char *LT_tile_tempdata; //Temp storage of non tiled data. and also sound samples
+unsigned char *LT_tile_tempdata2; //Second half 
 SPRITE LT_Loading_Animation; 
 
 void LT_Error(char *error, char *file);
@@ -39,17 +50,20 @@ extern byte LT_Sprite_Stack;
 extern byte LT_Sprite_Stack_Table[];
 extern byte LT_AI_Stack;
 extern byte LT_AI_Stack_Table[];
+extern byte selected_AI_sprite;
 
 //GLOBAL VARIABLES
 
 word FONT_VRAM = 0xC040; //0xC040
-word TILE_VRAM = 0xC2C0; //0xC2C0
-
+word TILE_VRAM = 0xC440; //0xC2C0
+word FONT_VRAM_EGA = 0x5C00;
+word TILE_VRAM_EGA = 0x5E00;
 //Palette for fading
 byte LT_Temp_palette[256*3];
 
 //This points to video memory.
 byte *VGA=(byte *)0xA0000000L; 
+byte *EGA=(byte *)0xA0000000L;
 
 //Map Scrolling
 byte scr_delay = 0; //copy tile data in several frames to avoid slowdown
@@ -62,7 +76,8 @@ int LT_last_y = 0;
 int LT_map_offset = 0;
 int LT_map_offset_Endless = 0;
 int LT_follow = 0;
-
+int vpage = 0;
+int Enemies = 0;
 //NON SCROLLING WINDOW
 byte LT_Window = 0; 				//Displaces everything (16 pixels) in case yo use the 320x16 window in the game
 
@@ -84,7 +99,138 @@ void vsync(){
 	asm in      al,dx
 	asm test    al,08h
 	asm jnz		WaitNotVsync
+	
+	//while( inp( INPUT_STATUS_0 ) & 0x08 );
+	//while( !(inp( INPUT_STATUS_0 ) & 0x08 ) );
 }
+
+// load_16x16 tiles to VRAM
+void LT_Load_Animation_EGA(char *file){
+	dword VGA_index = 0;
+	dword EGA_index = 0;
+	word w = 0;
+	word h = 0;
+	word ty = 0;
+	int jx = 0;
+	word x = 0;
+	word y = 0;
+	word tileX = 0;
+	word tileY = 0;
+	word num_colors = 0;
+	byte plane = 0;
+	dword index = 0;
+	dword offset = 0;
+	FILE *fp;
+	
+	//Open the same file with ".ega" extension for ega
+	fp = fopen(file,"rb");
+	
+	if(!fp)LT_Error("Can't find ",file);
+	
+	fgetc(fp);
+	fgetc(fp);
+
+	fseek(fp, 16, SEEK_CUR);
+	fread(&LT_tileset_width, sizeof(word), 1, fp);
+	fseek(fp, 2, SEEK_CUR);
+	fread(&LT_tileset_height,sizeof(word), 1, fp);
+	fseek(fp, 22, SEEK_CUR);
+	fread(&num_colors,sizeof(word), 1, fp);
+	fseek(fp, 6, SEEK_CUR);
+
+	if (num_colors==0) num_colors=256;
+	for(index=0;index<num_colors;index++){
+		LT_tileset_palette[(int)(index*3+2)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+1)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+		fgetc(fp);
+	}
+
+	//LOAD TO TEMP RAM
+	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*LT_tileset_height, fp);
+	
+	fclose(fp);
+	
+
+	//COPY TO EGA VRAM
+	w = LT_tileset_width>>4;
+	h = LT_tileset_height>>4;
+	jx = LT_tileset_width+16;
+	
+	EGA_index = 0x0000;
+	asm CLI //disable interrupts so that loading animation does not interfere
+	//SCAN ALL TILES
+	for (tileY = h; tileY > 0 ; tileY--){
+		ty = (tileY<<4)-1;
+		for (tileX = 0; tileX < w; tileX++){
+			offset = (ty*LT_tileset_width) + (tileX<<4);
+			//LOAD TILE
+			for(y = 0; y < 16; y++){//Get 2 chunks of 8 pixels per row
+				int i,j,k;
+				for (j = 0; j < 2; j++){
+					//Get an 8 pixel chunk, and convert to 4 bytes
+					byte pl0 = 0;
+					byte pl1 = 0;
+					byte pl2 = 0;
+					byte pl3 = 0;
+					for(i = 0; i < 8; i++){
+						//i defines the inverted shift (the pixel to activate)
+						int pixel = LT_tile_tempdata[offset];
+						k = 7-i;
+						//Store bitplanes in pl0,pl1,pl2,pl3
+						switch (pixel){
+							case 0: pl0 |= 0 << k; break;	// black, bit 0 in byte-plane 0
+							case 1:	pl0 |= 1 << k; break;	// dark blue, bit 1 in b-plane 0
+							case 2: pl1 |= 1 << k; break;	// dark green, bit 1 in b-plane 1
+							case 3: pl2 |= 1 << k; break;	// dark red, bit 1 in b-plane 2
+							case 4:	pl0 |= 1 << k; pl1 |= 1 << k; break;// dark cyan, bit 1 in b-planes 0,1
+							case 5:	pl1 |= 1 << k; pl2 |= 1 << k; break;// dark yellow, bit 1 in b-plane 1,2
+							case 6:	pl0 |= 1 << k; pl2 |= 1 << k; break;// dark magenta, bit 1 in b-plane 0,2	
+							case 7:	pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; break;// light gray, bit 1 in b-plane 0,1,2
+							//now the same but activating the intensity plane (3)
+							case 8: pl0 |= 0 << k; pl3 |= 1 << k; break;// dark gray, bit 0 in b-plane 0; bit 1 in b-plane 3
+							case 9:	pl0 |= 1 << k; pl3 |= 1 << k; break;// light blue, bit 1 in b-plane 0,3
+							case 10: pl1 |= 1 << k; pl3 |= 1 << k; break;// light green, bit 1 in b-plane 1,3	
+							case 11: pl2 |= 1 << k; pl3 |= 1 << k; break;// light red, bit 1 in b-plane 2,3
+							case 12: pl0 |= 1 << k; pl1 |= 1 << k; pl3 |= 1 << k; break;// light cyan, bit 1 in b-plane 0,1,3
+							case 13: pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light yellow, bit 1 in b-plane 1,2,3
+							case 14: pl0 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light magenta, bit 1 in b-plane 0,2,3
+							case 15: pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// white, all metro lines
+						}
+						offset++;
+					}
+					
+					//Paste pl1,pl2,pl3,pl4 to EGA address
+					
+					asm mov dx, 03C4h
+					asm mov ax, 0102h	//Plane 0		
+					asm out dx, ax
+					EGA[EGA_index] = pl0;
+	
+					asm mov ax, 0202h 	//Plane 1
+					asm out dx, ax
+					EGA[EGA_index] = pl1;
+			
+					asm mov ax, 0402h 	//Plane 2
+					asm out dx, ax
+					EGA[EGA_index] = pl2;
+	
+					asm mov ax, 0802h 	//Plane 3
+					asm out dx, ax
+					EGA[EGA_index] = pl3;
+					
+					EGA_index++;
+					
+					if (EGA_index > 0x7680) LT_Error("Too many tiles\n",0);
+				}
+				
+				offset -= jx;
+			}
+		}
+	}
+	asm STI //Re enable interrupts so that loading animation is played again
+}
+
 
 //32x32 animation for loading scene
 void LT_Load_Animation(char *file, byte size){
@@ -118,9 +264,9 @@ void LT_Load_Animation(char *file, byte size){
 	if (num_colors==0) num_colors=256;
 
 	for(index=0;index<num_colors;index++){
-		LT_Loading_Animation.palette[(int)(index*3+2)] = fgetc(fp) >> 2;
-		LT_Loading_Animation.palette[(int)(index*3+1)] = fgetc(fp) >> 2;
-		LT_Loading_Animation.palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+2)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+1)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+0)] = fgetc(fp) >> 2;
 		x=fgetc(fp);
 	}
 
@@ -184,6 +330,7 @@ void LT_Set_Animation(byte baseframe, byte frames, byte speed){
 	LT_Loading_Animation.animate = 1;
 }
 
+void run_compiled_sprite(word XPos, word YPos, char *Sprite);
 void interrupt LT_Loading(void){
 	SPRITE *s = &LT_Loading_Animation;
 	//animation
@@ -197,7 +344,7 @@ void interrupt LT_Loading(void){
 		s->anim_speed++;
 	}
 
-	x_run_compiled_sprite(s->pos_x,s->pos_y,s->frames[s->frame].compiled_code);
+	run_compiled_sprite(s->pos_x,s->pos_y,s->frames[s->frame].compiled_code);
 }
 
 void LT_Set_Loading_Interrupt(){
@@ -223,9 +370,9 @@ void LT_Set_Loading_Interrupt(){
 	VGA_ClearScreen();//clear screen
 	
 	//change color 0, 1, 2 (black and white)
-	LT_Loading_Animation.palette[0] = LT_Loading_Palette[0];
-	LT_Loading_Animation.palette[1] = LT_Loading_Palette[1];
-	LT_Loading_Animation.palette[2] = LT_Loading_Palette[1];
+	LT_tileset_palette[0] = LT_Loading_Palette[0];
+	LT_tileset_palette[1] = LT_Loading_Palette[1];
+	LT_tileset_palette[2] = LT_Loading_Palette[1];
 	
 	//center loading animation
 	LT_Loading_Animation.pos_x = 144;
@@ -240,7 +387,7 @@ void LT_Set_Loading_Interrupt(){
 	
 	//Wait Vsync
 	vsync();	
-	VGA_Fade_in(LT_Loading_Animation.palette);
+	VGA_Fade_in();
 }
 
 void LT_Delete_Loading_Interrupt(){
@@ -266,33 +413,208 @@ void VGA_ClearScreen(){
 byte p[4] = {0,2,4,6};
 byte pix;
 
-//wait for the VGA to stop drawing, and set scroll and Pel panning
-void LT_WaitVsync(){
-	byte ac;
+void (*LT_WaitVsync)(void);
+//works smooth in dosbox, PCem, Real EGA/VGA.
+//Choppy on SVGA or modern VGA compatibles
+void LT_WaitVsync0_EGA(){
+	byte _ac;
 	word x = SCR_X;
 	word y = SCR_Y+LT_Window;
 	
-	y = (y<<6)+(y<<4)+(y<<2) + (x>>2);	//(y*64)+(y*16)+(y*4) = y*84;
-
+	//This is as optimized as it can get wen compiled to asm (I checked)
+	y = (y<<5)+(y<<3)+(y<<1)+(x>>3);//y*42 + (x>>3);
+	
 	//change scroll registers: LOW_ADDRESS 0x0D; HIGH_ADDRESS 0x0C;
-	outport(0x03d4, 0x0D | (y << 8));
-	outport(0x03d4, 0x0C | (y & 0xFF00));
-	
+	//outport(0x03d4, 0x0D | (y << 8));
+	//outport(0x03d4, 0x0C | (y & 0xff00));
+	asm mov dx,003d4h //VGA PORT
+	asm mov	cl,8
+	asm mov ax,y
+	asm	shl ax,cl
+	asm	or	ax,00Dh	
+	asm out dx,ax	//(y << 8) | 0x0D to VGA port
+	asm mov ax,y
+	asm	and ax,0FF00h
+	asm	or	ax,00Ch
+	asm out dx,ax	//(y & 0xFF00) | 0x0C to VGA port
+
 	//The smooth panning magic happens here
-	disable();//disable interrupts
-	//asm mov	dx,INPUT_STATUS_0
-	inp(INPUT_STATUS_0);//Read input status, to Reset the VGA flip/flop
-	ac = inp(AC_INDEX);//Store the value of the controller
-	pix = SCR_X & 3; 			
-	outportb(AC_INDEX, AC_HPP);
-	outportb(AC_INDEX, p[pix]);
-	outportb(AC_INDEX,ac);//Restore controller value
-	enable();//enable interrupts because we finished doing crazy things
+	//disable interrupts because we are doing crazy things
+	asm cli
 	
-	//wait VGA vertical retrace
-	vsync();
+	//Wait Vsync
+	asm mov		dx,INPUT_STATUS_0
+	WaitNotVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jnz		WaitNotVsync
+	WaitVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jz		WaitVsync
+	
+	asm mov		dx,INPUT_STATUS_0 //Read input status, to Reset the VGA flip/flop
+	_ac = inp(AC_INDEX);//Store the value of the controller
+	pix = SCR_X & 7;//EGA
+
+	//AC index 0x03c0
+	asm mov dx,003c0h
+	asm mov ax,033h
+	asm out dx,ax
+	asm mov al,byte ptr pix
+	asm out dx,al
+	
+	//Restore controller value
+	asm mov ax,word ptr _ac
+	asm out dx,ax
+	
+	//enable interrupts because we finished doing crazy things
+	asm sti
 }
 
+void LT_WaitVsync0_VGA(){
+	byte _ac;
+	word x = SCR_X;
+	word y = SCR_Y+LT_Window;
+	
+	//This is as optimized as it can get wen compiled to asm (I checked)
+	y = (y<<6)+(y<<4)+(y<<2) + (x>>2);	//(y*64)+(y*16)+(y*4) = y*84; + x/4
+	
+	//change scroll registers: LOW_ADDRESS 0x0D; HIGH_ADDRESS 0x0C;
+	//outport(0x03d4, 0x0D | (y << 8));
+	//outport(0x03d4, 0x0C | (y & 0xff00));
+	asm mov dx,003d4h //VGA PORT
+	asm mov	cl,8
+	asm mov ax,y
+	asm	shl ax,cl
+	asm	or	ax,00Dh	
+	asm out dx,ax	//(y << 8) | 0x0D to VGA port
+	asm mov ax,y
+	asm	and ax,0FF00h
+	asm	or	ax,00Ch
+	asm out dx,ax	//(y & 0xFF00) | 0x0C to VGA port
+
+	//The smooth panning magic happens here
+	//disable interrupts because we are doing crazy things
+	asm cli
+	
+	//Wait Vsync
+	asm mov		dx,INPUT_STATUS_0
+	WaitNotVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jnz		WaitNotVsync
+	WaitVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jz		WaitVsync
+	
+	asm mov		dx,INPUT_STATUS_0 //Read input status, to Reset the VGA flip/flop
+	_ac = inp(AC_INDEX);//Store the value of the controller
+	pix = p[SCR_X & 3]; //VGA
+
+	//AC index 0x03c0
+	asm mov dx,003c0h
+	asm mov ax,033h
+	asm out dx,ax
+	asm mov al,byte ptr pix
+	asm out dx,al
+	
+	//Restore controller value
+	asm mov ax,word ptr _ac
+	asm out dx,ax
+	
+	//enable interrupts because we finished doing crazy things
+	asm sti
+}
+
+//Works on all compatible VGA cards from SVGA to 2020 GPUS.
+//Choppy on real EGA/VGA
+void LT_WaitVsync1_EGA(){
+	word x = SCR_X;
+	word y = SCR_Y+LT_Window;
+	y = (y<<5)+(y<<3)+(y<<1)+(x>>3);//y*42 + (x>>3);
+	
+	asm mov		dx,INPUT_STATUS_0
+	WaitDELoop:
+	asm in      al,dx
+	asm and     al,DE_MASK
+	asm jnz     WaitDELoop
+
+	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
+	//outport(0x03d4, 0x0D | (y << 8));
+	//outport(0x03d4, 0x0C | (y & 0xff00));
+	asm mov dx,003d4h //VGA PORT
+	asm mov	cl,8
+	asm mov ax,y
+	asm	shl ax,cl
+	asm	or	ax,00Dh	
+	asm out dx,ax	//(y << 8) | 0x0D to VGA port
+	asm mov ax,y
+	asm	and ax,0FF00h
+	asm	or	ax,00Ch
+	asm out dx,ax	//(y & 0xFF00) | 0x0C to VGA port
+	
+	asm mov		dx,INPUT_STATUS_0
+	WaitNotVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jnz		WaitNotVsync
+	WaitVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jz		WaitVsync
+	
+	//pixel panning value
+	inportb(0x3DA); //Reset the VGA flip/flop
+	pix = SCR_X & 7;//EGA			
+	outportb(AC_INDEX, AC_HPP);
+	outportb(AC_INDEX, (byte) p[pix]);
+
+}
+
+void LT_WaitVsync1_VGA(){
+	word x = SCR_X;
+	word y = SCR_Y+LT_Window;
+	y = (y<<6)+(y<<4)+(y<<2) + (x>>2);	//(y*64)+(y*16)+(y*4) = y*84;
+	
+	asm mov		dx,INPUT_STATUS_0
+	WaitDELoop:
+	asm in      al,dx
+	asm and     al,DE_MASK
+	asm jnz     WaitDELoop
+
+	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
+	//outport(0x03d4, 0x0D | (y << 8));
+	//outport(0x03d4, 0x0C | (y & 0xff00));
+	asm mov dx,003d4h //VGA PORT
+	asm mov	cl,8
+	asm mov ax,y
+	asm	shl ax,cl
+	asm	or	ax,00Dh	
+	asm out dx,ax	//(y << 8) | 0x0D to VGA port
+	asm mov ax,y
+	asm	and ax,0FF00h
+	asm	or	ax,00Ch
+	asm out dx,ax	//(y & 0xFF00) | 0x0C to VGA port
+	
+	asm mov		dx,INPUT_STATUS_0
+	WaitNotVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jnz		WaitNotVsync
+	WaitVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jz		WaitVsync
+	
+	//pixel panning value
+	inportb(0x3DA); //Reset the VGA flip/flop
+	pix = SCR_X & 3; 			
+	outportb(AC_INDEX, AC_HPP);
+	outportb(AC_INDEX, (byte) p[pix]);
+
+}
 
 void VSYNC_HSYNC(int vpos_delay){
 	int i;
@@ -312,10 +634,15 @@ void VGA_SplitScreen(int line){
     push    cx
     push    dx
 	//Set the split screen scan line.
-    cli		// make sure all the registers get set at once
-	}
-	word_out(CRTC_INDEX, LINE_COMPARE, line); // set bits 7-0 of the split screen scan line
-	asm{
+    cli		// make sure all the registers get set at once	
+	
+	mov		dx,CRTC_INDEX
+	mov		ax,line
+	mov    	cl,8
+	shl		ax,cl
+	add		ax,LINE_COMPARE
+	out    	dx,ax		// set bits 7-0 of the split screen scan line
+
     mov    ah,byte ptr [line+1]
     and    ah,1
     mov    cl,4
@@ -323,13 +650,14 @@ void VGA_SplitScreen(int line){
     mov    al,OVERFLOW
 
 	//The Split Screen, Overflow, and Line Compare registers all contain part of the split screen start scan line on the VGA
-    out    dx,al                      //set CRTC Index reg to point to Overflow
+	out    dx,al                      //set CRTC Index reg to point to Overflow
     inc    dx                         //point to CRTC Data reg
     in     al,dx                      //get the current Overflow reg setting
     and    al,not 10h                 //turn off split screen bit 8
     or     al,ah                      //insert the new split screen bit 8 (works in any mode)
     out    dx,al                      //set the new split screen bit 8
-    dec    dx                         //point to CRTC Index reg
+
+	dec    dx                         //point to CRTC Index reg
     mov    ah,byte ptr [line+1]
     and    ah,2
     mov    cl,3
@@ -342,9 +670,9 @@ void VGA_SplitScreen(int line){
     or     al,ah                      //insert the new split screen bit 9 (works in any mode)
     out    dx,al                      //set the new split screen bit 9
 
+	
 	//Turn on split screen pel panning suppression, so the split screen
 	//won't be subject to pel panning as is the non split screen portion.
-
 	mov  dx,INPUT_STATUS_0
 	in   al,dx                  	//Reset the AC Index/Data toggle to index state
 	mov  al,AC_MODE_CONTROL+20h 	//Bit 5 set to prevent screen blanking
@@ -361,12 +689,49 @@ void VGA_SplitScreen(int line){
     pop    cx
     pop    ax
     }
+}
 
+//Reduced split screen function, just to move the position in 320x240 mode
+void LT_MoveWindow(int line){
+    asm{
+	push    ax
+    push    cx
+    push    dx
+    cli
+	
+	mov		dx,CRTC_INDEX
+	mov		ax,line
+	mov    	cl,9
+	shl		ax,cl
+	add		ax,LINE_COMPARE
+	out    	dx,ax
+
+    mov    ah,byte ptr [line+1]
+    and    ah,1
+    mov    cl,4
+    shl    ah,cl
+    mov    al,OVERFLOW
+
+	out    dx,al                      
+    inc    dx                         
+    in     al,dx                      
+    and    al,not 10h                 
+    or     al,ah                      
+    out    dx,al                      
+
+    sti
+    pop    dx
+    pop    cx
+    pop    ax
+    }
+	line = 0;
 }
 
 void LT_SetWindow(char *file){
+	int i;
 	word x,y = 0;
 	word VGA_index = 0;
+	word EGA_index = 0;
 	word offset = 0;
 	word num_colors = 0;
 	byte plane = 0;
@@ -382,9 +747,9 @@ void LT_SetWindow(char *file){
 	fgetc(fp);
 
 	fseek(fp, 16, SEEK_CUR);
-	fread(&LT_tileset.width, sizeof(word), 1, fp);
+	fread(&LT_tileset_width, sizeof(word), 1, fp);
 	fseek(fp, 2, SEEK_CUR);
-	fread(&LT_tileset.height,sizeof(word), 1, fp);
+	fread(&LT_tileset_height,sizeof(word), 1, fp);
 	fseek(fp, 22, SEEK_CUR);
 	fread(&num_colors,sizeof(word), 1, fp);
 	fseek(fp, 6, SEEK_CUR);
@@ -398,26 +763,92 @@ void LT_SetWindow(char *file){
 	}
 
 	//LOAD TO TEMP RAM
-	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset.width*16, fp);
+	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*16, fp);
 	
-	for (plane = 0; plane < 4; plane ++){
-		// select plane
+	if (LT_VIDEO_MODE ==0){
 		asm CLI //disable interrupts so that loading animation does not interfere
-		
-		outp(SC_INDEX, MAP_MASK);          
-		outp(SC_DATA, 1 << plane);
-		VGA_index = 0;	
-
+		EGA_index = 0;	
 		for (y = 15; y > 0; y--){
-			offset = plane + (y*320);
-			for (x = 0; x < 80; x++){
-				VGA[VGA_index] = LT_tile_tempdata[offset];
-				VGA_index++;
-				offset +=4;
+			offset = y*320;
+			for (x = 0; x < 320; x+=8){
+				//Get an 8 pixel chunk, and convert to 4 bytes
+				byte pl0 = 0;
+				byte pl1 = 0;
+				byte pl2 = 0;
+				byte pl3 = 0;
+				for(i = 0; i < 8; i++){
+					//i defines the inverted shift (the pixel to activate)
+					int pixel = LT_tile_tempdata[offset];
+					int k = 7-i;
+					//Store bitplanes in pl0,pl1,pl2,pl3
+					switch (pixel){
+						case 0: pl0 |= 0 << k; break;	// black, bit 0 in byte-plane 0
+						case 1:	pl0 |= 1 << k; break;	// dark blue, bit 1 in b-plane 0
+						case 2: pl1 |= 1 << k; break;	// dark green, bit 1 in b-plane 1
+						case 3: pl2 |= 1 << k; break;	// dark red, bit 1 in b-plane 2
+						case 4:	pl0 |= 1 << k; pl1 |= 1 << k; break;// dark cyan, bit 1 in b-planes 0,1
+						case 5:	pl1 |= 1 << k; pl2 |= 1 << k; break;// dark yellow, bit 1 in b-plane 1,2
+						case 6:	pl0 |= 1 << k; pl2 |= 1 << k; break;// dark magenta, bit 1 in b-plane 0,2	
+						case 7:	pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; break;// light gray, bit 1 in b-plane 0,1,2
+						//now the same but activating the intensity plane (3)
+						case 8: pl0 |= 0 << k; pl3 |= 1 << k; break;// dark gray, bit 0 in b-plane 0; bit 1 in b-plane 3
+						case 9:	pl0 |= 1 << k; pl3 |= 1 << k; break;// light blue, bit 1 in b-plane 0,3
+						case 10: pl1 |= 1 << k; pl3 |= 1 << k; break;// light green, bit 1 in b-plane 1,3	
+						case 11: pl2 |= 1 << k; pl3 |= 1 << k; break;// light red, bit 1 in b-plane 2,3
+						case 12: pl0 |= 1 << k; pl1 |= 1 << k; pl3 |= 1 << k; break;// light cyan, bit 1 in b-plane 0,1,3
+						case 13: pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light yellow, bit 1 in b-plane 1,2,3
+						case 14: pl0 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light magenta, bit 1 in b-plane 0,2,3
+						case 15: pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// white, all metro lines
+					}
+					offset++;
+				}
+				
+				//Paste pl1,pl2,pl3,pl4 to EGA address
+				
+				asm mov dx, 03C4h
+				asm mov ax, 0102h	//Plane 0		
+				asm out dx, ax
+				EGA[EGA_index] = pl0;
+		
+				asm mov ax, 0202h 	//Plane 1
+				asm out dx, ax
+				EGA[EGA_index] = pl1;
+				
+				asm mov ax, 0402h 	//Plane 2
+				asm out dx, ax
+				EGA[EGA_index] = pl2;
+	
+				asm mov ax, 0802h 	//Plane 3
+				asm out dx, ax
+				EGA[EGA_index] = pl3;
+				
+				EGA_index++;
+				
+				//if (EGA_index > 0x7680) LT_Error("Too many tiles\n",0);
 			}
-			VGA_index+=4;
+			EGA_index+=2;
 		}
 		asm STI //Re enable interrupts so that loading animation is played again
+	}else {
+		for (plane = 0; plane < 4; plane ++){
+			// select plane
+			asm CLI //disable interrupts so that loading animation does not interfere
+			
+			outp(SC_INDEX, MAP_MASK);          
+			outp(SC_DATA, 1 << plane);
+			VGA_index = 0;	
+	
+			for (y = 15; y > 0; y--){
+				offset = plane + (y*320);
+				for (x = 0; x < 80; x++){
+					VGA[VGA_index] = LT_tile_tempdata[offset];
+					VGA_index++;
+					offset +=4;
+				}
+				VGA_index+=4;
+			}
+			asm STI //Re enable interrupts so that loading animation is played again
+		}
 	}
 }
 
@@ -428,6 +859,7 @@ void LT_ResetWindow(){
 // load_8x8 fonts to VRAM (31 characters)
 void LT_Load_Font(char *file){
 	word VGA_index = 0;
+	word EGA_index = 0;
 	word w = 0;
 	word h = 0;
 	word ty = 0;
@@ -450,9 +882,9 @@ void LT_Load_Font(char *file){
 	fgetc(fp);
 
 	fseek(fp, 16, SEEK_CUR);
-	fread(&LT_tileset.width, sizeof(word), 1, fp);
+	fread(&LT_tileset_width, sizeof(word), 1, fp);
 	fseek(fp, 2, SEEK_CUR);
-	fread(&LT_tileset.height,sizeof(word), 1, fp);
+	fread(&LT_tileset_height,sizeof(word), 1, fp);
 	fseek(fp, 22, SEEK_CUR);
 	fread(&num_colors,sizeof(word), 1, fp);
 	fseek(fp, 6, SEEK_CUR);
@@ -466,13 +898,85 @@ void LT_Load_Font(char *file){
 	}
 
 	//LOAD TO TEMP RAM
-	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset.width*LT_tileset.height, fp);
+	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*LT_tileset_height, fp);
 	
 	//COPY TO VRAM
-	w = LT_tileset.width>>3;
-	h = LT_tileset.height>>3;
-	jx = LT_tileset.width+8; 
+	w = LT_tileset_width>>3;
+	h = LT_tileset_height>>3;
+	jx = LT_tileset_width+8; 
 	
+	if (LT_VIDEO_MODE == 0){
+		//COPY TO FONT VRAM
+		EGA_index = FONT_VRAM_EGA;
+		asm CLI //disable interrupts so that loading animation does not interfere
+		//SCAN ALL TILES
+		for (tileY = h; tileY > 0 ; tileY--){
+			ty = (tileY<<3)-1;
+			for (tileX = 0; tileX < w; tileX++){
+				offset = (ty*LT_tileset_width) + (tileX<<3);
+				//LOAD TILE
+				for(y = 0; y < 8; y++){//Get 1 chunk of 8 pixels per row
+					int i,j,k;
+					//Get an 8 pixel chunk, and convert to 4 bytes
+					byte pl0 = 0;
+					byte pl1 = 0;
+					byte pl2 = 0;
+					byte pl3 = 0;
+					for(i = 0; i < 8; i++){
+						//i defines the inverted shift (the pixel to activate)
+						int pixel = LT_tile_tempdata[offset];
+						k = 7-i;
+						//Store bitplanes in pl0,pl1,pl2,pl3
+						switch (pixel){
+							case 0: pl0 |= 0 << k; break;	// black, bit 0 in byte-plane 0
+							case 1:	pl0 |= 1 << k; break;	// dark blue, bit 1 in b-plane 0
+							case 2: pl1 |= 1 << k; break;	// dark green, bit 1 in b-plane 1
+							case 3: pl2 |= 1 << k; break;	// dark red, bit 1 in b-plane 2
+							case 4:	pl0 |= 1 << k; pl1 |= 1 << k; break;// dark cyan, bit 1 in b-planes 0,1
+							case 5:	pl1 |= 1 << k; pl2 |= 1 << k; break;// dark yellow, bit 1 in b-plane 1,2
+							case 6:	pl0 |= 1 << k; pl2 |= 1 << k; break;// dark magenta, bit 1 in b-plane 0,2	
+							case 7:	pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; break;// light gray, bit 1 in b-plane 0,1,2
+							//now the same but activating the intensity plane (3)
+							case 8: pl0 |= 0 << k; pl3 |= 1 << k; break;// dark gray, bit 0 in b-plane 0; bit 1 in b-plane 3
+							case 9:	pl0 |= 1 << k; pl3 |= 1 << k; break;// light blue, bit 1 in b-plane 0,3
+							case 10: pl1 |= 1 << k; pl3 |= 1 << k; break;// light green, bit 1 in b-plane 1,3	
+							case 11: pl2 |= 1 << k; pl3 |= 1 << k; break;// light red, bit 1 in b-plane 2,3
+							case 12: pl0 |= 1 << k; pl1 |= 1 << k; pl3 |= 1 << k; break;// light cyan, bit 1 in b-plane 0,1,3
+							case 13: pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light yellow, bit 1 in b-plane 1,2,3
+							case 14: pl0 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light magenta, bit 1 in b-plane 0,2,3
+							case 15: pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// white, all metro lines
+						}
+						offset++;
+					}
+					
+					//Paste pl1,pl2,pl3,pl4 to EGA address
+					
+					asm mov dx, 03C4h
+					asm mov ax, 0102h	//Plane 0		
+					asm out dx, ax
+					EGA[EGA_index] = pl0;
+		
+					asm mov ax, 0202h 	//Plane 1
+					asm out dx, ax
+					EGA[EGA_index] = pl1;
+				
+					asm mov ax, 0402h 	//Plane 2
+					asm out dx, ax
+					EGA[EGA_index] = pl2;
+	
+					asm mov ax, 0802h 	//Plane 3
+					asm out dx, ax
+					EGA[EGA_index] = pl3;
+					
+					EGA_index++;
+					
+					if (EGA_index > 0x7680) LT_Error("Too many tiles\n",0);
+					offset -= jx;
+				}
+			}
+		}
+		asm STI //Re enable interrupts so that loading animation is played again
+	} else {
 	for (plane = 0; plane < 4; plane ++){
 		// select plane
 		asm CLI //disable interrupts so that loading animation does not interfere
@@ -485,7 +989,7 @@ void LT_Load_Font(char *file){
 		for (tileY = h; tileY > 0 ; tileY--){
 			ty = (tileY<<3)-1;
 			for (tileX = 0; tileX < w; tileX++){
-				offset = plane + (ty*LT_tileset.width) + (tileX<<3);
+				offset = plane + (ty*LT_tileset_width) + (tileX<<3);
 				//LOAD TILE
 				x=0;
 				for(y = 0; y < 16; y++){
@@ -502,10 +1006,13 @@ void LT_Load_Font(char *file){
 		}
 		asm STI //Re enable interrupts so that loading animation is played again
 	}
+	}
 }
 
 //Print a three digit variable on the window, only 40 positions available 
-void LT_Print_Window_Variable(byte x, word var){
+void (*LT_Print_Window_Variable)(byte,word);
+
+void LT_Print_Window_Variable_VGA(byte x, word var){
 	word FONT_ADDRESS = FONT_VRAM;
 	word screen_offset = (84<<2) + (x<<1) + 6;
 
@@ -671,9 +1178,154 @@ void LT_Print_Window_Variable(byte x, word var){
 	outport(GC_INDEX + 1, 0x0ff);
 }
 
+void LT_Print_Window_Variable_EGA(byte x, word var){
+	word FONT_ADDRESS = FONT_VRAM_EGA;
+	word screen_offset = (42<<2) + (x) + 3;
+	
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax			
+	}
+
+	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
+		mov dx,0 
+		mov ax,0
+		mov	ax,[var]				
+		mov bx,10
+		div bx								//Divides var by 10 // dx = remainder // ax = var/10
+		mov [var],ax
+		
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
+		
+		//go to desired tile
+		mov		cl,3						//dx*8
+		shl		dx,cl
+		add		si,dx
+		
+		mov		di,screen_offset			//es:di destination address							
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (8 lines)
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+	}
+	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
+		mov dx,0 
+		mov ax,0
+		mov	ax,[var]				
+		mov bx,10
+		div bx								//Divides var by 10 // dx = remainder // ax = var/10
+		mov [var],ax
+		
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
+		
+		//go to desired tile
+		mov		cl,3						//dx*8
+		shl		dx,cl
+		add		si,dx
+		
+		mov		di,screen_offset			//es:di destination address	
+		sub		di,1
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (8 lines)
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+	}
+	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
+		mov dx,0 
+		mov ax,0
+		mov	ax,[var]				
+		mov bx,10
+		div bx								//Divides var by 10 // dx = remainder // ax = var/10
+		mov [var],ax
+		
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
+		
+		//go to desired tile
+		mov		cl,3						//dx*8
+		shl		dx,cl
+		add		si,dx
+		
+		mov		di,screen_offset			//es:di destination address	
+		sub		di,2
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (8 lines)
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+	}
+
+	asm{//END
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+		
+		pop si
+		pop di
+		pop ds
+	}
+
+	outport(GC_INDEX + 1, 0x0ff);
+}
+
 // load_16x16 tiles to VRAM
 void LT_Load_Tiles(char *file){
 	dword VGA_index = 0;
+	dword EGA_index = 0;
 	word w = 0;
 	word h = 0;
 	word ty = 0;
@@ -688,6 +1340,7 @@ void LT_Load_Tiles(char *file){
 	dword offset = 0;
 	FILE *fp;
 	
+	//Open the same file with ".ega" extension for ega
 	fp = fopen(file,"rb");
 	
 	if(!fp)LT_Error("Can't find ",file);
@@ -696,69 +1349,147 @@ void LT_Load_Tiles(char *file){
 	fgetc(fp);
 
 	fseek(fp, 16, SEEK_CUR);
-	fread(&LT_tileset.width, sizeof(word), 1, fp);
+	fread(&LT_tileset_width, sizeof(word), 1, fp);
 	fseek(fp, 2, SEEK_CUR);
-	fread(&LT_tileset.height,sizeof(word), 1, fp);
+	fread(&LT_tileset_height,sizeof(word), 1, fp);
 	fseek(fp, 22, SEEK_CUR);
 	fread(&num_colors,sizeof(word), 1, fp);
 	fseek(fp, 6, SEEK_CUR);
 
 	if (num_colors==0) num_colors=256;
 	for(index=0;index<num_colors;index++){
-		LT_tileset.palette[(int)(index*3+2)] = fgetc(fp) >> 2;
-		LT_tileset.palette[(int)(index*3+1)] = fgetc(fp) >> 2;
-		LT_tileset.palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+2)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+1)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+0)] = fgetc(fp) >> 2;
 		fgetc(fp);
 	}
 
-	LT_tileset.ntiles = (LT_tileset.width>>4) * (LT_tileset.height>>4);
+	LT_tileset_ntiles = (LT_tileset_width>>4) * (LT_tileset_height>>4);
 
 	//LOAD TO TEMP RAM
-	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset.width*LT_tileset.height, fp);
+	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*LT_tileset_height, fp);
 	
-	//COPY TO VRAM
-	w = LT_tileset.width>>4;
-	h = LT_tileset.height>>4;
-	jx = LT_tileset.width+16; 
+	fclose(fp);
 	
-	for (plane = 0; plane < 4; plane ++){
-		// select plane
+	if (LT_VIDEO_MODE == 0){
+		//COPY TO EGA VRAM
+		w = LT_tileset_width>>4;
+		h = LT_tileset_height>>4;
+		jx = LT_tileset_width+16;
+		
+		EGA_index = TILE_VRAM_EGA;
 		asm CLI //disable interrupts so that loading animation does not interfere
-		
-		outp(SC_INDEX, MAP_MASK);          
-		outp(SC_DATA, 1 << plane);
-		VGA_index = TILE_VRAM;
-		
 		//SCAN ALL TILES
 		for (tileY = h; tileY > 0 ; tileY--){
 			ty = (tileY<<4)-1;
 			for (tileX = 0; tileX < w; tileX++){
-				offset = plane + (ty*LT_tileset.width) + (tileX<<4);
+				offset = (ty*LT_tileset_width) + (tileX<<4);
 				//LOAD TILE
-				x=0;
-				for(y = 0; y < 64; y++){
-					VGA[VGA_index] = LT_tile_tempdata[offset];
-					VGA_index++;
-					if (VGA_index > 0x10080) LT_Error("Too many tiles\n",0);
-					offset +=4;
-					x++;
-					if (x == 4){
-						x = 0;
-						offset -= jx;
+				for(y = 0; y < 16; y++){//Get 2 chunks of 8 pixels per row
+					int i,j,k;
+					for (j = 0; j < 2; j++){
+						//Get an 8 pixel chunk, and convert to 4 bytes
+						byte pl0 = 0;
+						byte pl1 = 0;
+						byte pl2 = 0;
+						byte pl3 = 0;
+						for(i = 0; i < 8; i++){
+							//i defines the inverted shift (the pixel to activate)
+							int pixel = LT_tile_tempdata[offset];
+							k = 7-i;
+							//Store bitplanes in pl0,pl1,pl2,pl3
+							switch (pixel){
+								case 0: pl0 |= 0 << k; break;	// black, bit 0 in byte-plane 0
+								case 1:	pl0 |= 1 << k; break;	// dark blue, bit 1 in b-plane 0
+								case 2: pl1 |= 1 << k; break;	// dark green, bit 1 in b-plane 1
+								case 3: pl2 |= 1 << k; break;	// dark red, bit 1 in b-plane 2
+								case 4:	pl0 |= 1 << k; pl1 |= 1 << k; break;// dark cyan, bit 1 in b-planes 0,1
+								case 5:	pl1 |= 1 << k; pl2 |= 1 << k; break;// dark yellow, bit 1 in b-plane 1,2
+								case 6:	pl0 |= 1 << k; pl2 |= 1 << k; break;// dark magenta, bit 1 in b-plane 0,2	
+								case 7:	pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; break;// light gray, bit 1 in b-plane 0,1,2
+								//now the same but activating the intensity plane (3)
+								case 8: pl0 |= 0 << k; pl3 |= 1 << k; break;// dark gray, bit 0 in b-plane 0; bit 1 in b-plane 3
+								case 9:	pl0 |= 1 << k; pl3 |= 1 << k; break;// light blue, bit 1 in b-plane 0,3
+								case 10: pl1 |= 1 << k; pl3 |= 1 << k; break;// light green, bit 1 in b-plane 1,3	
+								case 11: pl2 |= 1 << k; pl3 |= 1 << k; break;// light red, bit 1 in b-plane 2,3
+								case 12: pl0 |= 1 << k; pl1 |= 1 << k; pl3 |= 1 << k; break;// light cyan, bit 1 in b-plane 0,1,3
+								case 13: pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light yellow, bit 1 in b-plane 1,2,3
+								case 14: pl0 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light magenta, bit 1 in b-plane 0,2,3
+								case 15: pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// white, all metro lines
+							}
+							offset++;
+						}
+						
+						//Paste pl1,pl2,pl3,pl4 to EGA address
+						
+						asm mov dx, 03C4h
+						asm mov ax, 0102h	//Plane 0		
+						asm out dx, ax
+						EGA[EGA_index] = pl0;
+		
+						asm mov ax, 0202h 	//Plane 1
+						asm out dx, ax
+						EGA[EGA_index] = pl1;
+				
+						asm mov ax, 0402h 	//Plane 2
+						asm out dx, ax
+						EGA[EGA_index] = pl2;
+	
+						asm mov ax, 0802h 	//Plane 3
+						asm out dx, ax
+						EGA[EGA_index] = pl3;
+						
+						EGA_index++;
+						
+						if (EGA_index > 0x7680) LT_Error("Too many tiles\n",0);
 					}
+					
+					offset -= jx;
 				}
 			}
 		}
 		asm STI //Re enable interrupts so that loading animation is played again
+	} else {
+		//COPY TO VGA VRAM
+		w = LT_tileset_width>>4;
+		h = LT_tileset_height>>4;
+		jx = LT_tileset_width+16; 
+		
+		for (plane = 0; plane < 4; plane ++){
+			// select plane
+			asm CLI //disable interrupts so that loading animation does not interfere
+			
+			outp(SC_INDEX, MAP_MASK);          
+			outp(SC_DATA, 1 << plane);
+			VGA_index = TILE_VRAM;
+			
+			//SCAN ALL TILES
+			for (tileY = h; tileY > 0 ; tileY--){
+				ty = (tileY<<4)-1;
+				for (tileX = 0; tileX < w; tileX++){
+					offset = plane + (ty*LT_tileset_width) + (tileX<<4);
+					//LOAD TILE
+					x=0;
+					for(y = 0; y < 64; y++){
+						VGA[VGA_index] = LT_tile_tempdata[offset];
+						VGA_index++;
+						if (VGA_index > 0x10080) LT_Error("Too many tiles\n",0);
+						offset +=4;
+						x++;
+						if (x == 4){
+							x = 0;
+							offset -= jx;
+						}
+					}
+				}
+			}
+			asm STI //Re enable interrupts so that loading animation is played again
+		}
 	}
 
 }
 
 void LT_unload_tileset(){
-	LT_tileset.width = NULL;
-	LT_tileset.height = NULL;
-	LT_tileset.ntiles = NULL;
-	*LT_tileset.palette = NULL;
 	free(LT_tile_tempdata); LT_tile_tempdata = NULL;
 }
 
@@ -786,12 +1517,12 @@ void LT_Load_Map(char *file){
 		}
 		//<layer id="5" name="Ground" width="40" height="30">
 		if((line[1] == '<')&&(line[2] == 'l')){// get map dimensions
-			sscanf(line," <layer id=\"%i\" name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&LT_map.width,&name,&LT_map.width,&LT_map.height);
+			sscanf(line," <layer id=\"%i\" name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&LT_map_width,&name,&LT_map_width,&LT_map_height);
 			start_bkg_data = 1;
 		}
 	}
-	LT_map.ntiles = LT_map.width*LT_map.height;
-	if (LT_map.ntiles > 32767){
+	LT_map_ntiles = LT_map_width*LT_map_height;
+	if (LT_map_ntiles > 256*32){
 		printf("Error, map is bigger than 32 kb");
 		sleep(2);
 		LT_ExitDOS();
@@ -799,41 +1530,41 @@ void LT_Load_Map(char *file){
 	fgets(line, 64, f); //skip line: <data encoding="csv">
 
 	//read tile array
-	for (index = 0; index < LT_map.ntiles; index++){
+	for (index = 0; index < LT_map_ntiles; index++){
 		fscanf(f, "%i,", &tile);
-		LT_map.data[index] = tile-1;
+		LT_map_data[index] = tile-1;
 	}
 	//skip 
 	while(start_col_data == 0){	//read lines 
 		memset(line, 0, 64);
 		fgets(line, 64, f);
 		if((line[1] == '<')&&(line[2] == 'l')){
-			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&LT_map.width,&LT_map.height);
+			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&LT_map_width,&LT_map_height);
 			start_col_data = 1;
 		}
 	}
 	fgets(line, 64, f); //skip line: <data encoding="csv">
 	//read collision array
-	for (index = 0; index < LT_map.ntiles; index++){
+	for (index = 0; index < LT_map_ntiles; index++){
 		fscanf(f, "%d,", &tile);
-		LT_map.collision[index] = tile -tilecount;
+		LT_map_collision[index] = tile -tilecount;
 	}
 	fclose(f);
 }
 
 void LT_unload_map(){
-	LT_map.width = NULL;
-	LT_map.height = NULL;
-	LT_map.ntiles = NULL;
-	free(LT_map.data); LT_map.data = NULL;
-	free(LT_map.collision); LT_map.collision = NULL;
+	LT_map_width = 0;
+	LT_map_height = 0;
+	LT_map_ntiles = 0;
+	//free(LT_map_data); LT_map_data = NULL;
+	//free(LT_map_collision); LT_map_collision = NULL;
 }
 
 void LT_Set_Map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
-	LT_map_offset = (LT_map.width*y)+x;
+	LT_map_offset = (LT_map_width*y)+x;
 	LT_map_offset_Endless = 20;
 	SCR_X = x<<4;
 	SCR_Y = y<<4;
@@ -844,7 +1575,7 @@ void LT_Set_Map(int x, int y){
 	VGA_Scroll(SCR_X,SCR_Y);
 	//draw map 
 	for (i = 0;i<336;i+=16){draw_map_column(SCR_X+i,SCR_Y+LT_Window,LT_map_offset+j);j++;}	
-	VGA_Fade_in(LT_tileset.palette);
+	VGA_Fade_in();
 }
 
 void LT_Get_Item(int sprite_number, byte ntile, byte col){
@@ -854,24 +1585,29 @@ void LT_Get_Item(int sprite_number, byte ntile, byte col){
 	s->col_item = col;
 }
 
-void LT_Edit_MapTile(word x, word y, byte ntile, byte col){
+void (*LT_Edit_MapTile)(word,word,byte,byte);
+
+void LT_Edit_MapTile_VGA(word x, word y, byte ntile, byte col){
 	word TILE_ADDRESS = TILE_VRAM;
-	word tile = (y * LT_map.width) + x;
+	word tile = (y * LT_map_width) + x;
 	word screen_offset;
 	x = x<<4;
 	y = (y<<4)+LT_Window;
 	screen_offset = (y<<6)+(y<<4)+(y<<2) + (x>>2);
-	LT_map.collision[tile] = col;
+	LT_map_collision[tile] = col;
 	
 	//LT_WaitVsyncEnd();
-	
-	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
-    outport(GC_INDEX, 0x08); 
-
 	asm{
 		push ds
 		push di
 		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
@@ -889,7 +1625,7 @@ void LT_Edit_MapTile(word x, word y, byte ntile, byte col){
 
 		//UNWRAPPED COPY 16x16 TILE LOOP
 		mov 	cx,4
-		rep		movsb				
+		rep		movsb		
 		add 	di,80
 		mov 	cx,4
 		rep		movsb				
@@ -938,30 +1674,137 @@ void LT_Edit_MapTile(word x, word y, byte ntile, byte col){
 		add 	di,80
 
 		//END LOOP
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
 		
 		pop si
 		pop di
 		pop ds
 	}
-
-	outport(GC_INDEX + 1, 0x0ff);
 	
-	LT_map.data[tile] = ntile;
+	LT_map_data[tile] = ntile;
 }
 
-void draw_map_column(word x, word y, word map_offset){
-	word TILE_ADDRESS = TILE_VRAM;
-	word screen_offset = (y<<6)+(y<<4)+(y<<2)+(x>>2);
-	word width = LT_map.width;
-	unsigned char *mapdata = LT_map.data;
+void LT_Edit_MapTile_EGA(word x, word y, byte ntile, byte col){
+	word TILE_ADDRESS = TILE_VRAM_EGA;
+	word tile = (y * LT_map_width) + x;
+	word screen_offset;
+	x = x<<4;
+	y = (y<<4)+LT_Window;
+	screen_offset = (y<<5)+(y<<3)+(y<<1)+(x>>3);
+
+	LT_map_collision[tile] = col;
 	
-	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
-	outport(GC_INDEX, 0x08); 
-	
+	//LT_WaitVsyncEnd();
 	asm{
 		push ds
 		push di
 		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
+		
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si source VRAM TILE ADDRESS  //590*(336/4);
+		
+		mov		al,byte ptr [ntile]		//go to desired tile
+		mov		ah,0	
+		mov		cl,5					//*32
+		shl		ax,cl
+		add		si,ax
+		
+		mov		di,screen_offset		//es:di destination address							
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+
+		//END LOOP
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+		
+		pop si
+		pop di
+		pop ds
+	}
+	
+	LT_map_data[tile] = ntile;
+}
+
+void (*draw_map_column)(word,word,word);
+
+void draw_map_column_vga(word x, word y, word map_offset){
+	word TILE_ADDRESS = TILE_VRAM;
+	word screen_offset = (y<<6)+(y<<4)+(y<<2)+(x>>2);
+	word width = LT_map_width;
+	unsigned char *mapdata = LT_map_data;
+	int i = 0;
+	word m_offset = map_offset;
+
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
 		
 		mov 	ax,0A000h
 		mov 	ds,ax
@@ -2080,30 +2923,1262 @@ void draw_map_column(word x, word y, word map_offset){
 		add 	di,80
 		mov 	cx,4
 		rep		movsb				
+		add 	di,80	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}
+	
+	asm{//END
+	
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+		
+		pop si
+		pop di
+		pop ds
+	}
+	//LT_Sprite_Stack = 2;
+	for (i = 0; i <16;i++){
+		int sprite = LT_map_collision[m_offset];
+		if ((sprite > 15) && (sprite < 32)) {
+			if (Enemies != 0) {
+				LT_Sprite_Stack_Table[LT_Sprite_Stack] = selected_AI_sprite + Enemies;
+				LT_Set_AI_Sprite(selected_AI_sprite + Enemies,sprite-16,x>>4,(y>>4)+i-1,3,0);
+				LT_Sprite_Stack++;
+				Enemies++;
+			}else{
+				selected_AI_sprite = LT_AI_Sprite[0];
+				LT_Set_AI_Sprite(selected_AI_sprite,sprite-16,x>>4,(y>>4)+i-1,3,0);
+				Enemies++;
+			}
+		}
+		if (Enemies == 8) Enemies = 0;
+		//if (LT_Sprite_Stack == 8) LT_Sprite_Stack = 1;
+		
+		m_offset+= LT_map_width;
+	}
+}
+
+void draw_map_column_ega(word x, word y, word map_offset){
+	word TILE_ADDRESS = TILE_VRAM_EGA;
+	word screen_offset = (y<<5)+(y<<3)+(y<<1)+(x>>3);
+	word width = LT_map_width;
+	unsigned char *mapdata = LT_map_data;
+	int i = 0;
+	word m_offset = map_offset;
+
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax
+		
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+		
+		mov		di,screen_offset		//es:di screen address	
+	}
+	//UNWRAPPED LOOP
+	//DRAW 16 TILES
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		add di,40
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
 	}
 
 	asm{//END
+	
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+		
 		pop si
 		pop di
 		pop ds
 	}
 
-	outport(GC_INDEX + 1, 0x0ff);
+	for (i = 0; i <16;i++){
+		int sprite = LT_map_collision[m_offset];
+		if ((sprite > 15) && (sprite < 32)) {
+			if (Enemies != 0) {
+				LT_Clone_Sprite(selected_AI_sprite+Enemies,selected_AI_sprite);
+				LT_Set_AI_Sprite(selected_AI_sprite+Enemies,1,x>>4,(y>>4)+i-1,2,0);
+				Enemies++;
+			}else{
+				selected_AI_sprite = LT_AI_Sprite[sprite-16];
+				LT_Set_AI_Sprite(selected_AI_sprite,1,x>>4,(y>>4)+i-1,2,0);
+				Enemies++;
+			}
+		}
+		m_offset+= LT_map_width;
+	}
 }
 
-void draw_map_row( word x, word y, word map_offset){
+void (*draw_map_row)(word,word,word);
+
+void draw_map_row_vga( word x, word y, word map_offset){
 	word TILE_ADDRESS = TILE_VRAM;
-	unsigned char *mapdata = LT_map.data;
+	unsigned char *mapdata = LT_map_data;
 	word screen_offset = (y<<6)+(y<<4)+(y<<2) + (x>>2);
-	
-	outport(SC_INDEX, (0xff << 8) + MAP_MASK); //select all planes
-    outport(GC_INDEX, 0x08); 
 	
 	asm{//SET ADDRESS
 		push ds
 		push di
 		push si
-			
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
+		
 		mov 	ax,0A000h
 		mov 	ds,ax
 		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
@@ -3633,13 +5708,1551 @@ void draw_map_row( word x, word y, word map_offset){
 		rep		movsb				
 	}
 	
-	asm{//END	
+	asm{//END
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+	
 		pop si
 		pop di
 		pop ds
 	}
+}
 
-	outport(GC_INDEX + 1, 0x0ff);
+void draw_map_row_ega( word x, word y, word map_offset){
+	word TILE_ADDRESS = TILE_VRAM_EGA;
+	unsigned char *mapdata = LT_map_data;
+	word screen_offset = (y<<5)+(y<<3)+(y<<1)+(x>>3);
+	
+	asm{//SET ADDRESS
+		push ds
+		push di
+		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
+		
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		
+		shl		ax,cl
+		add		si,ax
+		
+		mov		di,screen_offset		//es:di screen address								
+	}
+	//UNWRAPPED LOOPS
+	//Copy 21 tiles
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		
+		movsb			//COPY TILE (16 lines)
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb
+		add di,40
+		movsb	
+		movsb	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,5
+		shl		ax,cl
+		add		si,ax
+
+		sub		di,42*15					//next horizontal tile position
+	}
+	asm{//END
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+	
+		pop si
+		pop di
+		pop ds
+	}
 }
 
 //update rows and colums
@@ -3648,19 +7261,19 @@ void LT_scroll_map(){
 	LT_current_y = ((SCR_Y+LT_Window)>>4)<<4;
 	
 	if (LT_current_x != LT_last_x) {
-		LT_map_offset = ((SCR_Y>>4)*LT_map.width)+(SCR_X>>4);
+		LT_map_offset = ((SCR_Y>>4)*LT_map_width)+(SCR_X>>4);
 		if (LT_current_x < LT_last_x) 
 			draw_map_column(LT_current_x,LT_current_y,LT_map_offset); 
 		else  
 			draw_map_column(LT_current_x+320,LT_current_y,LT_map_offset+20);
 	}
 	if (LT_current_y != LT_last_y) {
-		LT_map_offset = ((SCR_Y>>4)*LT_map.width)+(SCR_X>>4);
+		LT_map_offset = ((SCR_Y>>4)*LT_map_width)+(SCR_X>>4);
 		if (LT_current_y < LT_last_y)
 			draw_map_row(LT_current_x,LT_current_y,LT_map_offset);
 		else 
-			draw_map_row(LT_current_x,LT_current_y+240,LT_map_offset+(15*LT_map.width));
-	}
+			draw_map_row(LT_current_x,LT_current_y+240,LT_map_offset+(15*LT_map_width));
+	}		
 	
 	LT_last_x = LT_current_x;
 	LT_last_y = LT_current_y;
@@ -3670,88 +7283,289 @@ void LT_scroll_map(){
 void LT_Endless_SideScroll_Map(int y){
 	LT_current_x = (SCR_X>>4)<<4;
 	LT_current_y = ((SCR_Y+LT_Window)>>4)<<4;
+	
 	if (LT_current_x > LT_last_x) { 
-		draw_map_column(LT_current_x+320,LT_current_y,((LT_map_offset_Endless+20)%LT_map.width)+(y*LT_map.width));
+		draw_map_column(LT_current_x+320,LT_current_y,((LT_map_offset_Endless+20)%LT_map_width)+(y*LT_map_width));
 		LT_map_offset_Endless++;
 	}
+	
 	LT_last_x = LT_current_x;
 }
 
 void set_palette(unsigned char *palette){
-	int i = 0;
-	outp(0x03c8,0); 
-	for(i=0;i<256*3;i+=12){
-		outp(0x03c9,palette[i]);outp(0x03c9,palette[i+1]);outp(0x03c9,palette[i+2]);
-		outp(0x03c9,palette[i+3]);outp(0x03c9,palette[i+4]);outp(0x03c9,palette[i+5]);
-		outp(0x03c9,palette[i+6]);outp(0x03c9,palette[i+7]);outp(0x03c9,palette[i+8]);
-		outp(0x03c9,palette[i+9]);outp(0x03c9,palette[i+10]);outp(0x03c9,palette[i+11]);
+	//outp(0x03c8,0);
+	asm{
+		push si
+		push di
+		push ds
+		
+		mov dx,003c8h
+		mov ax,0	
+		out dx,ax
+		
+		les		bx,[palette]
+		mov 	cx,64
+		mov 	dx,003c9h //Palete register
 	}
+	//for(i=0;i<256*3;i+=12){
+	pal_loop:
+	asm{
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		mov ax,word ptr es:[bx]
+		out dx,ax
+		add bx,1
+		
+		loop pal_loop
+		
+		pop si
+		pop di
+		pop ds
+		
+	}
+
 	vsync();
 }
 
 void VGA_ClearPalette(){
 	int i;
-	outp(0x03c8,0); 
-	for(i=0;i<256*3;i+=12){
-		outp(0x03c9,0);outp(0x03c9,0);outp(0x03c9,0);
-		outp(0x03c9,0);outp(0x03c9,0);outp(0x03c9,0);
-		outp(0x03c9,0);outp(0x03c9,0);outp(0x03c9,0);
-		outp(0x03c9,0);outp(0x03c9,0);outp(0x03c9,0);
+	if (LT_VIDEO_MODE == 1){
+	asm {
+		mov	dx,003c8h
+		mov al,0
+		out	dx,al
+		mov cx,64
+		
+		mov al,0
+		mov dx,003c9h
+	}
+	ploop:
+	asm{
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		out dx,al
+		
+		loop ploop
 	}
 	vsync();
+	}
 }
 
-void VGA_Fade_in(unsigned char *palette){
+void VGA_Fade_in(){
 	int i,j;
-	byte c;
-	//All colours black
-	VGA_ClearPalette();
-	for(j=0;j<256*3;j++) LT_Temp_palette[j] = 0x00;
-	i = 0;
-	//Fade in
-	while (i < 15){
-		outp(0x03c8,0);
-		for(j=0;j<256*3;j++){
-			if (LT_Temp_palette[j] < palette[j]) LT_Temp_palette[j]+=4;
-			outp(0x03c9,LT_Temp_palette[j]);
+	if (LT_VIDEO_MODE == 1){
+		memset(LT_Temp_palette,256*3,0x00);//All colours black
+		i = 0;
+		//Fade in
+		asm mov	dx,003c8h
+		asm mov al,0
+		asm out	dx,al
+		while (i < 14){//SVGA FAILED with 15
+			asm mov dx,003c9h //Palete register
+			asm mov cx,256*3
+			asm mov bx,0
+			fade_in_loop:
+				asm mov al,byte ptr LT_Temp_palette[bx]
+				asm cmp	al,byte ptr LT_tileset_palette[bx]
+				asm jae	pal_is_greater
+				asm mov al,byte ptr LT_Temp_palette[bx]
+				asm add al,4
+				asm mov byte ptr LT_Temp_palette[bx],al
+				pal_is_greater:
+				
+				asm	mov al,byte ptr LT_Temp_palette[bx]
+				asm out dx,al
+				
+				asm inc bx
+				asm loop fade_in_loop
+			
+			i ++;
+			asm mov		dx,INPUT_STATUS_0
+			WaitNotVsync:
+			asm in      al,dx
+			asm test    al,08h
+			asm jnz		WaitNotVsync
+			WaitVsync:
+			asm in      al,dx
+			asm test    al,08h
+			asm jz		WaitVsync
 		}
-		i ++;
-		//Wait Vsync
-		vsync();
 	}
 }
 
 void VGA_Fade_out(){
 	int i,j;
 	i = 0;
-	//Fade to black
-	outp(0x03c8,0);
-	while (i < 15){
-		for(j=0;j<256*3;j++){
-			if (LT_Temp_palette[j] > 0) LT_Temp_palette[j]-=4;
-			outp(0x03c9,LT_Temp_palette[j]);
+	if (LT_VIDEO_MODE == 1){
+		//Fade to black
+		asm mov	dx,003c8h
+		asm mov al,0
+		asm out	dx,al
+		while (i < 15){
+			asm mov dx,003c9h //Palete register
+			asm mov cx,256*3
+			asm mov bx,0
+			fade_out_loop:
+				asm mov al,byte ptr LT_Temp_palette[bx]
+				asm cmp	byte ptr LT_Temp_palette[bx],0
+				asm je	pal_is_zero
+				asm mov al,byte ptr LT_Temp_palette[bx]
+				asm sub al,4
+				asm mov byte ptr LT_Temp_palette[bx],al
+				pal_is_zero:
+				asm	mov al,byte ptr LT_Temp_palette[bx]
+				asm out dx,al
+				
+				asm inc bx
+				asm loop fade_out_loop
+			i ++;
+			//Wait Vsync
+			asm mov		dx,INPUT_STATUS_0
+			WaitNotVsync:
+			asm in      al,dx
+			asm test    al,08h
+			asm jnz		WaitNotVsync
+			WaitVsync:
+			asm in      al,dx
+			asm test    al,08h
+			asm jz		WaitVsync
 		}
-		while ((inp(0x03da) & 0x08));
-		while (!(inp(0x03da) & 0x08));
-		i ++;
-		//Wait Vsync
-		vsync();
 	}
 }
 
 //init Cycle struct  
-void cycle_init(COLORCYCLE *cycle,unsigned char *palette){
+void cycle_init(COLORCYCLE *cycle,const unsigned char *palette){
 	cycle->frame = 0;
 	cycle->counter = 0;
-	cycle->palette = palette;
+	cycle->palette = (const unsigned char*)palette;
 }
 
-//Cycle palette  
+
+//Cycle palette 
 void cycle_palette(COLORCYCLE *cycle, byte speed){
 	int i;
-	if (cycle->frame == 24) cycle->frame = 0;
-	outp(0x03c8,1); //start at position 1 of palette index (colour 1)
-	for(i=0;i!=24;i++) outp(0x03c9,cycle->palette[i+cycle->frame]);
-	if (cycle->counter == speed){cycle->counter = 0; cycle->frame+=3;}
-	cycle->counter++;
+	const unsigned char *datapal = &cycle->palette[cycle->frame];
+	
+	if (LT_VIDEO_MODE == 1){
+		asm lds bx,datapal
+		asm mov	dx,003c8h
+		asm mov al,1
+		asm out	dx,al //start at position 1 of palette index (colour 1)
+		asm mov cx,8
+		asm inc dx  //Palete register 003c9h
+		cycleloop:
+			asm	mov al,byte ptr ds:[bx]
+			asm out dx,al
+			asm	mov al,byte ptr ds:[bx+1]
+			asm out dx,al
+			asm	mov al,byte ptr ds:[bx+2]
+			asm out dx,al
+			asm add bx,3
+			asm loop cycleloop
+	
+		if (cycle->counter == speed){
+			cycle->counter = 0;
+			cycle->frame+=3;
+		}
+		cycle->counter++;
+		if (cycle->frame == 24) cycle->frame = 0;
+	}
+}
+
+
+//Custom palette for EGA, ONLY works on VGA cars using EGA mode.
+//EGA mode is twice as fast to update compared to VGA mode X. 
+//(every EGA VRAM byte contains 8 pixels)
+//So I plan to make the engine only in EGA mode but with custom palettes, 
+//to help poor 8088 and 8086's.
+byte testframe = 0;
+byte testspeed = 0;
+void VGA_EGAMODE_CustomPalette(unsigned char *palette){
+	unsigned char i = 0;
+	
+	const unsigned char *datapal = &palette[testframe];
+	
+	asm lds bx,datapal
+	asm mov cx,24
+	asm mov al,0
+	asm mov	dx,003c8h
+	asm out	dx,al	//start at position 1 of palette index (colour 1)
+	asm inc dx		//Palete register 003c9h
+	
+	cycleloop:
+	
+		asm	mov al,byte ptr ds:[bx]
+		asm out dx,al
+		asm	mov al,byte ptr ds:[bx+1]
+		asm out dx,al
+		asm	mov al,byte ptr ds:[bx+2]
+		asm out dx,al
+		asm add bx,3
+		
+		asm loop cycleloop
+	
+	/*
+	asm lds bx,datapal
+	asm add bx,3*8
+	asm mov	dx,003c8h
+	asm mov al,16
+	asm out	dx,al	//start at position 1 of palette index (colour 1)
+	asm mov cx,8
+	asm inc dx		//Palete register 003c9h
+	cycleloop1:
+		asm	mov al,byte ptr ds:[bx]
+		asm out dx,al
+		asm	mov al,byte ptr ds:[bx+1]
+		asm out dx,al
+		asm	mov al,byte ptr ds:[bx+2]
+		asm out dx,al
+		asm add bx,3
+		asm loop cycleloop1*/
+	/*
+	testspeed++; 
+	if (testspeed == 60) {
+		testspeed = 0;
+		testframe+=3;
+		if (testframe == 24) testframe = 0;
+	}*/
 }

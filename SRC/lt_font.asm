@@ -21,8 +21,11 @@ LOCALS
 
 .model large
 
+.data
 
-fullstop db '.'
+align 2
+
+fullstop db '.';
 crlf     db 00Dh, 00Ah, '$'
 errormsg db 'Error: $'
 nofont   db 'no font file specified$'
@@ -38,40 +41,44 @@ doserr56 db 'invalid password$'
 doserrun db 'unknown DOS error$'
 doserrls db 001h, 002h, 003h, 004h, 005h, 00Ch, 056h
 doserrs  equ 007h
-doserrpt dw doserr01, doserr02, doserr03, doserr04, doserr05, doserr0C,
-         dw doserr56
+doserrpt dw doserr01, doserr02, doserr03, doserr04, doserr05, doserr0C, doserr56
+
 
 handle   dw   00000h              ; Font file handle
 
 fontedit db 'fontedit 1.0 file'
 
-cafecom                           ; Signature combined with message
+;cafecom                      ; Signature combined with message
 fcafecom db 'CAFE!exec'           ; This needs modified before printing
 
-pcmagcom                          ; Signature combined with message
+;pcmagcom                           ; Signature combined with message
 fpcmag   db 'PC Magazine'
 
-length   resw 1                   ; Font file length
-font     resw 1                   ; Pointer to font data
-height   resb 1                   ; Cell height
-columns  resb 1                   ; Screen columns
-lines    resb 1                   ; Screen lines
-file     resb 16384               ; File
-
-macro wait 0
-    jmp %%end
-    nop
-%%end
-endm
+_length   dw 1                  ; Font file length
+font     dw 1                   ; Pointer to font data
+height   db 1                   ; Cell height
+columns  db 1                   ; Screen columns
+lines    db 1                   ; Screen lines
+file     db 16384 DUP(?)        ; File
+filen	db 'PC Magazine'
 
 .code
-; Start
-_x_load_font proc	far
 
-         cmp sp, lfend+256        ; Check available memory
-         jl memok
-         mov dx, nomem
-         jmp error
+align 2
+
+_wait macro arg
+    jmp %%end
+    nop
+%%end:
+endm
+
+_x_load_font proc	far
+ARG filename:word
+        ;cmp sp, lfend+256        ; Check available memory
+        ;jl memok
+        ;mov ax, word ptr [nomem]
+		;mov dx, ax
+        ;jmp error
 memok:
 		mov ax, 01A00h           ; Check for VGA
          int 010h
@@ -83,60 +90,53 @@ memok:
          jg vgaerr
          ; Following ten lines based on code by Tylisha C. Andersen, published
          ; in Tennie Remmel's Programming Tips & Tricks issue 7
-         xor cx, cx               ; Check there's a command-line
-         mov di, 00081h
-         mov cl, [di - 1]
-         jcxz ncl                 ; No command line...
-         inc cx
-         mov ax, 03D20h           ; AL contains ' ', AH is open file...
-         repe scasb               ; Search for the first non-space character
-         lea dx, [di - 1]         ; DX now points to the file name
-         repne scasb              ; Search for the next space or end of line
-         mov [di - 1], ch         ; Zero the end of the file name
-         shl al, 1                ; AL is now 0x40, read-only, deny none
-         int 021h                 ; Open the file
-         jc doserr
+         
+        
+         mov ah,03Dh
+		 mov al,000h			;0 read only
+		 mov dx,
          mov [handle], ax         ; Store the file handle
          mov bx, ax
          mov ah, 03Fh            ; Read file
          mov cx, 16384            ; Up to 16KB
-         mov dx, file
+         mov ax, word ptr file
+		 mov dx,ax
          int 021h
          jc doserr
-         mov [length], ax         ; Store the file's length
+         mov [_length], ax         ; Store the file's length
          call decode              ; Determine the file format
-
+enddecode:
          jmp setfont
 
 vgaerr:   
-		mov dx, novga            ; No VGA present
+		mov dx, word ptr[novga]            ; No VGA present
          jmp error
 
 ncl:      
-		mov dx, nofont           ; No font file specified
+		mov dx, word ptr[nofont]          ; No font file specified
 error:
 		push dx
-         mov dx, errormsg
+         mov dx, word ptr[errormsg]
          mov ah, 009h
          int 021h
          pop dx
          int 021h
-         mov dx, fullstop
+         mov dx, word ptr[fullstop]
          int 021h
          jmp _end
 
 doserr:   
-		mov di, doserrls
+		mov di, word ptr[doserrls]
          mov cx, doserrs
          repnz scasb
          jcxz dosun
-         sub di, doserrls+1
+         sub di, word ptr[doserrls+1]
          mov bp, di
          shl bp, 1
          mov dx, [bp+doserrpt]
          jmp error
 dosun:
-		mov dx, doserrun
+		mov dx, word ptr[doserrun]
          jmp error
 
 ; Set font.
@@ -259,59 +259,68 @@ _end:
          int 021h
 nofiles: 
 		ret
+_x_load_font endp
+
 
 ; Decode a loaded file's format
 ; This routine should remain separate, since multiple ret's are smaller than
 ; multiple jmp's.
 decode:
-		cmp word [file], 055AAh
+		cmp word ptr [file], 055AAh
          je cafe
          cld
-         mov di, cafecom
-         mov si, file + 3
+         mov di, word ptr [fcafecom]
+         mov si, word ptr [file + 3]
          mov cx, 9
          repz cmpsb
          jcxz cafecom
-         mov di, fontedit
-         mov si, file
+         mov di, word ptr [fontedit]
+         mov si, word ptr [file]
          mov cx, 17
          repz cmpsb
-         jcxz fontedit
-         mov di, pcmagcom
-         mov si, file + 10
+         jcxz _fontedit
+         mov di, word ptr [fpcmag]
+         mov si, word ptr [file + 10]
          mov cx, 11
          repz cmpsb
          jcxz pcmagcom
          jmp raw
 cafe:
-		mov word [font], file + 8 ; CAFE font file
-         mov ax, [file + 4]
+		mov ax, word ptr file + 8 ; CAFE font file
+		mov word [font], ax ; CAFE font file
+         mov ax, word ptr file + 4
          mov [height], al
 
          ret
 cafecom:
-		mov ax, [file + 14]      ; CAFE executable
-         add ax, file
+		mov ax, word ptr file + 14      ; CAFE executable
+         add ax, word ptr file
          mov [font], ax
-         mov al, [file + 12]
+         mov al, file + 12
          mov [height], al
 
          ret
-fontedit:                         ; FONTEDIT 1.0 font file
-         mov word [font], file + 18
-         mov ax, [length]
+_fontedit:                         ; FONTEDIT 1.0 font file
+		mov ax, word ptr file + 18
+         mov word [font], ax
+         mov ax, [_length]
          sub ax, 18
 
-         jmp height
+         jmp _height
 pcmagcom:                       ; PC Magazine FONTEDIT executable
-         mov word [font], file + 99
-         mov al, [file + 50]
+		mov ax, word ptr file + 99
+         mov word [font], ax
+         mov al, file + 50
          mov [height], al
 
          ret
-raw:     mov word [font], file    ; Raw font file
-         mov ax, [length]
+raw:     
+		mov ax, word ptr file
+		mov word [font], ax    ; Raw font file
+         mov ax, [_length]
 
-height:  mov [height], ah         ; Length divided by 256...
-         ret
-_x_load_font endp
+_height:  mov [height], ah         ; Length divided by 256...
+        jmp enddecode
+
+
+end

@@ -83,7 +83,7 @@ NOTES
 
 Para jugar: 
 -Necesitas adlib y/o GUS, 8088 y VGA. 
--Controles: Teclas direccionales, S, D, ENTER, ESC. 
+-Controles: Teclas ireccionales, S, D, ENTER, ESC. 
 
 Un montón de código copiado de David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
@@ -91,7 +91,7 @@ http://www.brackeen.com/home/vga/
 Este es un programa de 16-bit, funcionará en MS-DOS, FreeDos y Windows 98.                     
 Recuerda que hay que compilarlo usando el "LARGE memory model".                        
 
-Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuentre un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA.
+Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA.
 El motor ha sido portado al "MODO-X" de VGA, y ahora funciona más rápido, ya que las funciones de dibujado se hacen por transferencia de VRAM a VRAM (de 4 en 4 pixels).
 
 Requisitos mínimos: scroll de mapas a 60 fps, adlib, y varios sprites de 8x8 o 16x16, con parpadeos.
@@ -111,7 +111,6 @@ Requisitos Ultra: sprites de 32x32 o más y Adlib / MOD con efectos.
 - CPU 286
 
 A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2018) con cualquier tarjeta gráfica.
-Ya que todas las CPU x86/64 de PC, tablets o incl
  
 
 Funciones de Little Engine:
