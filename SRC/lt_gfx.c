@@ -899,7 +899,7 @@ void LT_Load_Font(char *file){
 
 	//LOAD TO TEMP RAM
 	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*LT_tileset_height, fp);
-	
+	fclose(fp);
 	//COPY TO VRAM
 	w = LT_tileset_width>>3;
 	h = LT_tileset_height>>3;
@@ -1007,6 +1007,7 @@ void LT_Load_Font(char *file){
 		asm STI //Re enable interrupts so that loading animation is played again
 	}
 	}
+
 }
 
 //Print a three digit variable on the window, only 40 positions available 

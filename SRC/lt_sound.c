@@ -330,7 +330,7 @@ void sb_set_freq(int freq){
 
 void sb_deinit(){
 	write_dsp( SB_DISABLE_SPEAKER );
-	free( dma_buffer );
+	//free( dma_buffer );
 	deinit_irq();
 }
 
@@ -350,6 +350,7 @@ void sb_load_sample(char *file_name){
 	sample[LT_sb_nsamples].size = fread(LT_tile_tempdata+LT_sb_offset, 1, 32*1024, raw_file);
 	LT_sb_offset += sample[LT_sb_nsamples].size;
 	LT_sb_nsamples++;
+	fclose(raw_file);
 }
 
 void sb_play_sample(char sample_number, int freq){
