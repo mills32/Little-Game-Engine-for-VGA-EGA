@@ -211,7 +211,7 @@ void LT_Init(){
 	// 64kb Music 
 	// 48Kb if loaded all sprites (never)
 	// Asume EXE file around 128KB Max
-	// Add 16 Kb of used defined data (palette tables, )
+	// Add 16 Kb of used defined data (palette tables...)
 	// Then we need around 340 Kb of Free Ram
 	
 	//Allocate the first 32 KB of temp data inside a 64KB block for DMA
@@ -252,7 +252,6 @@ void LT_Init(){
 void LT_ExitDOS(){
 	sb_deinit();
 	LT_Text_Mode();
-	StopMOD();
 	LT_Stop_Music();
 	LT_Unload_Music();
 	LT_unload_tileset();

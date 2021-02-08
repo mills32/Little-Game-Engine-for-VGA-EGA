@@ -106,18 +106,17 @@ void vsync(){
 
 // load_16x16 tiles to VRAM
 void LT_Load_Animation_EGA(char *file){
-	dword VGA_index = 0;
 	dword EGA_index = 0;
 	word w = 0;
 	word h = 0;
 	word ty = 0;
 	int jx = 0;
-	word x = 0;
+	//word x = 0;
 	word y = 0;
 	word tileX = 0;
 	word tileY = 0;
 	word num_colors = 0;
-	byte plane = 0;
+	//byte plane = 0;
 	dword index = 0;
 	dword offset = 0;
 	FILE *fp;
@@ -230,7 +229,6 @@ void LT_Load_Animation_EGA(char *file){
 	}
 	asm STI //Re enable interrupts so that loading animation is played again
 }
-
 
 //32x32 animation for loading scene
 void LT_Load_Animation(char *file, byte size){
@@ -856,7 +854,7 @@ void LT_ResetWindow(){
 	LT_Window = 0;
 }
 
-// load_8x8 fonts to VRAM (31 characters)
+// load_8x8 fonts to VRAM (64 characters)
 void LT_Load_Font(char *file){
 	word VGA_index = 0;
 	word EGA_index = 0;
@@ -901,8 +899,9 @@ void LT_Load_Font(char *file){
 	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*LT_tileset_height, fp);
 	fclose(fp);
 	//COPY TO VRAM
-	w = LT_tileset_width>>3;
-	h = LT_tileset_height>>3;
+	if (LT_tileset_width != 128) LT_Error("Font file must be 128 pixels wide ",file);
+	w = 16;//LT_tileset_width>>3;
+	h = 4;//LT_tileset_height>>3;
 	jx = LT_tileset_width+8; 
 	
 	if (LT_VIDEO_MODE == 0){
@@ -1038,6 +1037,7 @@ void LT_Print_Window_Variable_VGA(byte x, word var){
 		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
+		add		dx,16
 		mov		cl,4						//dx*16
 		shl		dx,cl
 		add		si,dx
@@ -1321,6 +1321,254 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 	}
 
 	outport(GC_INDEX + 1, 0x0ff);
+}
+
+//Print 8x8 tiles, it is a bit slow on 8086, but it works for text boxes
+void LT_Print(word x, word y, char *string, byte win){
+	word FONT_ADDRESS = FONT_VRAM;
+	word screen_offset;
+	byte datastring;
+	word size = strlen(string);
+	byte i = 0;
+	if (!win) y = (y<<3)+240;
+	else y = (y<<3);
+	screen_offset = (y<<6)+(y<<4)+(y<<2);
+	if (size > 40) size = 40;
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
+		//
+		mov	di,screen_offset
+		mov ax,x
+		shl	ax,1
+		add di,ax
+		mov ax,0A000h
+		mov ds,ax
+		mov bx,size
+	}
+	printloop3:
+	asm push bx
+	datastring = string[i];
+	asm{
+		mov		dx,word ptr datastring
+		sub		dx,32
+		
+		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS
+		
+		//go to desired tile
+		mov		cl,4						//dx*16
+		shl		dx,cl
+		add		si,dx
+		
+		mov 	ax,0A000h
+		mov 	es,ax						//es:di destination address	
+
+		//UNWRAPPED COPY 8x8 TILE LOOP
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82
+		mov 	cx,2
+		rep		movsb				
+		add 	di,82 //END LOOP
+		
+		sub		di,670
+	}
+		i++;
+	asm pop 	bx
+	asm dec		bx
+	asm jnz		printloop3
+		
+	asm{//END
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+		
+		pop si
+		pop di
+		pop ds
+	}
+}
+
+
+//Load and paste 320x480 image for complex images.
+//It uses all map VRAM, do not use loading animations.
+void LT_Load_Image(char *file){
+	dword VGA_index = 0;
+	dword EGA_index = 0;
+	int i;
+	word h = 0;
+	word lines = 0;
+	word last_chunk_lines = 0;
+	byte chunks = 0;
+	word offset_chunk = 0;
+	word x = 0;
+	word y = 0;
+	word num_colors = 0;
+	byte plane = 0;
+	dword index = 0;
+	dword offset = 0;
+	dword offset_Image = 0;
+	FILE *fp;
+	
+	//Open the same file with ".ega" extension for ega
+	fp = fopen(file,"rb");
+	
+	if(!fp)LT_Error("Can't find ",file);
+	
+	fgetc(fp);
+	fgetc(fp);
+
+	fseek(fp, 16, SEEK_CUR);
+	fread(&LT_tileset_width, sizeof(word), 1, fp);
+	fseek(fp, 2, SEEK_CUR);
+	fread(&LT_tileset_height,sizeof(word), 1, fp);
+	fseek(fp, 22, SEEK_CUR);
+	fread(&num_colors,sizeof(word), 1, fp);
+	fseek(fp, 6, SEEK_CUR);
+
+	if (num_colors==0) num_colors=256;
+	for(index=0;index<num_colors;index++){
+		LT_tileset_palette[(int)(index*3+2)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+1)] = fgetc(fp) >> 2;
+		LT_tileset_palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+		fgetc(fp);
+	}
+	offset_Image = ftell(fp);
+	chunks = LT_tileset_height/200;
+	if (LT_tileset_height%200) chunks++;
+	if (LT_VIDEO_MODE == 0){
+		//COPY TO EGA VRAM
+		asm CLI //disable interrupts so that loading animation does not interfere
+		//SCAN ALL TILES
+		//COPY TO VGA VRAM
+		h = LT_tileset_height;
+		lines = LT_tileset_height;
+		fseek(fp,offset_Image,SEEK_SET);
+		for (i = 0; i < chunks; i++){
+			if (lines < 200) last_chunk_lines = 200-lines;
+			fread(&LT_tile_tempdata[0],sizeof(unsigned char),320*(200-last_chunk_lines), fp);
+			EGA_index = (42*(h-1-offset_chunk));
+			offset = 0;
+			//SCAN LINES 
+			for (y = 0; y < 200 - last_chunk_lines; y++){
+				for(x = 0; x < 40; x++){
+					//Get an 8 pixel chunk, and convert to 4 bytes
+					byte pl0 = 0;
+					byte pl1 = 0;
+					byte pl2 = 0;
+					byte pl3 = 0;
+					for(plane = 0; plane < 8; plane++){
+						//plane defines the inverted shift (the pixel to activate)
+						int pixel = LT_tile_tempdata[offset];
+						byte k = 7-plane;
+						//Store bitplanes in pl0,pl1,pl2,pl3
+						switch (pixel){
+							case 0: pl0 |= 0 << k; break;	// black, bit 0 in byte-plane 0
+							case 1:	pl0 |= 1 << k; break;	// dark blue, bit 1 in b-plane 0
+							case 2: pl1 |= 1 << k; break;	// dark green, bit 1 in b-plane 1
+							case 3: pl2 |= 1 << k; break;	// dark red, bit 1 in b-plane 2
+							case 4:	pl0 |= 1 << k; pl1 |= 1 << k; break;// dark cyan, bit 1 in b-planes 0,1
+							case 5:	pl1 |= 1 << k; pl2 |= 1 << k; break;// dark yellow, bit 1 in b-plane 1,2
+							case 6:	pl0 |= 1 << k; pl2 |= 1 << k; break;// dark magenta, bit 1 in b-plane 0,2	
+							case 7:	pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; break;// light gray, bit 1 in b-plane 0,1,2
+							//now the same but activating the intensity plane (3)
+							case 8: pl0 |= 0 << k; pl3 |= 1 << k; break;// dark gray, bit 0 in b-plane 0; bit 1 in b-plane 3
+							case 9:	pl0 |= 1 << k; pl3 |= 1 << k; break;// light blue, bit 1 in b-plane 0,3
+							case 10: pl1 |= 1 << k; pl3 |= 1 << k; break;// light green, bit 1 in b-plane 1,3	
+							case 11: pl2 |= 1 << k; pl3 |= 1 << k; break;// light red, bit 1 in b-plane 2,3
+							case 12: pl0 |= 1 << k; pl1 |= 1 << k; pl3 |= 1 << k; break;// light cyan, bit 1 in b-plane 0,1,3
+							case 13: pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light yellow, bit 1 in b-plane 1,2,3
+							case 14: pl0 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// light magenta, bit 1 in b-plane 0,2,3
+							case 15: pl0 |= 1 << k; pl1 |= 1 << k; pl2 |= 1 << k; pl3 |= 1 << k; break;// white, all metro lines
+						}
+						offset++;
+					}
+					
+					//Paste pl1,pl2,pl3,pl4 to EGA address
+					asm mov dx, 03C4h
+					asm mov ax, 0102h	//Plane 0		
+					asm out dx, ax
+					EGA[EGA_index] = pl0;
+		
+					asm mov ax, 0202h 	//Plane 1
+					asm out dx, ax
+					EGA[EGA_index] = pl1;
+				
+					asm mov ax, 0402h 	//Plane 2
+					asm out dx, ax
+					EGA[EGA_index] = pl2;
+	
+					asm mov ax, 0802h 	//Plane 3
+					asm out dx, ax
+					EGA[EGA_index] = pl3;
+						
+					EGA_index++;
+					//offset +=8;
+				}
+				EGA_index-=82;
+			}
+			asm STI //Re enable interrupts
+			lines -= 200;
+			offset_chunk+= 200;
+		}
+		asm STI //Re enable interrupts so that loading animation is played again
+	} else {
+		//COPY TO VGA VRAM
+		h = LT_tileset_height;
+		lines = LT_tileset_height;
+		fseek(fp,offset_Image,SEEK_SET);
+		for (i = 0; i < chunks; i++){
+			if (lines < 200) last_chunk_lines = 200-lines;
+			fread(&LT_tile_tempdata[0],sizeof(unsigned char),320*(200-last_chunk_lines), fp);
+			for (plane = 0; plane < 4; plane ++){
+				// select plane
+				asm CLI //disable interrupts
+				outp(SC_INDEX, MAP_MASK);          
+				outp(SC_DATA, 1 << plane);
+				VGA_index = (84*(h-1-offset_chunk));
+				//SCAN LINES 
+				offset = plane;
+				for (y = 0; y < 200 - last_chunk_lines; y++){
+					for(x = 0; x < 80; x++){
+						VGA[VGA_index] = LT_tile_tempdata[offset];
+						VGA_index++;
+						offset +=4;
+					}
+					VGA_index-=164;
+				}
+				asm STI //Re enable interrupts
+			}
+			lines -= 200;
+			offset_chunk+= 200;
+		}
+	}
+	fclose(fp);
 }
 
 // load_16x16 tiles to VRAM
@@ -7522,7 +7770,7 @@ void cycle_palette(COLORCYCLE *cycle, byte speed){
 byte testframe = 0;
 byte testspeed = 0;
 void VGA_EGAMODE_CustomPalette(unsigned char *palette){
-	unsigned char i = 0;
+	//unsigned char i = 0;
 	
 	const unsigned char *datapal = &palette[testframe];
 	

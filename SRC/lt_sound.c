@@ -65,20 +65,7 @@ void LT_Adlib_Detect(){
     }
 }
 
-void interrupt play_music(void){
-    while (!LT_imfwait){
-        LT_imfwait = LT_music.sdata[LT_music.offset+2] | (LT_music.sdata[LT_music.offset+3]) << 8;
-        opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
-		LT_music.offset+=4;
-	}
-	if (LT_music.offset > LT_music.size) LT_music.offset = 4;
-	LT_imfwait--;
-	//asm mov al,020h
-	//asm mov dx,020h
-	//asm out dx, al	//PIC, EOI
-}
-
-void do_play_music(){
+void LT_Play_Music(){
 	//byte *ost = music_sdata + music_offset;
 	while (!LT_imfwait){
         LT_imfwait = LT_music.sdata[LT_music.offset+2];
@@ -91,7 +78,7 @@ void do_play_music(){
 	}
 	LT_imfwait--;
 	//ending song loop
-	if (LT_music.offset > LT_music.size) {LT_music.offset = 0; opl2_clear();}
+	if (LT_music.offset > LT_music.size) {LT_music.offset = 0; LT_imfwait = 0; opl2_clear();}
 	asm mov al,020h
 	asm mov dx,020h
 	asm out dx, al	//PIC, EOI
@@ -144,16 +131,6 @@ void LT_Load_Music(char *fname){
 	LT_music.size = offset1;
 }
 
-void LT_Start_Music(word freq_div){
-	//set interrupt and start playing music
-	unsigned long spd = 1193182/freq_div;
-	_disable(); //disable interrupts
-	outportb(0x43, 0x34);
-	outportb(0x40, spd);	//lo-byte
-	outportb(0x40, spd >> 8);	//hi-byte*/
-	setvect(0x1C, play_music);		//interrupt 1C not available on NEC 9800-series PCs.
-	_enable();  //enable interrupts	 
-}
 
 void LT_Stop_Music(){
 	//reset interrupt

@@ -70,11 +70,11 @@ byte EGA_SPR_TEST[] = {
 };
 
 int LT_player_jump_pos[] = {
-	-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,
+	-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,
 	 0, 0, 0, 0,
 	 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-	 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+	 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
 
 //FUNCTIONS IN SPRC.ASM
@@ -774,7 +774,7 @@ void LT_Draw_Sprites_EGA(){
 			word screen_offset1 = (y<<5)+(y<<3)+(y<<1)+(x>>3);
 			word size = s->size;
 			word siz = s->siz;
-			word sizz = 42 - size;
+			//word sizz = 42 - size;
 			word next_scanline = s->next_scanline;
 			
 			//animation
@@ -1044,6 +1044,7 @@ void LT_Draw_Sprites_VGA(){
 		
 		//GOT ITEM? REPLACE BKG BEFORE DRAWING NEXT SPRITE FRAME
 		if (s->get_item == 1){
+			sb_play_sample(3,11025);
 			LT_Edit_MapTile(s->tile_x,s->tile_y,s->ntile_item, s->col_item);
 			s->get_item = 0;
 		}
@@ -1293,7 +1294,7 @@ void LT_Draw_Sprites_Fast(){
 }
 
 void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int sy){
-	int i = 0;
+	//int i = 0;
 	SPRITE *s = &sprite[sprite_number];
 	s->pos_x = x<<4;
 	s->pos_y = y<<4;
@@ -1314,7 +1315,7 @@ void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int
 }
 extern int Enemies;
 void LT_Unset_AI_Sprite(byte sprite_number){
-	SPRITE *s = &sprite[sprite_number];
+	//SPRITE *s = &sprite[sprite_number];
 	memcpy(&LT_AI_Stack_Table[sprite_number],&LT_AI_Stack_Table[sprite_number+1],8);
 	LT_AI_Stack--;
 	//Enemies--;
@@ -1393,7 +1394,7 @@ LT_Col LT_move_player(int sprite_number){
 		}
 	break;}
 	case 1:{//PLATFORM
-		if ((s->ground == 1) && (LT_Keys[LT_JUMP])) {s->ground = 0; s->jump_frame = 0; s->jump = 1;}
+		if ((s->ground == 1) && (LT_Keys[LT_JUMP])) {s->ground = 0; s->jump_frame = 0; s->jump = 1;sb_play_sample(4,11025);}
 		if (s->jump == 1){//JUMP
 			col_y = 0;
 			y = (s->pos_y-1)>>4;
@@ -1419,7 +1420,7 @@ LT_Col LT_move_player(int sprite_number){
 			if (col_y == 0){
 				s->pos_y += LT_player_jump_pos[s->jump_frame];
 				s->jump_frame++;
-				if (s->jump_frame == 76) {s->jump_frame = 0; s->jump = 2;}
+				if (s->jump_frame == 60) {s->jump_frame = 0; s->jump = 2;}
 			}
 			if (col_y > 0){
 				s->jump_frame = 0; 

@@ -254,8 +254,7 @@ void LT_Init();
 void LT_ExitDOS();
 
 // GFX
-void LT_Load_BKG(char *file);
-void LT_Draw_BKG();
+void LT_Load_Image(char *file);
 void LT_Load_Animation(char *file, byte size);
 void LT_Set_Animation(byte baseframe, byte frames, byte speed);
 void LT_Unload_Animation();
@@ -266,6 +265,7 @@ void LT_Load_Font(char *file);
 extern void (*LT_Print_Window_Variable)(byte,word);
 void LT_Print_Window_Variable_EGA(byte x, word var);
 void LT_Print_Window_Variable_VGA(byte x, word var);
+void LT_Print(word x, word y, char *string, byte win);
 void LT_Load_Tiles(char *file);
 void LT_unload_tileset();
 void LT_Load_Map(char *file);
@@ -318,8 +318,7 @@ void LT_scroll_follow(int sprite_number);
 
 //ADLIB 
 void LT_Load_Music(char *filename);
-void LT_Start_Music(word freq_div);
-void do_play_music();
+void LT_Play_Music();
 void LT_Stop_Music();
 void LT_Unload_Music();
 
@@ -331,11 +330,3 @@ void sb_deinit();
 void sb_load_sample(char *file_name);
 void sb_play_sample(char sample_number, int freq);
 void LT_Clear_Samples();
-
-//GUS
-void LT_Init_GUS(byte channels);
-int LT_LoadMOD(char *filename);
-void PlayMOD(byte sp);
-void mod_player_fast();
-void StopMOD();
-

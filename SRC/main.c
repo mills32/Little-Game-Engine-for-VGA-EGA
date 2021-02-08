@@ -144,15 +144,13 @@ void Load_Logo(){
 		LT_Load_Tiles("GFX/Ltil_VGA.bmp");
 		VGA_Fade_out();
 	}
-	else {
-		LT_Load_Tiles("GFX/Ltil_EGA.bmp");
-		VGA_EGAMODE_CustomPalette(PICO8_palette);
-	}
+	else LT_Load_Tiles("GFX/Ltil_EGA.bmp");
 	LT_Set_Map(0,0);
 	cycle_init(&cycle_logo,palette_cycle_logo);
 }
 
 void Run_Logo(){
+	
 	while (logotimer < 512){
 		VGA_Scroll(x,y);
 		LT_scroll_map();
@@ -173,6 +171,48 @@ void Run_Logo(){
 
 unsigned int SINEX[256];
 unsigned int SINEY[256];
+
+void Display_Intro(){
+	int mode = 0;
+	int speed = 1;
+
+	VGA_Fade_out();
+	SCR_X = 0;SCR_Y = 0;
+	LT_WaitVsync();
+	if (LT_VIDEO_MODE)LT_Load_Image("GFX/DOTT.bmp");
+	else {VGA_EGAMODE_CustomPalette(PICO8_palette); LT_Load_Image("GFX/DOTT_EGA.bmp");}
+	LT_Load_Music("music/ADLIB/what.imf");
+	
+	LT_Clear_Samples();
+	sb_load_sample("MUSIC/samples/drum.wav");
+	sb_load_sample("MUSIC/samples/snare.wav");
+	sb_load_sample("MUSIC/samples/explode.wav");
+	
+	
+	
+	VGA_Fade_in();
+	while (!LT_Keys[LT_ESC]) {
+		LT_WaitVsync();
+		LT_Play_Music();
+		if ((mode == 1)&&(speed == 1)){
+			if (SCR_Y > 0)SCR_Y--;
+			else mode = 0;				
+		}
+		if ((mode == 0)&&(speed == 1)){
+			if (SCR_Y < 427-240)SCR_Y++;
+			else mode = 1;
+		}
+		
+		//speed++;
+		//if (speed == 2) speed = 0;
+		
+	}
+	Clearkb();
+	VGA_Fade_out();
+
+	SCR_Y = 0;
+	LT_WaitVsync();
+}
 
 void Load_Test(){
 	LT_Set_Loading_Interrupt(); 
@@ -210,8 +250,6 @@ void Run_Test(){
 		sprite[29].pos_y = SCR_Y + 128;
 		//scroll_map and draw borders
 		LT_scroll_map();
-		//do_play_music();
-		//mod_player_fast();
 		LT_WaitVsync();		
 	}
 	
@@ -229,13 +267,10 @@ void Run_Test(){
 		A++;
 		//scroll_map and draw borders
 		LT_scroll_map();
-		
 		if (LT_Keys[LT_ESC]) {Scene = 2;game = 0;}
-		//mod_player_fast();
 		LT_WaitVsync();
 	}
 	Clearkb();
-	//StopMOD();
 	LT_unload_sprite(28);
 	LT_unload_sprite(29);
 	Scene = 2;game = 0;
@@ -250,29 +285,18 @@ void Load_Menu(){
 	LT_Load_Sprite("GFX/cursorb.bmp",16,16);
 	LT_Load_Sprite("GFX/Rocketc.bmp",32,64);
 	
-	LT_Load_Music("music/ADLIB/yellow.imf");
+	LT_Load_Music("music/ADLIB/what.imf");
 	
 	LT_Clear_Samples();
 	sb_load_sample("MUSIC/samples/drum.wav");
 	sb_load_sample("MUSIC/samples/snare.wav");
 	sb_load_sample("MUSIC/samples/explode.wav");
-	sb_load_sample("MUSIC/samples/byebye.wav");
-	sb_load_sample("MUSIC/samples/eing.wav");
-	sb_load_sample("MUSIC/samples/hit.wav");
-	/*sb_load_sample("MUSIC/samples/in_hole.wav");
-	sb_load_sample("MUSIC/samples/touch.wav");
-	sb_load_sample("MUSIC/samples/pop.wav");*/
-	//LT_Clear_Samples();
-	/*sb_load_sample("MUSIC/samples/drum.wav");
-	sb_load_sample("MUSIC/samples/snare.wav");
-	sb_load_sample("MUSIC/samples/explode.wav");
-	sb_load_sample("MUSIC/samples/byebye.wav");
-	sb_load_sample("MUSIC/samples/eing.wav");
-	sb_load_sample("MUSIC/samples/hit.wav");
 	sb_load_sample("MUSIC/samples/in_hole.wav");
+	sb_load_sample("MUSIC/samples/eing.wav");
+	sb_load_sample("MUSIC/samples/hit.wav");
+	sb_load_sample("MUSIC/samples/byebye.wav");
 	sb_load_sample("MUSIC/samples/touch.wav");
-	sb_load_sample("MUSIC/samples/pop.wav");*/
-	//sb_load_sample("MUSIC/samples/what_the.wav");
+	sb_load_sample("MUSIC/samples/pop.wav");
 	
 	LT_Delete_Loading_Interrupt();
 	
@@ -284,6 +308,7 @@ void Load_Menu(){
 	
 	i = 0;
 	LT_MODE = 0;
+	game = 1;
 }
 
 void Run_Menu(){
@@ -294,7 +319,7 @@ void Run_Menu(){
 	
 	x = 0;
 	y = 0;
-	
+	LT_Print(0,0," !!!!!!ABCDE1234", 1);
 	LT_Set_Sprite_Animation(16,0,8,6);
 	while(Scene == 1){
 		LT_Draw_Sprites_Fast();
@@ -320,7 +345,7 @@ void Run_Menu(){
 			if (transition == -17){
 				sb_play_sample(5,11025);
 				menu_option -=2; 
-				game--;
+				game-=2;
 				change = 0;
 				transition = 0;
 			}
@@ -328,9 +353,9 @@ void Run_Menu(){
 		if (change == 2) {
 			transition++;
 			if (transition == 17){
-				sb_play_sample(5,11025);
+				sb_play_sample(5,8000);
 				menu_option +=2; 
-				game++;
+				game+=2;
 				change = 0;
 				transition = 0;
 			}
@@ -339,17 +364,16 @@ void Run_Menu(){
 		if (menu_option < 0) menu_option = 0;
 		if (menu_option > 8) menu_option = 8;		
 		if (game < 1) game = 1;
-		if (game > 5) game = 5;	
+		if (game > 9) game = 9;	
 		
-		if (LT_Keys[LT_ENTER]) Scene = 2;
-		if (LT_Keys[LT_JUMP]) {Scene = 2;game = 6;}
+		if (LT_Keys[LT_ENTER]) {Scene = 2; sb_play_sample(5,8000);}
+		if (LT_Keys[LT_JUMP]) {Scene = 2;game = 11;}
 		if (LT_Keys[LT_ESC]) {Scene = 2;game = 255; running = 0;}
-		do_play_music();
+		LT_Play_Music();
 		LT_WaitVsync();
-		//LT_MoveWindow(y);
+
 		y++;
 	}
-	StopMOD();
 	LT_unload_sprite(16);
 	LT_unload_sprite(32);
 }
@@ -388,7 +412,7 @@ void Load_TopDown(){
 
 void Run_TopDown(){
 	int n;
-	LT_Sprite_Stack = 1;
+	LT_Sprite_Stack = 2;
 	LT_Set_Map(0,0);
 	Scene = 2;
 	x = 0;
@@ -402,7 +426,6 @@ void Run_TopDown(){
 	while(Scene == 2){
 		
 		//SCR_X and SCR_Y are predefined global variables 
-		
 		
 		//Draw sprites first to avoid garbage
 		LT_scroll_follow(16);
@@ -435,22 +458,22 @@ void Run_TopDown(){
 		}
 		
 		//If collision tile = ?, end level
-		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
-		if (LT_Keys[LT_ESC]) {Scene = 1; game = 0;}//esc exit
+		if ((LT_Player_Col.tilecol_number == 11) || (LT_Keys[LT_ESC])){
+			Scene = 1; game = 0;
+			LT_unload_sprite(16); //manually free sprites
+			LT_unload_sprite(17);
+		}
 		
-		do_play_music();
+		LT_Play_Music();
 		
 		LT_WaitVsync();
 		if (LT_Player_Col_Enemy()) {
 			if (LT_VIDEO_MODE == 1)VGA_Fade_out(); 
-			//sprite[16].init = 0;
-			Scene = 0;
-			game = 0;
+			sprite[16].init = 0;
+			Scene = 1;
+			game = 2;
 		}
 	}
-	//StopMOD(1);
-	LT_unload_sprite(16); //manually free sprites
-	LT_unload_sprite(17);
 }
 
 void Load_Platform(){
@@ -467,7 +490,14 @@ void Load_Platform(){
 	LT_Set_AI_Sprites(17,7);
 	
 	//LT_Load_Music("music/Adlib/platform.imf");
+	LT_Clear_Samples();
+	sb_load_sample("MUSIC/samples/drum.wav");
+	sb_load_sample("MUSIC/samples/snare.wav");
+	sb_load_sample("MUSIC/samples/explode.wav");
+	sb_load_sample("MUSIC/samples/in_hole.wav");
+	sb_load_sample("MUSIC/samples/boing.wav");
 	//LT_LoadMOD("MUSIC/MOD/beach.mod"); 
+	sb_load_sample("MUSIC/samples/splash.wav");
 	LT_Delete_Loading_Interrupt();
 	//PlayMOD(4);
 	//LT_Start_Music(70);
@@ -484,7 +514,7 @@ void Load_Platform(){
 void Run_Platform(){
 	int n;
 	int diamonds = 0;
-	LT_Sprite_Stack = 1;
+	LT_Sprite_Stack = 2;
 	LT_Set_Map(0,0);
 	sprite[16].pos_x = 4*16;
 	sprite[16].pos_y = 4*16;
@@ -528,31 +558,37 @@ void Run_Platform(){
 		}
 		
 		//If collision tile = ?, end level
-		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
+		if ((LT_Player_Col.tilecol_number == 11)||(LT_Keys[LT_ESC])){
+			Scene = 1;
+			game = 0;
+			LT_unload_sprite(16); //manually free sprites
+			LT_unload_sprite(17);
+		}
 
 		//water palette animation
 		cycle_palette(&cycle_water,2);
 
-		//esc go to menu
-		if (LT_Keys[LT_ESC]) {Scene = 1; game = 0;}//esc exit
+		LT_Print_Window_Variable(32,diamonds);
 		
-		LT_Print_Window_Variable(32,LT_Player_Col_Enemy());
-		
-		//do_play_music();
-		//mod_player_fast();
+		//LT_Play_Music();
 		LT_WaitVsync();
 		//if water or enemy, reset level
-		if ((LT_Player_Col.tile_number == 102) || LT_Player_Col_Enemy()) {
+		if (LT_Player_Col.tile_number == 102){
+			sb_play_sample(5,11025);
 			if (LT_VIDEO_MODE == 1)VGA_Fade_out(); 
-			//sprite[16].init = 0;
-			Scene = 0;
-			game = 0;
+			sprite[16].init = 0;
+			Scene = 1;
+			game = 4;
+		}
+		if (LT_Player_Col_Enemy()) {
+			sb_play_sample(2,11025);
+			if (LT_VIDEO_MODE == 1)VGA_Fade_out(); 
+			sprite[16].init = 0;
+			Scene = 1;
+			game = 4;
 		}
 	}
 	Clearkb();
-	LT_unload_sprite(16); //manually free sprites
-	LT_unload_sprite(17);
-	//StopMOD();
 }
 
 void Load_Puzzle(){
@@ -568,7 +604,6 @@ void Load_Puzzle(){
 	LT_Load_Sprite("GFX/ball1.bmp",17,16);
 	//LT_Load_Sprite("GFX/cursor2.bmp",0,8);
 	//LT_Set_Sprite_Animation(0,0,8,2);
-	LT_AI_Sprite[0] = 17;
 	LT_Set_AI_Sprites(17,7);
 	
 	LT_Load_Music("music/ADLIB/puzzle.imf");
@@ -586,8 +621,6 @@ void Load_Puzzle(){
 
 void Run_Puzzle(){
 	int rotate = 0;
-	int cos = 0;
-	int sin = 0;
 	//int power = 40;
 	Scene = 2;
 	sprite[16].pos_x = 4*16;
@@ -626,13 +659,11 @@ void Run_Puzzle(){
 		sprite[16].state = 1; //Move
 
 		//If collision tile = ?, end level
-		if (LT_Player_Col.tilecol_number == 11) Scene = 1;
-		
-		cycle_palette(&cycle_water,2);
-
+		if (LT_Player_Col.tilecol_number == 11) {Scene = 1; game = 0;}
 		if (LT_Keys[LT_ESC]) {Scene = 1; game = 0;} //esc exit
+		cycle_palette(&cycle_water,2);
 		
-		do_play_music();
+		LT_Play_Music();
 		LT_WaitVsync();
 	}
 	
@@ -701,7 +732,7 @@ void Run_Puzzle2(){
 
 		if (LT_Keys[LT_ESC]) {Scene = 1; game = 0;} //esc exit
 		
-		do_play_music();
+		LT_Play_Music();
 		LT_WaitVsync();
 	}
 	LT_Unload_Sprite(0);
@@ -813,14 +844,12 @@ void Run_Shooter(){
 			Scene = -1;
 		}
 		
-		if (LT_Keys[LT_ESC]) {Scene = 255; game = 0;} //esc exit
+		if (LT_Keys[LT_ESC]) {Scene = 0; game = 0;} //esc exit
 		
 		cycle_palette(&cycle_water,2);
 		LT_Print_Window_Variable(32,SCR_X>>4);
 		
-		do_play_music();
-		
-		
+		LT_Play_Music();
 		LT_WaitVsync();
 	}
 	
@@ -831,7 +860,6 @@ void Run_Shooter(){
 
 
 void main(){
-	
 	//Dissable cursor
 	outportb(0x3D4, 0x0A);
 	outportb(0x3D5, 0x20);
@@ -858,18 +886,19 @@ void main(){
 	system("cls");
 	
 	if (LT_VIDEO_MODE == 0) VGA_EGAMODE_CustomPalette(PICO8_palette);
-	//LT_Check_CPU(); //still causing trouble
-	//LT_Adlib_Detect();
-	LT_Init_GUS(4);
+	
+	LT_Adlib_Detect();
     LT_init();
 	sb_init();//After LT_Init
+	
+	Display_Intro();
 	
 	//You can use a custom loading animation for the Loading_Interrupt
 	LT_Load_Animation("GFX/loading.bmp",32);
 	LT_Set_Animation(0,8,2);
 	
-	if (LT_VIDEO_MODE)LT_Load_Font("GFX/font.bmp");
-	else LT_Load_Font("GFX/font_EGA.bmp");
+	if (LT_VIDEO_MODE)LT_Load_Font("GFX/0_font.bmp");
+	else LT_Load_Font("GFX/0_font_E.bmp");
 	
 	Load_Logo();
 	Run_Logo();
@@ -878,13 +907,20 @@ void main(){
 	game = 0;
 	//MENU
 	while (running){
-		if (game == 0){Load_Menu();Run_Menu();}
-		if (game == 1){Load_TopDown();Run_TopDown();}
-		if (game == 2){Load_Platform();Run_Platform();}
-		if (game == 3){Load_Puzzle();Run_Puzzle();}
-		if (game == 4){Load_Puzzle2();Run_Puzzle2();}   
-		if (game == 5){Load_Shooter();Run_Shooter();}
-		if (game == 6){Load_Test();Run_Test();}
+		switch (game){
+			case 0: Load_Menu();Run_Menu(); break;
+			case 1: Load_TopDown(); game = 2; break;
+			case 2: Run_TopDown(); break;
+			case 3: Load_Platform(); game = 4; break;
+			case 4: Run_Platform(); break;
+			case 5: Load_Puzzle(); game = 6; break;
+			case 6: Run_Puzzle(); break;
+			case 7: Load_Puzzle2(); game = 8; break;
+			case 8: Run_Puzzle2(); break;
+			case 9: Load_Shooter(); game = 10; break;
+			case 10: Run_Shooter(); break;
+			case 11: Load_Test();Run_Test(); break;
+		} 
 	}
 	
 	LT_ExitDOS();
