@@ -142,7 +142,7 @@ void Load_Logo(){
 	LT_Load_Map("GFX/Logo.tmx");
 	if (LT_VIDEO_MODE) {
 		LT_Load_Tiles("GFX/Ltil_VGA.bmp");
-		VGA_Fade_out();
+		LT_Fade_out();
 	}
 	else LT_Load_Tiles("GFX/Ltil_EGA.bmp");
 	LT_Set_Map(0,0);
@@ -164,7 +164,6 @@ void Run_Logo(){
 }
 
 
-
 #ifndef M_PI
 #define M_PI 3.14159
 #endif
@@ -176,7 +175,7 @@ void Display_Intro(){
 	int mode = 0;
 	int speed = 1;
 
-	VGA_Fade_out();
+	//LT_Fade_out();
 	SCR_X = 0;SCR_Y = 0;
 	LT_WaitVsync();
 	if (LT_VIDEO_MODE)LT_Load_Image("GFX/DOTT.bmp");
@@ -188,9 +187,8 @@ void Display_Intro(){
 	sb_load_sample("MUSIC/samples/snare.wav");
 	sb_load_sample("MUSIC/samples/explode.wav");
 	
+	LT_Fade_in();
 	
-	
-	VGA_Fade_in();
 	while (!LT_Keys[LT_ESC]) {
 		LT_WaitVsync();
 		LT_Play_Music();
@@ -208,7 +206,7 @@ void Display_Intro(){
 		
 	}
 	Clearkb();
-	VGA_Fade_out();
+	LT_Fade_out();
 
 	SCR_Y = 0;
 	LT_WaitVsync();
@@ -319,7 +317,9 @@ void Run_Menu(){
 	
 	x = 0;
 	y = 0;
-	LT_Print(0,0," !!!!!!ABCDE1234", 1);
+	LT_Draw_Text_Box(20,4,8,8,1);
+	LT_Print(21,5,"-<>[\\]^_",1);
+	LT_Print(21,6,"=TESTING",1);
 	LT_Set_Sprite_Animation(16,0,8,6);
 	while(Scene == 1){
 		LT_Draw_Sprites_Fast();
@@ -468,7 +468,7 @@ void Run_TopDown(){
 		
 		LT_WaitVsync();
 		if (LT_Player_Col_Enemy()) {
-			if (LT_VIDEO_MODE == 1)VGA_Fade_out(); 
+			if (LT_VIDEO_MODE == 1)LT_Fade_out(); 
 			sprite[16].init = 0;
 			Scene = 1;
 			game = 2;
@@ -575,14 +575,14 @@ void Run_Platform(){
 		//if water or enemy, reset level
 		if (LT_Player_Col.tile_number == 102){
 			sb_play_sample(5,11025);
-			if (LT_VIDEO_MODE == 1)VGA_Fade_out(); 
+			if (LT_VIDEO_MODE == 1)LT_Fade_out(); 
 			sprite[16].init = 0;
 			Scene = 1;
 			game = 4;
 		}
 		if (LT_Player_Col_Enemy()) {
 			sb_play_sample(2,11025);
-			if (LT_VIDEO_MODE == 1)VGA_Fade_out(); 
+			if (LT_VIDEO_MODE == 1)LT_Fade_out(); 
 			sprite[16].init = 0;
 			Scene = 1;
 			game = 4;

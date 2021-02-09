@@ -52,7 +52,7 @@ void LT_Check_CPU(){
 
 void LT_Text_Mode(){
 	union REGS regs;
-	VGA_Fade_out();
+	LT_Fade_out();
 	//Enable cursor
 	outportb(0x3D4, 0x0A);
 	outportb(0x3D5, (inportb(0x3D5) & 0xC0) | 14);
@@ -113,7 +113,10 @@ void LT_Init(){
 	//FIXED SPRITE BKG ADDRESSES IN VRAM
 	
 	if (LT_VIDEO_MODE == 1){//VGA 320 x 240 x 256
-		VGA_Fade_out();
+		LT_Fade_in = &LT_Fade_in_VGA;
+		LT_Fade_out = &LT_Fade_out_VGA;
+		
+		LT_Fade_out();
 		VGA_ClearPalette();
 		memset(VGA,0x00,(320*240)/4); 
 		
@@ -167,8 +170,14 @@ void LT_Init(){
 		LT_Delete_Sprite = &LT_Delete_Sprite_VGA;
 		LT_Edit_MapTile = &LT_Edit_MapTile_VGA;
 		LT_Draw_Sprites = &LT_Draw_Sprites_VGA;
+		LT_Print = &LT_Print_VGA;
 	}
 	if (LT_VIDEO_MODE == 0){// EGA 320 x 240 x 16
+		LT_Fade_in = &LT_Fade_in_EGA;
+		LT_Fade_out = &LT_Fade_out_EGA;
+		
+		LT_Fade_out();
+	
 		regs.h.ah = 0;
 		regs.h.al = 0x0D;
 		int86(0x10, &regs, &regs);
@@ -199,6 +208,7 @@ void LT_Init(){
 		LT_Delete_Sprite = &LT_Delete_Sprite_EGA;
 		LT_Edit_MapTile = &LT_Edit_MapTile_EGA;
 		LT_Draw_Sprites = &LT_Draw_Sprites_EGA;
+		LT_Print = &LT_Print_EGA;
 	}		
 	
 	LT_old_time_handler = getvect(0x1C);

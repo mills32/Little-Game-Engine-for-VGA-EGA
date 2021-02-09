@@ -349,7 +349,7 @@ void LT_Set_Loading_Interrupt(){
 	unsigned long spd = 1193182/30;
 	
 	LT_Stop_Music();
-	VGA_Fade_out();
+	LT_Fade_out();
 	
 	LT_Reset_Sprite_Stack();
 	LT_Reset_AI_Stack();
@@ -385,11 +385,11 @@ void LT_Set_Loading_Interrupt(){
 	
 	//Wait Vsync
 	vsync();	
-	VGA_Fade_in();
+	LT_Fade_in();
 }
 
 void LT_Delete_Loading_Interrupt(){
-	VGA_Fade_out();
+	LT_Fade_out();
 	//reset interrupt
 	outportb(0x43, 0x36);
 	outportb(0x40, 0xFF);	//lo-byte
@@ -627,7 +627,7 @@ void VSYNC_HSYNC(int vpos_delay){
 
 void VGA_SplitScreen(int line){
 	line = line<<1;
-    asm{
+	asm{
 	push    ax
     push    cx
     push    dx
@@ -1209,6 +1209,7 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
+		add		dx,16
 		mov		cl,3						//dx*8
 		shl		dx,cl
 		add		si,dx
@@ -1324,13 +1325,22 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 }
 
 //Print 8x8 tiles, it is a bit slow on 8086, but it works for text boxes
-void LT_Print(word x, word y, char *string, byte win){
+//Text Box borders: # UL; $ UR; % DL; & DR; ( UP; ) DOWN; * LEFT; + RIGHT;
+//Special latin characters: 
+//	- : Spanish N with tilde;
+//	< : Inverse question;
+//	= : Inverse exclamation;
+//	> : C cedille
+//	[ \ ] ^ _ : AEIOU with tilde. Use double "\\" in strings to represent backslash
+void (*LT_Print)(word,word,char*,byte);
+
+void LT_Print_VGA(word x, word y, char *string, byte win){
 	word FONT_ADDRESS = FONT_VRAM;
 	word screen_offset;
 	byte datastring;
 	word size = strlen(string);
 	byte i = 0;
-	if (!win) y = (y<<3)+240;
+	if (!win) y += 240-44;//LT_Window;
 	else y = (y<<3);
 	screen_offset = (y<<6)+(y<<4)+(y<<2);
 	if (size > 40) size = 40;
@@ -1415,7 +1425,100 @@ void LT_Print(word x, word y, char *string, byte win){
 	}
 }
 
+void LT_Print_EGA(word x, word y, char *string, byte win){
+	word FONT_ADDRESS = FONT_VRAM_EGA;
+	byte datastring;
+	word size = strlen(string);
+	byte i = 0;
+	word screen_offset;
+	if (!win) y += 240-44;//LT_Window;
+	y = (y<<3);
+	screen_offset = (y<<5)+(y<<3)+(y<<1);
+	if (size > 40) size = 40;
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
+		//
+		mov	di,screen_offset
+		mov ax,x
+		add di,ax
+		mov ax,0A000h
+		mov ds,ax
+		mov bx,size
+	}
+	printloop3:
+	asm push bx
+	datastring = string[i];
+	asm{
+		mov		dx,word ptr datastring
+		sub		dx,32
+		
+		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS
+		
+		//go to desired tile
+		mov		cl,3						//dx*16
+		shl		dx,cl
+		add		si,dx
+		
+		mov 	ax,0A000h
+		mov 	es,ax						//es:di destination address	
 
+		//UNWRAPPED COPY 8x8 TILE LOOP
+		movsb			//COPY TILE (8 lines)
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb
+		add di,41
+		movsb			
+		add di,41 //END LOOP
+		
+		sub	di,335
+	}
+		i++;
+	asm pop 	bx
+	asm dec		bx
+	asm jnz		printloop3
+		
+	asm{//END
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+		
+		pop si
+		pop di
+		pop ds
+	}
+
+	outport(GC_INDEX + 1, 0x0ff);
+}
+
+void LT_Draw_Text_Box(byte x, byte y, byte w, byte h, byte win){
+	int i;
+	unsigned char up[] = "#(((((((($";
+	unsigned char mid[] = "*        +";
+	unsigned char down[] = "%))))))))&";
+	
+	LT_Print(x,y,up,win);y++;
+	for (i = 0; i<h; i++) {LT_Print(x,y,mid,win);y++;}
+	LT_Print(x,y,down,win);
+}
 //Load and paste 320x480 image for complex images.
 //It uses all map VRAM, do not use loading animations.
 void LT_Load_Image(char *file){
@@ -1824,7 +1927,7 @@ void LT_Set_Map(int x, int y){
 	VGA_Scroll(SCR_X,SCR_Y);
 	//draw map 
 	for (i = 0;i<336;i+=16){draw_map_column(SCR_X+i,SCR_Y+LT_Window,LT_map_offset+j);j++;}	
-	VGA_Fade_in();
+	LT_Fade_in();
 }
 
 void LT_Get_Item(int sprite_number, byte ntile, byte col){
@@ -7640,86 +7743,107 @@ void VGA_ClearPalette(){
 	}
 }
 
-void VGA_Fade_in(){
+void (*LT_Fade_in)(void);
+void (*LT_Fade_out)(void);
+
+void LT_Fade_in_VGA(){
 	int i,j;
-	if (LT_VIDEO_MODE == 1){
-		memset(LT_Temp_palette,256*3,0x00);//All colours black
-		i = 0;
-		//Fade in
-		asm mov	dx,003c8h
-		asm mov al,0
-		asm out	dx,al
-		while (i < 14){//SVGA FAILED with 15
-			asm mov dx,003c9h //Palete register
-			asm mov cx,256*3
-			asm mov bx,0
-			fade_in_loop:
-				asm mov al,byte ptr LT_Temp_palette[bx]
-				asm cmp	al,byte ptr LT_tileset_palette[bx]
-				asm jae	pal_is_greater
-				asm mov al,byte ptr LT_Temp_palette[bx]
-				asm add al,4
-				asm mov byte ptr LT_Temp_palette[bx],al
-				pal_is_greater:
-				
-				asm	mov al,byte ptr LT_Temp_palette[bx]
-				asm out dx,al
-				
-				asm inc bx
-				asm loop fade_in_loop
+	memset(LT_Temp_palette,256*3,0x00);//All colours black
+	i = 0;
+	//Fade in
+	asm mov	dx,003c8h
+	asm mov al,0
+	asm out	dx,al
+	while (i < 14){//SVGA FAILED with 15
+		asm mov dx,003c9h //Palete register
+		asm mov cx,256*3
+		asm mov bx,0
+		fade_in_loop:
+			asm mov al,byte ptr LT_Temp_palette[bx]
+			asm cmp	al,byte ptr LT_tileset_palette[bx]
+			asm jae	pal_is_greater
+			asm mov al,byte ptr LT_Temp_palette[bx]
+			asm add al,4
+			asm mov byte ptr LT_Temp_palette[bx],al
+			pal_is_greater:
 			
-			i ++;
-			asm mov		dx,INPUT_STATUS_0
-			WaitNotVsync:
-			asm in      al,dx
-			asm test    al,08h
-			asm jnz		WaitNotVsync
-			WaitVsync:
-			asm in      al,dx
-			asm test    al,08h
-			asm jz		WaitVsync
-		}
+			asm	mov al,byte ptr LT_Temp_palette[bx]
+			asm out dx,al
+			
+			asm inc bx
+			asm loop fade_in_loop
+		
+		i ++;
+		asm mov		dx,INPUT_STATUS_0
+		WaitNotVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jnz		WaitNotVsync
+		WaitVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jz		WaitVsync
 	}
 }
 
-void VGA_Fade_out(){
+void LT_Fade_out_VGA(){
 	int i,j;
 	i = 0;
-	if (LT_VIDEO_MODE == 1){
-		//Fade to black
-		asm mov	dx,003c8h
-		asm mov al,0
-		asm out	dx,al
-		while (i < 15){
-			asm mov dx,003c9h //Palete register
-			asm mov cx,256*3
-			asm mov bx,0
-			fade_out_loop:
-				asm mov al,byte ptr LT_Temp_palette[bx]
-				asm cmp	byte ptr LT_Temp_palette[bx],0
-				asm je	pal_is_zero
-				asm mov al,byte ptr LT_Temp_palette[bx]
-				asm sub al,4
-				asm mov byte ptr LT_Temp_palette[bx],al
-				pal_is_zero:
-				asm	mov al,byte ptr LT_Temp_palette[bx]
-				asm out dx,al
-				
-				asm inc bx
-				asm loop fade_out_loop
-			i ++;
-			//Wait Vsync
-			asm mov		dx,INPUT_STATUS_0
-			WaitNotVsync:
-			asm in      al,dx
-			asm test    al,08h
-			asm jnz		WaitNotVsync
-			WaitVsync:
-			asm in      al,dx
-			asm test    al,08h
-			asm jz		WaitVsync
-		}
+	//Fade to black
+	asm mov	dx,003c8h
+	asm mov al,0
+	asm out	dx,al
+	while (i < 15){
+		asm mov dx,003c9h //Palete register
+		asm mov cx,256*3
+		asm mov bx,0
+		fade_out_loop:
+			asm mov al,byte ptr LT_Temp_palette[bx]
+			asm cmp	byte ptr LT_Temp_palette[bx],0
+			asm je	pal_is_zero
+			asm mov al,byte ptr LT_Temp_palette[bx]
+			asm sub al,4
+			asm mov byte ptr LT_Temp_palette[bx],al
+			pal_is_zero:
+			asm	mov al,byte ptr LT_Temp_palette[bx]
+			asm out dx,al
+			
+			asm inc bx
+			asm loop fade_out_loop
+		i ++;
+		//Wait Vsync
+		asm mov		dx,INPUT_STATUS_0
+		WaitNotVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jnz		WaitNotVsync
+		WaitVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jz		WaitVsync
 	}
+}
+
+void LT_Fade_in_EGA(){
+	sleep(1);
+	/*asm{
+	mov   dx,03dah
+  in    al,dx
+  mov   dx,03c0h
+				mov   al,3
+  out   dx,al
+				mov   al,14
+  //and   al,3fh
+  out   dx,al
+  mov   al,20h
+  out   dx,al 
+	}*/
+}
+
+void LT_Fade_out_EGA(){
+	int i,j;
+	i = 0;
+	sleep(1);
 }
 
 //init Cycle struct  
