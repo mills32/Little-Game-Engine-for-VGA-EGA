@@ -1511,13 +1511,19 @@ void LT_Print_EGA(word x, word y, char *string, byte win){
 
 void LT_Draw_Text_Box(byte x, byte y, byte w, byte h, byte win){
 	int i;
-	unsigned char up[] = "#(((((((($";
-	unsigned char mid[] = "*        +";
-	unsigned char down[] = "%))))))))&";
-	
+	unsigned char up[40];
+	unsigned char mid[40];
+	unsigned char down[40];
+
+	up[0] = '#'; up[w+1] = '$'; up[w+2] = 0;
+	mid[0] = '*'; mid[w+1] = '+'; mid[w+2] = 0;
+	down[0] = '%'; down[w+1] = '&'; down[w+2] = 0;
+	for (i = 1; i<w+1; i++){up[i] = '('; mid[i] = ' ';down[i] = ')';}
 	LT_Print(x,y,up,win);y++;
-	for (i = 0; i<h; i++) {LT_Print(x,y,mid,win);y++;}
+	for (i = 0; i<h+1; i++) {LT_Print(x,y,mid,win);y++;}
 	LT_Print(x,y,down,win);
+	
+	free(up);free(mid);free(down);
 }
 //Load and paste 320x480 image for complex images.
 //It uses all map VRAM, do not use loading animations.
@@ -7825,19 +7831,20 @@ void LT_Fade_out_VGA(){
 }
 
 void LT_Fade_in_EGA(){
+	// Colors have weird arrangament if VGA.
 	sleep(1);
-	/*asm{
-	mov   dx,03dah
-  in    al,dx
-  mov   dx,03c0h
-				mov   al,3
-  out   dx,al
-				mov   al,14
-  //and   al,3fh
-  out   dx,al
-  mov   al,20h
-  out   dx,al 
-	}*/
+	asm{
+		mov   dx,03dah
+		in    al,dx
+		mov   dx,03c0h
+		mov   al,0		//Color index
+		out   dx,al
+		mov   al,0		//Color number 
+		out   dx,al
+		mov   al,20h
+		out   dx,al 
+	}
+	sleep(1);
 }
 
 void LT_Fade_out_EGA(){

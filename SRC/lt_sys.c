@@ -14,6 +14,7 @@ word start;
 int Free_RAM;
 byte LT_VIDEO_MODE = 0;
 extern byte *VGA;
+extern byte *EGA;
  
 // define LT_old_..._handler to be a pointer to a function
 void interrupt (*LT_old_time_handler)(void); 	
@@ -111,7 +112,7 @@ void LT_Init(){
 	if (LT_VIDEO_MODE == 1) sprite_bkg = &spr_VGA[0];
 	
 	//FIXED SPRITE BKG ADDRESSES IN VRAM
-	
+		
 	if (LT_VIDEO_MODE == 1){//VGA 320 x 240 x 256
 		LT_Fade_in = &LT_Fade_in_VGA;
 		LT_Fade_out = &LT_Fade_out_VGA;
@@ -199,7 +200,7 @@ void LT_Init(){
 		// set vertical retrace back to normal
 		word_out(0x03d4, V_RETRACE_END, 0x8e);
 	
-		memset(VGA,0x00,(320*240)/8);
+		memset(EGA,0x00,(320*240)/8);
 		
 		LT_WaitVsync = &LT_WaitVsync0_EGA;
 		LT_Print_Window_Variable = &LT_Print_Window_Variable_EGA;
@@ -210,7 +211,7 @@ void LT_Init(){
 		LT_Draw_Sprites = &LT_Draw_Sprites_EGA;
 		LT_Print = &LT_Print_EGA;
 	}		
-	
+
 	LT_old_time_handler = getvect(0x1C);
 	LT_old_key_handler = getvect(9);    
 	LT_install_key_handler();

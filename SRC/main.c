@@ -44,21 +44,21 @@ byte PICO8_palette[] = {//generated with gimp, then divided by 4 (max = 64).
 	0x2B,0x14,0x0E, //5	
 	0x2F,0x31,0x31,	//7
 	0x00,0x00,0x00, //Not used in VGA-EGA mode
-	0x00,0x00,0x00,	//
-	0x00,0x00,0x00,	//
-	0x00,0x00,0x00,	//
-	0x00,0x00,0x00,	//
-	0x00,0x00,0x00,	//
-	0x00,0x00,0x00,	//
-	0x00,0x00,0x00,	//
-	0x16,0x17,0x18,	//8
-    0x20,0x1D,0x26,	//9
-	0x00,0x39,0x0D,	//10
-	0x08,0x2B,0x3F,	//12
-	0x3F,0x00,0x12,	//11
-	0x3F,0x1D,0x29,	//14
-	0x3F,0x38,0x0D, //13	
-	0x3f,0x3f,0x3f, //15	
+	0x00,0x00,0x00,		//8
+	0x00,0x00,0x00,		//9
+	0x00,0x00,0x00,		//10
+	0x00,0x00,0x00,		//11
+	0x00,0x00,0x00,		//12
+	0x00,0x00,0x00,		//13
+	0x00,0x00,0x00,		//14
+	0x16,0x17,0x18,	//8	//15
+    0x20,0x1D,0x26,	//9	//16
+	0x00,0x39,0x0D,	//10//17
+	0x08,0x2B,0x3F,	//12//18
+	0x3F,0x00,0x12,	//11//19
+	0x3F,0x1D,0x29,	//14//20
+	0x3F,0x38,0x0D, //13//21	
+	0x3f,0x3f,0x3f, //15//22	
 };
 
 const unsigned char palette_cycle_logo[] = {//generated with gimp, then divided by 4 (max = 64).
@@ -175,31 +175,40 @@ void Display_Intro(){
 	int mode = 0;
 	int speed = 1;
 
-	//LT_Fade_out();
+	LT_Fade_out();
 	SCR_X = 0;SCR_Y = 0;
+	
 	LT_WaitVsync();
 	if (LT_VIDEO_MODE)LT_Load_Image("GFX/DOTT.bmp");
 	else {VGA_EGAMODE_CustomPalette(PICO8_palette); LT_Load_Image("GFX/DOTT_EGA.bmp");}
 	LT_Load_Music("music/ADLIB/what.imf");
-	
 	LT_Clear_Samples();
 	sb_load_sample("MUSIC/samples/drum.wav");
 	sb_load_sample("MUSIC/samples/snare.wav");
 	sb_load_sample("MUSIC/samples/explode.wav");
 	
 	LT_Fade_in();
-	
 	while (!LT_Keys[LT_ESC]) {
 		LT_WaitVsync();
 		LT_Play_Music();
-		if ((mode == 1)&&(speed == 1)){
+		
+		if (SCR_Y == 427-241)LT_Draw_Text_Box(13,35,14,8,1);
+		if (SCR_Y < 427-240)SCR_Y++;
+		else {
+			LT_Print(14,37,"   NEW GAME   ",1);
+			LT_Print(14,39,"   CONTINUE   ",1);
+			LT_Print(14,41,"   SETTINGS   ",1);
+			LT_Print(14,43,"SOUND  BLASTER",1);
+		}
+		
+		/*if ((mode == 1)&&(speed == 1)){
 			if (SCR_Y > 0)SCR_Y--;
 			else mode = 0;				
 		}
 		if ((mode == 0)&&(speed == 1)){
 			if (SCR_Y < 427-240)SCR_Y++;
 			else mode = 1;
-		}
+		}*/
 		
 		//speed++;
 		//if (speed == 2) speed = 0;
@@ -343,7 +352,7 @@ void Run_Menu(){
 		if (change == 1){
 			transition--;
 			if (transition == -17){
-				sb_play_sample(5,11025);
+				sb_play_sample(7,11025);
 				menu_option -=2; 
 				game-=2;
 				change = 0;
@@ -353,7 +362,7 @@ void Run_Menu(){
 		if (change == 2) {
 			transition++;
 			if (transition == 17){
-				sb_play_sample(5,8000);
+				sb_play_sample(7,8000);
 				menu_option +=2; 
 				game+=2;
 				change = 0;
@@ -871,11 +880,11 @@ void main(){
 	printf("                                                                                ");
 	printf("                                  SELECT VIDEO                                  ");
 	printf("                                                                                ");
-	printf("                                0 => EGA 16 colours                             ");
-	printf("                                2 => VGA 16 colours                             ");
-	printf("                                1 => VGA 256 colours                            ");
+	printf("                                0 => EGA                                        ");
+	printf("                                2 => EGA custom palette                         ");
+	printf("                                1 => VGA                                        ");
 	printf("                                                                                ");
-	printf(" - EGA mode runs faster, so use it if the sprites flicker.                      ");
+	printf(" - Mode 0 runs faster, use it if the sprites flicker.                           ");
 	printf(" - Mode 2 is as fast as mode 0. It uses VGA in EGA mode, with a custom palette  ");
 	printf(" - VGA mode looks prettier, but you'll need a faster machine.                   ");
 
@@ -890,15 +899,14 @@ void main(){
 	LT_Adlib_Detect();
     LT_init();
 	sb_init();//After LT_Init
+	if (LT_VIDEO_MODE)LT_Load_Font("GFX/0_font.bmp");
+	else LT_Load_Font("GFX/0_font_E.bmp");
 	
 	Display_Intro();
 	
 	//You can use a custom loading animation for the Loading_Interrupt
 	LT_Load_Animation("GFX/loading.bmp",32);
 	LT_Set_Animation(0,8,2);
-	
-	if (LT_VIDEO_MODE)LT_Load_Font("GFX/0_font.bmp");
-	else LT_Load_Font("GFX/0_font_E.bmp");
 	
 	Load_Logo();
 	Run_Logo();
