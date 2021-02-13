@@ -449,10 +449,10 @@ void Run_TopDown(){
 		LT_Player_Col = LT_move_player(16);
 		
 		//Player animations
-		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,8,4);
-		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,8,8,4);
-		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,16,18,4);
-		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,20,4);
+		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,8,2);
+		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,8,8,2);
+		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,16,2,6);
+		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,2,6);
 		else sprite[16].animate = 0;
 		
 		//Move the enemies
@@ -551,8 +551,8 @@ void Run_Platform(){
 		//set player animations
 		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,8,2);
 		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,8,8,2);
-		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,16,2,3);
-		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,2,3);
+		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,16,2,6);
+		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,2,6);
 		else sprite[16].animate = 0;
 	
 		//Move the enemies

@@ -462,6 +462,8 @@ void LT_Reset_AI_Stack(){
 
 void LT_Set_Sprite_Animation(int sprite_number, byte baseframe, byte frames, byte speed){
 	SPRITE *s = &sprite[sprite_number];
+	if (s->anim_counter > frames) s->anim_counter = 0;
+	if (s->anim_speed > s->speed) s->anim_speed = 0;
 	s->baseframe = baseframe;
 	s->aframes = frames;
 	s->speed = speed;
