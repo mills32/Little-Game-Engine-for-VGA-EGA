@@ -192,13 +192,13 @@ void Display_Intro(){
 		LT_WaitVsync();
 		LT_Play_Music();
 		
-		if (SCR_Y == 427-241)LT_Draw_Text_Box(13,35,14,8,1);
-		if (SCR_Y < 427-240)SCR_Y++;
+		if (SCR_Y == 480-241)LT_Draw_Text_Box(13,43,14,8,1);
+		if (SCR_Y < 480-240)SCR_Y++;
 		else {
-			LT_Print(14,37,"   NEW GAME   ",1);
-			LT_Print(14,39,"   CONTINUE   ",1);
-			LT_Print(14,41,"   SETTINGS   ",1);
-			LT_Print(14,43,"SOUND  BLASTER",1);
+			LT_Print(14,45,"   NEW GAME   ",1);
+			LT_Print(14,47,"   CONTINUE   ",1);
+			LT_Print(14,49,"   SETTINGS   ",1);
+			LT_Print(14,51,"SOUND  BLASTER",1);
 		}
 		
 		/*if ((mode == 1)&&(speed == 1)){
@@ -231,16 +231,14 @@ void Load_Test(){
 	if (LT_VIDEO_MODE) LT_Load_Tiles("gfx/lisa_VGA.bmp");
 	else LT_Load_Tiles("GFX/lisa_EGA.bmp");
 	LT_Load_Sprite("GFX/ship.bmp",28,32);
-	LT_Load_Sprite("GFX/ship.bmp",29,32);
-	//LT_LoadMOD("MUSIC/MOD/frog.mod"); 
+	LT_Clone_Sprite(29,28);
 	LT_Delete_Loading_Interrupt();
 	LT_Set_Map(0,0);
 	LT_MODE = 0;
 	Scene = 0;
 	i = 0;
-	LT_Set_Sprite_Animation(28,8,1,4);
-	LT_Set_Sprite_Animation(29,8,1,4);
-	//PlayMOD(8);
+	LT_Set_Sprite_Animation(28,4,12,4);
+	LT_Set_Sprite_Animation(29,4,12,4);
 }
 
 void Run_Test(){
@@ -376,7 +374,7 @@ void Run_Menu(){
 		if (game > 9) game = 9;	
 		
 		if (LT_Keys[LT_ENTER]) {Scene = 2; sb_play_sample(5,8000);}
-		if (LT_Keys[LT_JUMP]) {Scene = 2;game = 11;}
+		if (LT_Keys[LT_JUMP]) {Scene = 0;game = 11;}
 		if (LT_Keys[LT_ESC]) {Scene = 2;game = 255; running = 0;}
 		LT_Play_Music();
 		LT_WaitVsync();
@@ -398,7 +396,7 @@ void Load_TopDown(){
 	LT_Load_Sprite("GFX/player.bmp",16,16);
 	LT_Load_Sprite("GFX/enemy2.bmp",17,16);
 	LT_Reset_AI_Stack();
-	LT_AI_Sprite[0] = 17;
+
 	LT_Set_AI_Sprites(17,7);
 	
 	LT_Load_Music("music/adlib/top_down.imf");
@@ -451,10 +449,10 @@ void Run_TopDown(){
 		LT_Player_Col = LT_move_player(16);
 		
 		//Player animations
-		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,6,4);
-		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,6,6,4);
-		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,12,6,4);
-		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,6,4);
+		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,8,4);
+		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,8,8,4);
+		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,16,18,4);
+		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,20,4);
 		else sprite[16].animate = 0;
 		
 		//Move the enemies
@@ -495,7 +493,7 @@ void Load_Platform(){
 	LT_Reset_Sprite_Stack();
 	LT_Load_Sprite("GFX/player.bmp",16,16);
 	LT_Load_Sprite("GFX/enemy.bmp",17,16);
-	LT_AI_Sprite[0] = 17;
+
 	LT_Set_AI_Sprites(17,7);
 	
 	//LT_Load_Music("music/Adlib/platform.imf");
@@ -551,10 +549,10 @@ void Run_Platform(){
 		LT_Player_Col = LT_move_player(16);
 		
 		//set player animations
-		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,6,3);
-		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,6,6,3);
-		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,12,6,3);
-		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,12,6,3);
+		if (LT_Keys[LT_RIGHT]) LT_Set_Sprite_Animation(16,0,8,2);
+		else if (LT_Keys[LT_LEFT]) LT_Set_Sprite_Animation(16,8,8,2);
+		else if (LT_Keys[LT_UP]) LT_Set_Sprite_Animation(16,16,2,3);
+		else if (LT_Keys[LT_DOWN]) LT_Set_Sprite_Animation(16,18,2,3);
 		else sprite[16].animate = 0;
 	
 		//Move the enemies
@@ -562,8 +560,8 @@ void Run_Platform(){
 		
 		//Flip
 		for (n = 1; n != LT_Sprite_Stack; n++){
-			if (sprite[LT_Sprite_Stack_Table[n]].mspeed_x > 0) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],0,6,6);
-			if (sprite[LT_Sprite_Stack_Table[n]].mspeed_x < 0) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],6,6,6);	
+			if (sprite[LT_Sprite_Stack_Table[n]].mspeed_x > 0) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],0,8,5);
+			if (sprite[LT_Sprite_Stack_Table[n]].mspeed_x < 0) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],8,8,5);	
 		}
 		
 		//If collision tile = ?, end level

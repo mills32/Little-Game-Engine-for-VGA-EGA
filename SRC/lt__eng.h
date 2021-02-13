@@ -209,7 +209,8 @@ typedef struct tagSPRITE{				// structure for a sprite
 	word siz;
 	word next_scanline;
 	word s_delete;
-	SPRITEFRAME *frames;	
+	word code_size;
+	SPRITEFRAME frames[24];	
 } SPRITE;
 
 typedef struct tagIMFsong{				// structure for adlib IMF song, or MOD pattern data

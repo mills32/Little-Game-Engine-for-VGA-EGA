@@ -27,6 +27,8 @@ word ScrnLogicalByteWidth = 0;		//Logical width in bytes of screen
 word ScrnLogicalPixelWidth = 0;		//Logical width in pixels of screen
 word ScrnLogicalHeight = 0;			//Logical Height of screen
 
+extern unsigned char *LT_sprite_data; 
+
 void LT_Check_CPU(){
 	asm{
 		pushf                   // push original FLAGS
@@ -220,10 +222,10 @@ void LT_Init(){
 	// 64kb Temp Data (Load Tilesets, Load Sprites)
 	// 8kb Map + 8kb collision map
 	// 64kb Music 
-	// 48Kb if loaded all sprites (never)
+	// 128Kb for sprites
 	// Asume EXE file around 128KB Max
 	// Add 16 Kb of used defined data (palette tables...)
-	// Then we need around 340 Kb of Free Ram
+	// Then we need around 420 Kb of Free Ram
 	
 	//Allocate the first 32 KB of temp data inside a 64KB block for DMA
 	temp_buf = farcalloc(32768,sizeof(byte));
@@ -242,21 +244,22 @@ void LT_Init(){
 	//if ((LT_map_collision = farcalloc(32767,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 32 Kb of collision map data",0);
 	if ((LT_music.sdata = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 64 Kb of music data",0);
 	
+	if ((LT_map_data = farcalloc(8192,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate map data",0);
+	if ((LT_map_collision = farcalloc(8192,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate collision data",0);
+	
 	//33 fixed sprites:
 	//	8x8   (16 sprites: 0 - 15)	4kb
 	//	16x16 (12 sprites: 16 - 27) <16kb
 	//	32x32 ( 4 sprites: 28 - 31) 16kb
 	//	64x64 ( 1 sprite : 32) 16 Kb
 	
-	if ((sprite = farcalloc(33,sizeof(SPRITE))) == NULL) LT_Error("Not enough RAM to allocate 33 predefined sprites",0);
-	
+	if ((sprite = farcalloc(33,sizeof(SPRITE))) == NULL) LT_Error("Not enough RAM to allocate 33 predefined sprite structs",0);
+	if ((LT_sprite_data = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate sprite data",0);
 	//STORE BKG AT FIXED VRAM ADDRESS
 	for (sprite_number = 0; sprite_number != 33; sprite_number++){
 		sprite[sprite_number].bkg_data = sprite_bkg[sprite_number];
 	}
 	
-	if ((LT_map_data = farcalloc(8192,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate map data",0);
-	if ((LT_map_collision = farcalloc(8192,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate collision data",0);
 	//VGA_SplitScreen(0x0ffff);
 }
 

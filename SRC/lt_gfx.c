@@ -40,6 +40,8 @@ byte LT_tileset_palette[256*3];
 byte *LT_tileset_data;
 unsigned char *LT_tile_tempdata; //Temp storage of non tiled data. and also sound samples
 unsigned char *LT_tile_tempdata2; //Second half 
+extern unsigned char *LT_sprite_data; // 
+extern dword LT_sprite_data_offset;
 SPRITE LT_Loading_Animation; 
 
 void LT_Error(char *error, char *file);
@@ -275,38 +277,35 @@ void LT_Load_Animation(char *file, byte size){
 	}
 	fclose(fp);
 	
-	index = 16384; //use a chunk of temp allocated RAM to rearrange the sprite frames
+	index = 0; //use a chunk of temp allocated RAM to rearrange the sprite frames
 	//Rearrange sprite frames one after another in temp memory
 	for (tileY=0;tileY<LT_Loading_Animation.height;tileY+=size){
 		for (tileX=0;tileX<LT_Loading_Animation.width;tileX+=size){
 			offset = (tileY*LT_Loading_Animation.width)+tileX;
-			LT_tile_tempdata[index] = size;
-			LT_tile_tempdata[index+1] = size;
+			LT_tile_tempdata2[index] = size;
+			LT_tile_tempdata2[index+1] = size;
 			index+=2;
 			for(x=0;x<size;x++){
-				memcpy(&LT_tile_tempdata[index],&LT_tile_tempdata[offset+(x*LT_Loading_Animation.width)],size);
+				memcpy(&LT_tile_tempdata2[index],&LT_tile_tempdata[offset+(x*LT_Loading_Animation.width)],size);
 				index+=size;
 			}
 		}
 	}
 	
 	LT_Loading_Animation.nframes = (LT_Loading_Animation.width/size) * (LT_Loading_Animation.height/size);
-	
-	//calculate frames size
-	if ((LT_Loading_Animation.frames = farcalloc(LT_Loading_Animation.nframes,sizeof(SPRITEFRAME))) == NULL){
-		LT_Error("Not enough RAM to load animation\n",0);	
-	}
+	LT_Loading_Animation.code_size = 0;
 	//estimated size of code
-	fsize = (size * size * 7) / 2 + 25;
+	//fsize = (size * size * 7) / 2 + 25;
 	for (frame = 0; frame < LT_Loading_Animation.nframes; frame++){		//
-		if ((LT_Loading_Animation.frames[frame].compiled_code = farcalloc(fsize,sizeof(unsigned char))) == NULL){
+		/*if ((LT_Loading_Animation.frames[frame].compiled_code = farcalloc(fsize,sizeof(unsigned char))) == NULL){
 			LT_Error("Not enough RAM to load animation frames ",0);
-		}
-		//COMPILE SPRITE FRAME TO X86 MACHINE CODE	
-		//Store compiled code at &LT_tile_tempdata[16384]
-		code_size = x_compile_bitmap(84, &LT_tile_tempdata[16384+(frame*2)+(frame*(size*size))],LT_Loading_Animation.frames[frame].compiled_code);
-		//Store the compiled data at it's final destination
-		LT_Loading_Animation.frames[frame].compiled_code = farrealloc(LT_Loading_Animation.frames[frame].compiled_code, code_size);
+		}*/
+		//COMPILE SPRITE FRAME TO X86 MACHINE CODE
+		//& Store the compiled data at it's final destination
+		code_size = x_compile_bitmap(84, &LT_tile_tempdata2[(frame*2)+(frame*(size*size))],&LT_sprite_data[LT_sprite_data_offset]);
+		LT_Loading_Animation.frames[frame].compiled_code = &LT_sprite_data[LT_sprite_data_offset];
+		LT_sprite_data_offset += code_size;
+		LT_Loading_Animation.code_size += code_size;
 	}
 	
 	//IINIT SPRITE

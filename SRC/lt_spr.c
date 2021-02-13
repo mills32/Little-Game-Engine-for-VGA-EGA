@@ -39,8 +39,8 @@ byte Lt_AI_Sprite[] = {0,0,0,0,0,0,0,0};
 byte selected_AI_sprite;
 //NON SCROLLING WINDOW
 extern byte LT_Window; 				//Displaces everything (16 pixels) in case yo use the 320x16 window in the game
-
-
+unsigned char *LT_sprite_data; 
+dword LT_sprite_data_offset = 0; 
 void LT_Error(char *error, char *file);
 
 //player movement modes
@@ -327,16 +327,16 @@ void LT_Load_Sprite(char *file, int sprite_number, byte size){
 	}
 	fclose(fp);
 	
-	index = 16384; //use a chunk of temp allocated RAM to rearrange the sprite frames
+	index = 0; //use a chunk of temp allocated RAM to rearrange the sprite frames
 	//Rearrange sprite frames one after another in temp memory
 	for (tileY=0;tileY<s->height;tileY+=size){
 		for (tileX=0;tileX<s->width;tileX+=size){
 			offset = (tileY*s->width)+tileX;
-			LT_tile_tempdata[index] = size;
-			LT_tile_tempdata[index+1] = size;
+			LT_tile_tempdata2[index] = size;
+			LT_tile_tempdata2[index+1] = size;
 			index+=2;
 			for(x=0;x<size;x++){
-				memcpy(&LT_tile_tempdata[index],&LT_tile_tempdata[offset+(x*s->width)],size);
+				memcpy(&LT_tile_tempdata2[index],&LT_tile_tempdata[offset+(x*s->width)],size);
 				index+=size;
 			}
 		}
@@ -344,19 +344,23 @@ void LT_Load_Sprite(char *file, int sprite_number, byte size){
 	
 	s->nframes = (s->width/size) * (s->height/size);
 	
-	//calculate frames size
-	if ((s->frames = farcalloc(s->nframes,sizeof(SPRITEFRAME))) == NULL) 
-		LT_Error("Error loading ",file);
-	
 	//Estimated size
-	fsize = (size * size * 7) / 2 + 25;
+	//fsize = (size * size * 7) / 2 + 25;
+	s->code_size = 0;
 	for (frame = 0; frame < s->nframes; frame++){
-		if ((s->frames[frame].compiled_code = farcalloc(fsize,sizeof(unsigned char))) == NULL){
+		/*if ((s->frames[frame].compiled_code = farcalloc(fsize,sizeof(unsigned char))) == NULL){
 			LT_Error("Not enough RAM to allocate frames ",file);
-		}
-		//COMPILE SPRITE FRAME TO X86 MACHINE CODE		
-		code_size = x_compile_bitmap(84, &LT_tile_tempdata[16384+(frame*2)+(frame*(size*size))],s->frames[frame].compiled_code);
-		s->frames[frame].compiled_code = farrealloc(s->frames[frame].compiled_code, code_size);
+		}*/
+		//COMPILE SPRITE FRAME TO X86 MACHINE CODE
+		//& Store the compiled data at it's final destination	
+		code_size = x_compile_bitmap(84, &LT_tile_tempdata2[(frame*2)+(frame*(size*size))],&LT_sprite_data[LT_sprite_data_offset]);
+		s->frames[frame].compiled_code = &LT_sprite_data[LT_sprite_data_offset];
+		LT_sprite_data_offset += code_size;
+		s->code_size += code_size;
+		if (LT_sprite_data_offset > 65536-8192) LT_Error("Not enough RAM to allocate frames ",file);
+		//if (code_size == NULL) LT_Error("Not enough RAM to allocate frames ",file);
+		//s->frames[frame].compiled_code = farrealloc(s->frames[frame].compiled_code, code_size);
+		//Store the compiled data at it's final destination
 	}
 	
 	//IINIT SPRITE
@@ -405,8 +409,10 @@ void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
 	c->nframes = s->nframes;
 	c->width = s->width;
 	c->height = s->height;
-	c->frames = s->frames;
-	for(j=0;j<c->nframes;j++) c->frames[j].compiled_code = s->frames[j].compiled_code;
+	for(j=0;j<c->nframes;j++) {
+		c->frames[j].compiled_code = s->frames[j].compiled_code;
+		c->frames[j] = s->frames[j];
+	}
 	//sprite[sprite_number_c].bkg_data  //allocated in lt_sys
 	c->init = 0;
 	c->frame = 0;
@@ -434,8 +440,8 @@ void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
 	c->get_item = 0;
 	c->mode = 0;
 	
-	//LT_Sprite_Stack_Table[LT_Sprite_Stack] = sprite_number_c;
-	//LT_Sprite_Stack++;
+	LT_Sprite_Stack_Table[LT_Sprite_Stack] = sprite_number_c;
+	LT_Sprite_Stack++;
 }
 
 void LT_Add_Sprite(int sprite_number,word x, word y) {
@@ -1813,11 +1819,12 @@ void LT_unload_sprite(int sprite_number){
 	SPRITE *s = &sprite[sprite_number];
 	int i;
 	s->init = 0;
+	LT_sprite_data_offset -= s->code_size;
+	s->code_size = 0;
 	//LT_Delete_Sprite(sprite_number);
-	for (i=0;i<s->nframes;i++){
+	/*for (i=0;i<s->nframes;i++){
 		farfree(s->frames[i].compiled_code);
 		s->frames[i].compiled_code = NULL;
-	}
-	farfree(s->frames); s->frames = NULL;
+	}*/
 }	
 

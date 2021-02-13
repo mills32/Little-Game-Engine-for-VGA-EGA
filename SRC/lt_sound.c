@@ -56,11 +56,11 @@ void LT_Adlib_Detect(){
 		for (i=1; i<=0xF5; opl2_out(i++, 0));    //clear all registers
 		opl2_out(1, 0x20);  // Set WSE=1
 		printf("AdLib card detected.\n");
-		sleep(3);
+		//sleep(3);
         return;
     } else {
 		printf("AdLib card not detected.\n");
-		sleep(3);
+		//sleep(3);
         return;
     }
 }

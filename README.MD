@@ -16,7 +16,7 @@ Little engine works on every toaster, potato or emulator, as long as it finds an
 The engine has been ported to VGA "MODE-X", so it runs faster now, because most of drawing operations are 32 bit VRAM to VRAM transfers.
 
 I tested the requirements on PCem, an x86 emulator that simulates very accurately several CPU'S.
-People informed this works real machines: 8088, NEC V20, 286 CPUs, several VGA and Adlib/Sound Blaster compatible cards.
+Also I tested a 286 at 6 Mhz, and people informed this works on other real machines: 8088, NEC V20... Several VGA and Adlib/Sound Blaster compatible cards seem to work, but sometimes the scroll will flicker a bit depending on the VGA card, that's why I include two scrolling functions.
 
 Minimum requirements: (sprites will flicker a lot)
 - CPU 8088 4.77 Mhz
@@ -89,8 +89,7 @@ Recuerda que hay que compilarlo usando el "LARGE memory model".
 Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA.
 El motor ha sido portado al "MODO-X" de VGA, y ahora funciona más rápido, ya que las funciones de dibujado se hacen por transferencia de 32 bits de VRAM a VRAM.
 
-He probado los requisiton en PCem, un emulador muy preciso. Además algunas personas me han informado de que el motor funciona
-en máquinas reales: 8088/NEC v20 a 9 Mhz; 286 a 6 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster.
+He probado los requisitos en PCem, un emulador muy preciso. También lo he probado en un 286 real, y algunas personas me han informado de que el motor funciona en otras máquinas reales: 8088/NEC v20 a 9 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster parecen funcionar, aunque el scroll puede dar pequeños saltos dependiendo de la tarjeta VGA, por eso he incluido dos funciones de scroll..
 
 Requisitos mínimos: (los sprites parpadean mucho).
 - CPU 8088 4.77 Mhz
