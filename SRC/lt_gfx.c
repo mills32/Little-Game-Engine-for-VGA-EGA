@@ -1404,11 +1404,10 @@ void LT_Print_VGA(word x, word y, char *string, byte win){
 		add 	di,82
 		mov 	cx,2
 		rep		movsb				
-		add 	di,82 //END LOOP
-		
-		sub		di,670
+		//END LOOP
+		sub		di,588
 	}
-		i++;
+	i++;
 	asm pop 	bx
 	asm dec		bx
 	asm jnz		printloop3
@@ -1921,6 +1920,7 @@ void LT_Set_Map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
+	Enemies = 0;
 	LT_map_offset = (LT_map_width*y)+x;
 	LT_map_offset_Endless = 20;
 	SCR_X = x<<4;
@@ -3314,18 +3314,12 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	for (i = 0; i <16;i++){
 		int sprite = LT_map_collision[m_offset];
 		if ((sprite > 15) && (sprite < 32)) {
-			if (Enemies != 0) {
-				LT_Sprite_Stack_Table[LT_Sprite_Stack] = selected_AI_sprite + Enemies;
-				LT_Set_AI_Sprite(selected_AI_sprite + Enemies,sprite-16,x>>4,(y>>4)+i-1,3,0);
-				LT_Sprite_Stack++;
-				Enemies++;
-			}else{
-				selected_AI_sprite = LT_AI_Sprite[0];
-				LT_Set_AI_Sprite(selected_AI_sprite,sprite-16,x>>4,(y>>4)+i-1,3,0);
-				Enemies++;
-			}
+			LT_Sprite_Stack_Table[LT_Sprite_Stack] = LT_AI_Sprite[0] + (Enemies&7);
+			LT_Set_AI_Sprite(LT_AI_Sprite[0] + (Enemies&7),sprite-16,x>>4,(y>>4)+i-1,3,0);
+			LT_Sprite_Stack++;
+			Enemies++;
 		}
-		if (Enemies == 8) Enemies = 0;
+		//if (Enemies == 7) Enemies = 0;
 		//if (LT_Sprite_Stack == 8) LT_Sprite_Stack = 1;
 		
 		m_offset+= LT_map_width;
@@ -4523,6 +4517,8 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	word TILE_ADDRESS = TILE_VRAM;
 	unsigned char *mapdata = LT_map_data;
 	word screen_offset = (y<<6)+(y<<4)+(y<<2) + (x>>2);
+	int i = 0;
+	word m_offset = map_offset;
 	
 	asm{//SET ADDRESS
 		push ds
@@ -6073,6 +6069,19 @@ void draw_map_row_vga( word x, word y, word map_offset){
 		pop si
 		pop di
 		pop ds
+	}
+	for (i = 0; i <20;i++){
+		int sprite = LT_map_collision[m_offset];
+		if ((sprite > 15) && (sprite < 32)) {
+			LT_Sprite_Stack_Table[LT_Sprite_Stack] = LT_AI_Sprite[0] + (Enemies&7);
+			LT_Set_AI_Sprite(LT_AI_Sprite[0] + (Enemies&7),sprite-16,x>>4,(y>>4)+i-1,3,0);
+			LT_Sprite_Stack++;
+			Enemies++;
+		}
+		//if (Enemies == 7) Enemies = 0;
+		//if (LT_Sprite_Stack == 8) LT_Sprite_Stack = 1;
+		
+		m_offset+= LT_map_width;
 	}
 }
 
@@ -7616,7 +7625,6 @@ void draw_map_row_ega( word x, word y, word map_offset){
 void LT_scroll_map(){
 	LT_current_x = (SCR_X>>4)<<4;
 	LT_current_y = ((SCR_Y+LT_Window)>>4)<<4;
-	
 	if (LT_current_x != LT_last_x) {
 		LT_map_offset = ((SCR_Y>>4)*LT_map_width)+(SCR_X>>4);
 		if (LT_current_x < LT_last_x) 

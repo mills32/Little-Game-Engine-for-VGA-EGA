@@ -303,6 +303,7 @@ void VGA_EGAMODE_CustomPalette(unsigned char *palette);
 //SPRITE
 void LT_Load_Sprite(char *file,int sprite_number, byte size);
 void LT_Clone_Sprite(int sprite_number_c,int sprite_number);
+void LT_Init_Sprite(int sprite_number,int x,int y);
 void LT_Set_Sprite_Animation(int sprite_number, byte baseframe, byte frames, byte speed);
 extern void (*LT_Draw_Sprites)(void);
 void LT_Draw_Sprites_EGA();

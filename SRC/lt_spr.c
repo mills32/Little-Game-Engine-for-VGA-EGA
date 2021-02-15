@@ -397,9 +397,6 @@ void LT_Load_Sprite(char *file, int sprite_number, byte size){
 	}
 	s->get_item = 0;
 	s->mode = 0;
-	
-	LT_Sprite_Stack_Table[LT_Sprite_Stack] = sprite_number;
-	LT_Sprite_Stack++;
 }
 
 void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
@@ -439,8 +436,12 @@ void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
 	c->next_scanline = 84 - c->siz;
 	c->get_item = 0;
 	c->mode = 0;
-	
-	LT_Sprite_Stack_Table[LT_Sprite_Stack] = sprite_number_c;
+}
+
+void LT_Init_Sprite(int sprite_number,int x,int y){
+	LT_Sprite_Stack_Table[LT_Sprite_Stack] = sprite_number;
+	sprite[sprite_number].pos_x = x;
+	sprite[sprite_number].pos_y = y;
 	LT_Sprite_Stack++;
 }
 
@@ -453,6 +454,7 @@ void LT_Reset_Sprite_Stack(){
 	int i;
 	LT_Sprite_Stack = 0;
 	for (i = 0; i<33; i++) LT_Sprite_Stack_Table[i] = 0;
+	LT_AI_Sprite[0] = 0;
 }
 void LT_Reset_AI_Stack(){
 	int i;
@@ -655,7 +657,6 @@ void Wait_Scanline(){
 	asm	dec		cx
 	asm jnz linecount
 }
-
 
 unsigned char imagebuff[12] = {
 	0x55,//01010101
@@ -1052,9 +1053,9 @@ void LT_Draw_Sprites_VGA(){
 		
 		//GOT ITEM? REPLACE BKG BEFORE DRAWING NEXT SPRITE FRAME
 		if (s->get_item == 1){
-			sb_play_sample(3,11025);
 			LT_Edit_MapTile(s->tile_x,s->tile_y,s->ntile_item, s->col_item);
 			s->get_item = 0;
+			sb_play_sample(3,11025);
 		}
 	}
 	
@@ -1154,8 +1155,11 @@ void LT_Draw_Sprites_VGA(){
 			LT_Delete_Sprite(LT_Sprite_Stack_Table[sprite_number]);
 			s->s_delete = 0;
 			//LT_Unset_AI_Sprite(LT_Sprite_Stack_Table[sprite_number]);
-			}
-		if ((x < SCR_X-32)||(x > SCR_X+352)||(y < SCR_Y-32)||(y > SCR_Y+272)){
+		}
+		if ((x < SCR_X-32)||(x > SCR_X+352)){
+			memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
+			LT_Sprite_Stack--;
+		} else if ((y < SCR_Y-32)||(y > SCR_Y+272)){
 			memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
 			LT_Sprite_Stack--;
 		}
@@ -1809,7 +1813,7 @@ int LT_Player_Col_Enemy(){
 		int ey = s->pos_y;
 		//CALCULATE ONLY IF IT IS INSIDE THE ACTIVE MAP
 		if ((ex > SCR_X)&&(ex < (SCR_X+304))&&(ey > SCR_Y)&&(ey < (SCR_Y+224))){	
-			if ((abs(px-ex)<8)&&(abs(py-ey)<8)) col = 1;
+			if ((abs(px-ex)<16)&&(abs(py-ey)<16)) col = 1;
 			else col = 0;
 		}
 	}
