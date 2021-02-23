@@ -73,7 +73,7 @@ void LT_Play_Music(){
 		//B0-B2, set frequency for channels 0, 1 and 2. Use to play drums.
 		if (LT_music.sdata[LT_music.offset] == 0xB0) sb_play_sample(0,11025);
 		if (LT_music.sdata[LT_music.offset] == 0xB1) sb_play_sample(1,11025);
-		if (LT_music.sdata[LT_music.offset] == 0xB2) sb_play_sample(2,8000);
+		if (LT_music.sdata[LT_music.offset] == 0xB2) sb_play_sample(2,11025);
 		LT_music.offset+=3;
 	}
 	LT_imfwait--;

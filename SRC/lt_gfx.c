@@ -1023,6 +1023,7 @@ void LT_Print_Window_Variable_VGA(byte x, word var){
 		push di
 		push si
 	}
+
 	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
 		mov dx,0 
 		mov ax,0
@@ -1084,6 +1085,7 @@ void LT_Print_Window_Variable_VGA(byte x, word var){
 		mov		si,FONT_ADDRESS;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
+		add		dx,16
 		mov		cl,4						//dx*16
 		shl		dx,cl
 		add		si,dx
@@ -1134,6 +1136,7 @@ void LT_Print_Window_Variable_VGA(byte x, word var){
 		mov		si,FONT_ADDRESS;					//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
+		add		dx,16
 		mov		cl,4						//dx*16
 		shl		dx,cl
 		add		si,dx
@@ -1246,6 +1249,7 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
+		add		dx,16
 		mov		cl,3						//dx*8
 		shl		dx,cl
 		add		si,dx
@@ -1284,6 +1288,7 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 		mov		si,FONT_ADDRESS;			//ds:si VRAM FONT TILE ADDRESS = 586*(336/4);
 		
 		//go to desired tile
+		add		dx,16
 		mov		cl,3						//dx*8
 		shl		dx,cl
 		add		si,dx
@@ -1523,6 +1528,106 @@ void LT_Draw_Text_Box(byte x, byte y, byte w, byte h, byte win){
 	
 	free(up);free(mid);free(down);
 }
+
+void LT_Delete_Text_Box_VGA(byte x, word y, byte ntile, byte col){
+	word TILE_ADDRESS = TILE_VRAM;
+	word tile = (y * LT_map_width) + x;
+	word screen_offset;
+	x = x<<4;
+	y = (y<<4)+LT_Window;
+	screen_offset = (y<<6)+(y<<4)+(y<<2) + (x>>2);
+	LT_map_collision[tile] = col;
+	
+	//LT_WaitVsyncEnd();
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov dx,SC_INDEX //dx = indexregister
+		mov ax,0F02h	//INDEX = MASK MAP, 
+		out dx,ax 		//write all the bitplanes.
+		mov dx,GC_INDEX //dx = indexregister
+		mov ax,008h		
+		out dx,ax 
+		
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si source VRAM TILE ADDRESS  //590*(336/4);
+		
+		mov		al,byte ptr [ntile]		//go to desired tile
+		mov		ah,0	
+		mov		cl,6					//*64
+		shl		ax,cl
+		add		si,ax
+		
+		mov		di,screen_offset		//es:di destination address							
+		mov 	ax,0A000h
+		mov 	es,ax
+
+		//UNWRAPPED COPY 16x16 TILE LOOP
+		mov 	cx,4
+		rep		movsb		
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80
+
+		//END LOOP
+		mov dx,GC_INDEX +1 //dx = indexregister
+		mov ax,00ffh		
+		out dx,ax 
+		
+		pop si
+		pop di
+		pop ds
+	}
+	
+	LT_map_data[tile] = ntile;
+}
+
 //Load and paste 320x480 image for complex images.
 //It uses all map VRAM, do not use loading animations.
 void LT_Load_Image(char *file){

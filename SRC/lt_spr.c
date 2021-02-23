@@ -643,7 +643,7 @@ void run_compiled_sprite(word XPos, word YPos, char *Sprite){
 }
 
 void Wait_Scanline(){
-	asm mov		cx,300
+	asm mov		cx,128
 	linecount:
 	asm mov		dx,003dah
 	WaitNotVsync:

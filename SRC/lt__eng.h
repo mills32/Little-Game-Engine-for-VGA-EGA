@@ -125,6 +125,7 @@ void Clearkb();
 
 extern byte LT_MODE;
 extern byte LT_VIDEO_MODE;
+extern word LT_Scanline;
 extern word LT_tileset_width;
 extern word LT_tileset_height;
 extern word LT_tileset_ntiles;
@@ -240,6 +241,9 @@ void LT_Check_CPU();
 //
 void LT_Set_Loading_Interrupt();
 void LT_Delete_Loading_Interrupt();
+void LT_Set_Scanline_Interrupt();
+void LT_Delete_Scanline_Interrupt();
+
 
 //EGA/VGA Hardware scroll
 void VGA_Scroll(word x, word y);

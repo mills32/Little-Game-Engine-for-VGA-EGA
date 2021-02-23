@@ -151,12 +151,9 @@ void Load_Logo(){
 
 void Run_Logo(){
 	
-	while (logotimer < 512){
-		VGA_Scroll(x,y);
-		LT_scroll_map();
-		if (y<144)y++;
+	while (logotimer < 128){
 		cycle_palette(&cycle_logo,1);
-		if (LT_Keys[LT_ESC]) {VGA_Scroll(0,0); logotimer = 512;}//if esc released, exit
+		if (LT_Keys[LT_ESC]) { logotimer = 128;}//if esc released, exit
 		LT_WaitVsync();
 		logotimer++;
 	}
@@ -181,11 +178,11 @@ void Display_Intro(){
 	LT_WaitVsync();
 	if (LT_VIDEO_MODE)LT_Load_Image("GFX/DOTT.bmp");
 	else {VGA_EGAMODE_CustomPalette(PICO8_palette); LT_Load_Image("GFX/DOTT_EGA.bmp");}
-	LT_Load_Music("music/ADLIB/what.imf");
+	LT_Load_Music("music/ADLIB/comun.imf");
 	LT_Clear_Samples();
 	sb_load_sample("MUSIC/samples/drum.wav");
 	sb_load_sample("MUSIC/samples/snare.wav");
-	sb_load_sample("MUSIC/samples/explode.wav");
+	sb_load_sample("MUSIC/samples/comun.wav");
 	
 	LT_Fade_in();
 	while (!LT_Keys[LT_ESC]) {
@@ -332,9 +329,9 @@ void Run_Menu(){
 	
 	x = 0;
 	y = 0;
-	LT_Draw_Text_Box(20,4,8,8,1);
-	LT_Print(21,5,"-<>[\\]^_",1);
-	LT_Print(21,6,"=TESTING",1);
+	LT_Draw_Text_Box(28,4,8,8,1);
+	LT_Print(29,5,"-<>[\\]^_",1);
+	LT_Print(29,6,"=TESTING",1);
 	LT_Set_Sprite_Animation(16,0,8,6);
 	while(Scene == 1){
 		LT_Draw_Sprites_Fast();
@@ -404,7 +401,7 @@ void Load_TopDown(){
 	LT_Load_Sprite("GFX/player.bmp",16,16);
 	LT_Load_Sprite("GFX/enemy2.bmp",17,16);
 
-	LT_Load_Music("music/adlib/faces.imf");
+	LT_Load_Music("music/adlib/save.imf");
 	if(LT_VIDEO_MODE)LT_SetWindow("GFX/win_VGA.bmp");
 	else LT_SetWindow("GFX/win_EGA.bmp");
 	
@@ -445,7 +442,7 @@ void Run_TopDown(){
 		//scroll_map update off screen tiles
 		LT_scroll_map();
 		
-		LT_Print_Window_Variable(32,LT_Sprite_Stack);
+		LT_Print_Window_Variable(32,LT_Player_Col.tile_number);
 		
 		cycle_palette(&cycle_water,4);
 		
@@ -465,8 +462,8 @@ void Run_TopDown(){
 		
 			//Flip
 			for (n = 1; n != LT_Sprite_Stack; n++){
-				if (sprite[LT_Sprite_Stack_Table[n]].mspeed_x) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],2,2,8);
-				if (sprite[LT_Sprite_Stack_Table[n]].mspeed_y) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],6,2,8);	
+				if (sprite[LT_Sprite_Stack_Table[n]].mspeed_x) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],4,2,8);
+				if (sprite[LT_Sprite_Stack_Table[n]].mspeed_y) LT_Set_Sprite_Animation(LT_Sprite_Stack_Table[n],0,2,8);	
 			}
 		}
 		//If collision tile = ?, end level
@@ -527,7 +524,7 @@ void Load_Platform(){
 
 void Run_Platform(){
 	int n;
-	byte diamonds = 0;
+	byte cards = 0;
 	int dying = 0;
 	Scene = 2;
 	
@@ -543,12 +540,12 @@ void Run_Platform(){
 		LT_scroll_follow(16);
 		LT_Draw_Sprites();
 		
-		//EDIT MAP: GET DIAMONDS
+		//EDIT MAP: GET cards
 		switch (LT_Player_Col.tile_number){
-			case 134: LT_Get_Item(16, 1, 0); diamonds++; break;
-			case 135: LT_Get_Item(16, 22, 0); diamonds++; break;
-			case 136: LT_Get_Item(16, 0, 0); diamonds++; break;
-			case 137: LT_Get_Item(16, 109, 0); diamonds++; break;
+			case 134: LT_Get_Item(16, 1, 0); cards++; break;
+			case 135: LT_Get_Item(16, 22, 0); cards++; break;
+			case 136: LT_Get_Item(16, 0, 0); cards++; break;
+			case 137: LT_Get_Item(16, 109, 0); cards++; break;
 		} 
 		
 		//scroll_map and draw borders
@@ -586,7 +583,7 @@ void Run_Platform(){
 		//water palette animation
 		cycle_palette(&cycle_water,2);
 
-		LT_Print_Window_Variable(32,LT_Sprite_Stack);
+		LT_Print_Window_Variable(32,cards>>1);
 		
 		LT_Play_Music();
 		LT_WaitVsync();
@@ -920,14 +917,14 @@ void main(){
 	if (LT_VIDEO_MODE)LT_Load_Font("GFX/0_font.bmp");
 	else LT_Load_Font("GFX/0_font_E.bmp");
 	
-	Display_Intro();
-	
 	//You can use a custom loading animation for the Loading_Interrupt
 	LT_Load_Animation("GFX/loading.bmp",32);
 	LT_Set_Animation(0,8,2);
 	
 	Load_Logo();
 	Run_Logo();
+	
+	Display_Intro();
 	
 	LT_MODE = 0;
 	game = 0;
