@@ -27,7 +27,7 @@ Little engine works on every toaster, potato or emulator, as long as it finds an
 The engine has been ported to VGA "MODE-X", so it runs faster now, because most of drawing operations are 32 bit VRAM to VRAM transfers.
 
 I tested the requirements on PCem, an x86 emulator that simulates very accurately several CPU'S.
-Also I tested a 286 at 6 Mhz, and people informed this works on other real machines: 8088, NEC V20... Several VGA and Adlib/Sound Blaster compatible cards seem to work, but sometimes the scroll will flicker a bit depending on the VGA card, that's why I include two scrolling functions.
+Also I tested a 286 at 6 Mhz, and people informed this works on other real machines: 8088, NEC V20; Several VGA and Adlib/Sound Blaster compatible cards seem to work, but sometimes the scroll will flicker a bit depending on the VGA card, that's why I include two scrolling functions.
 
 Minimum requirements: (sprites will flicker a lot)
 - CPU 8088 4.77 Mhz
@@ -88,9 +88,9 @@ NOTES
 "Little Game Engine" para VGA y 8088/8086/286
 ---------------------------------------------
 
-Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC ()8088/86 y 286), el motor utiliza capacidades hardware de VGA, y evita técnicas muy lentas utilizadas en su epoca (por falta de informacion sobre el funcionamiento de la tarjeta VGA).
+Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA, y evita técnicas muy lentas utilizadas en su epoca (por falta de informacion sobre el funcionamiento de la tarjeta VGA).
 
-Sigo actualizando cualquier cambio y subiendolo aquí, por lo que esta no es ni mucho menos una versión final, sino un monton de menús y pruebas de niveles a medias de terminar, por lo que habrá muchos bugs.
+Sigo actualizando cualquier cambio y subiendolo aquí, por lo que esta no es ni mucho menos una versión final, sino un monton de menús y pruebas de niveles a medias de terminar (por lo que habrá muchos bugs).
 
 Las teclas predefinidas son: 
 - Mover jugador/menus = teclas direccionales.
@@ -99,10 +99,10 @@ Las teclas predefinidas son:
 - Salir de nivel/juego = ESC. 
 
 Pero... ¿Por qué va tan rápido en PC's tan lentos?.
-- Utiliza la función "scrolling" o movimiento del fondo incluída en el hardware de la tarjeta VGA.
-- Gracias a la estructura de la Memoria de video (VRAM) del modo X de VGA, puedes hacer transferencias de datos de 32 bits de VRAM a VRAM.
-- Sólamente se actializa una columna y/o una fila de tiles de 16x16 pixels, y los sprites, ya que actualizar toda la pantalla es dolorosamente lento para estos primeros PC. Esto es muy rápido y hae que no necesitemos hacer "page flipping", pero puede causar que los sprites parpadeen si se acercan a la parte superior de la pantalla. 
-- Motor físico súper simple, sin inercia, sin nada. Esto puede resultar incomodo para mucha gente, pero en mi opinión, se controla muy bien.
+- Utiliza la función "scrolling", o movimiento del fondo, incluída en el hardware de la tarjeta VGA.
+- Gracias a la estructura de la Memoria de video (VRAM) del modo X de VGA, puedes hacer transferencias de datos de 32 bits, de VRAM a VRAM.
+- Sólamente se actializa una columna y/o una fila de tiles de 16x16 pixels, y los sprites (actualizar toda la pantalla es dolorosamente lento para estos primeros PC). Esto es muy rápido y hace que no necesitemos "page flipping", pero puede causar que los sprites parpadeen, si se acercan a la parte superior de la pantalla. 
+- Motor físico súper simple, sin inercia, sin nada... Esto puede resultar incómodo para mucha gente, pero en mi opinión, se controla muy bien.
 
 Un montón de código copiado de David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
@@ -113,7 +113,7 @@ Recuerda que hay que compilarlo usando el "LARGE memory model".
 Little Engine funciona en cualquier patata, tostadora o emulador, mientras encuente un procesador 8088 (o cualquiera basado en x86), y una tarjeta compatible con VGA.
 El motor ha sido portado al "MODO-X" de VGA, y ahora funciona más rápido, ya que las funciones de dibujado se hacen por transferencia de 32 bits de VRAM a VRAM.
 
-He probado los requisitos en PCem, un emulador muy preciso. También lo he probado en un 286 real, y algunas personas me han informado de que el motor funciona en otras máquinas reales: 8088/NEC v20 a 9 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster parecen funcionar, aunque el scroll puede dar pequeños saltos dependiendo de la tarjeta VGA, por eso he incluido dos funciones de scroll..
+He probado los requisitos en PCem, un emulador muy preciso. También lo he probado en un 286 real, y algunas personas me han informado de que el motor funciona en otras máquinas reales: 8088/NEC v20 a 9 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster parecen funcionar (aunque el scroll puede dar pequeños saltos dependiendo de la tarjeta VGA, por eso he incluido dos funciones de scroll).
 
 Requisitos mínimos: (los sprites parpadean mucho).
 - CPU 8088 4.77 Mhz
