@@ -80,7 +80,7 @@ PCM Drums
 ---------
 If you activate "PCM Drums" (Music_PCMDrums = 1), Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
 
-This function uses "0xB0, 0xB1 o 0xB2" instructions from the IMF file, to play samples number "0, 1 or 2". If one of these values have been read by the music player, a "set frequency" instruction has been sent to the OPL chip channel ("0, 1 or 2"), and the music player will play the first, second or the third sample.
+This function uses "0xB0, 0xB1 and 0xB2" instructions from the IMF file, to play samples number "0, 1 or 2". If one of these values have been read by the music player, a "set frequency" instruction has been sent to the OPL chip channel ("0, 1 or 2"), and the music player will play the first, second or the third sample.
 
 In other words, when you create an adlib tune, you must remember channels 0, 1 and 2, are going to activate sample playback, so you must use quiet instruments in these channels (or even use a muted instrument). You must also add plain notes, (with no arpeggio or note changing effects)
 Notes pasted on channel 0 will activate playback of sample 0, and so on... 
