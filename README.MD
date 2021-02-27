@@ -74,6 +74,8 @@ To use your own tunes, I recommend using Reality Adlib Tracker or Adlib Tracker 
 
 I added sample playback using Sound Blaster, it is not possible to play more than one sound at the same time (PCM 8 bits). The first Sound Blaster cards have only one channel.
 
+Warning!: samples are stored in "LT_tile_tempdata" and they will be overwritten if a map or a sprite is loaded, so load samples after loading maps/sprites.
+
 PCM Drums
 ---------
 If you activate "PCM Drums" (Music_PCMDrums = 1), Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
@@ -181,6 +183,8 @@ Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y
 Para utilizar tus propias melodías, recomiendo crear cualquier música con Reality Adlib Tracker o Adlib Tracker II, y luego capturar un archivo .DRO con dosbox. Después solamente debes convertir el archivo .DRO a .IMF (con dro2imf ) a 50 ticks/segundo.
 
 He añadido la reproducción de samples utilizando Sound Blaster, y no es posible reproducir más de un sonido al mismo tiempo (PCM 8 bits). Las primeras Sound Blaster solo cuentan con un canal.
+
+Atención!: los samples de audio son almacenados en "LT_tile_tempdata" y seran sobreescritos si se carga un mapa o un sprite, así que carga los samples despues de haber cargado tus mapas/sprites.
 
 PCM Drums
 ---------
