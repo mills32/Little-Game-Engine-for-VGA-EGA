@@ -2,6 +2,8 @@
 Little Game Engine for VGA and 8088/8086/286
 --------------------------------------------
 
+This is a very simple "engine" to create games on MS-DOS for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses all hardware capabilities of VGA that I know of:
+does not use page flopping like most games of the time, because that's too slow for the PCs 
 To play: 
 -You need adlib and/or Sound Blaster, 8088 and VGA. 
 -Controls: UP DOWN LEFT RIGHT S D ENTER ESC. 
