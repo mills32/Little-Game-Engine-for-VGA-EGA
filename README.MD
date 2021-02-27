@@ -2,11 +2,21 @@
 Little Game Engine for VGA and 8088/8086/286
 --------------------------------------------
 
-This is a very simple "engine" to create games on MS-DOS for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses all hardware capabilities of VGA that I know of:
-does not use page flopping like most games of the time, because that's too slow for the PCs 
-To play: 
--You need adlib and/or Sound Blaster, 8088 and VGA. 
--Controls: UP DOWN LEFT RIGHT S D ENTER ESC. 
+This is a very simple "engine" to create games on MS-DOS for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses VGA hardware capabilities, and gets rid of some slow techniques that were used at the time, (due to lack of documentation about the VGA card).
+
+I keep updating this with any changes I made, so this is not any final release, it is a bunch of testing menus, stages etc, so keep in mind it will have bugs.
+The predefined keys are: 
+- Move player/menus = UP DOWN LEFT RIGHT arrows.
+- load test in menu/Jump in platform stage = D
+- choose option in menu = ENTER
+- Exit stage/game = ESC. 
+
+So. why does it run so fast?
+- Uses Hardware scrolling
+- With VRAM to VRAM transfers (32 bits), you can update things on screen much faster.
+- No page flipping, updates are made to the visible VRAM. This is very fast but it causes sprites to flicker or even disappear if they are near the top part of the screen.
+- Update only a row and/or one column of 16x16 tiles, and the sprites. Updating the whole screen is too slow. 
+- Very simple "physics", no inertia, no nothing. This mmight be bad for some people, but the controls feel very responsive for me.
 
 A lot of code from David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
