@@ -59,9 +59,9 @@ The "BAD" things:
 - 8088's at 4.77 will run the engine with slowdowns and flickering.
 - Some Sound cards are not fully compatible with the extremely simple music playback function.
 
-Please feel free to copy this source code.
+Please copy this source code, change it, do whatever you want. That's the point of github. Isn't it?
 
-Thanks to everyone who helped and / or released code (music player, image loader).
+Thanks to everyone who helped and released code (music player, image loader).
 Thanks to "jojo" for sending me a real 286 :).
 
 SOUND
@@ -146,7 +146,7 @@ Las cosas "MALAS":
 - Un 8088 con VGA cargará el motor, pero pude tener ralentizaciones y parpadeos.
 - Algunas Sound Blaster no reproducen la música del opl con normalidad, ya que no son compatibles con la función extremadamente simple que hay implementada.
 
-Este código es complétamente libre, cópialo o haz lo que quieras con él.
+Este código es complétamente libre,. Por favor, cópialo, modifícalo, haz lo que quieras con él, para eso lo he puesto en github, no?.
 
 Gracias a todos los que ayudaron o cedieron código (reproductor de música, cargador de imágenes).
 Gracias a jojo, por enviarme un 286 real :).
@@ -154,9 +154,24 @@ Gracias a jojo, por enviarme un 286 real :).
 SONIDO
 ------
 
-Para utilizar el reproductor de música IMF símplemente activa la emulación de Adlib o Sound blaster en un emulador.
+Para utilizar el reproductor de música IMF, símplemente activa la emulación de Adlib o Sound blaster en un emulador.
 Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y listo.
-Los archivos IMF deben tener 70 o 70 ticks/segundo para funcionar bien en CPUs lentas como el 8088.
+
+
+Para utilizar tus propias melodías, recomiendo crear cualquier música con Reality Adlib Tracker o Adlib Tracker II, y luego capturar un archivo .DRO con dosbox. Después solamente debes convertir el archivo .DRO a .IMF de 50 ticks/segundo.
+
+He añadido la reproducción de samples utilizando Sound Blaster, y no es posible reproducir más de un sonido al mismo tiempo(PCM 8 bits). Las primeras Sound Blaster solo cuentan con un canal.
+
+PCM Drums
+---------
+
+Si activas la función "PCM Drums" (Music_PCMDrums = 1), la Sound Blaster reproducirá samples de audio sincronizados con la música. De esta forma puedes añadir sonidos de percusión a la musica adlib para que suene aun mejor :).
+
+Ésta función utiliza las instrucciones "0xB0, 0xB1 o 0xB2" del archivo IMF, para reproducir los samples "0, 1 o 2". Es decir, cuando aparece alguna de ellas en el IMF, significa que se ha enviado la instrucción "seleccionar frecuencia" para los canales 0, 1 o 2 del chip OPL, y el reproductor de música enviará la orden de reproducir el sample 0, 1 o 2.
+
+Vamos a poner un ejemplo, 
+
+
 
 NOTAS
 -----
