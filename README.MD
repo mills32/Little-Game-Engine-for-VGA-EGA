@@ -111,9 +111,9 @@ NOTES
 "Little Game Engine" para VGA y 8088/8086/286
 ---------------------------------------------
 
-Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA, y evita técnicas muy lentas utilizadas en su epoca (por falta de informacion sobre el funcionamiento de la tarjeta VGA).
+Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA, y evita técnicas muy lentas utilizadas en su epoca (por falta de información sobre el funcionamiento de la tarjeta VGA).
 
-Sigo actualizando cualquier cambio y subiendolo aquí, por lo que esta no es ni mucho menos una versión final, sino un monton de menús y pruebas de niveles a medias de terminar (por lo que habrá muchos bugs).
+Sigo actualizando cualquier cambio y subiendolo aquí, por lo que esta no es ni mucho menos una versión final, sino un montón de menús y pruebas de niveles a medias de terminar (por lo que habrá muchos bugs).
 
 Las teclas predefinidas son: 
 - Mover jugador/menus = teclas direccionales.
@@ -124,7 +124,7 @@ Las teclas predefinidas son:
 Pero... ¿Por qué va tan rápido en PC's tan lentos?.
 - Utiliza la función "scrolling", o movimiento del fondo, incluída en el hardware de la tarjeta VGA.
 - Gracias a la estructura de la Memoria de video (VRAM) del modo X de VGA, puedes hacer transferencias de datos de 32 bits, de VRAM a VRAM.
-- Sólamente se actializa una columna y/o una fila de tiles de 16x16 pixels, y los sprites (actualizar toda la pantalla es dolorosamente lento para estos primeros PC). Esto es muy rápido y hace que no necesitemos "page flipping", pero puede causar que los sprites parpadeen, si se acercan a la parte superior de la pantalla. 
+- Sólamente se actualiza una columna y/o una fila de tiles de 16x16 pixels, y los sprites (actualizar toda la pantalla es dolorosamente lento para estos primeros PC). Esto es muy rápido y hace que no necesitemos "page flipping", pero puede causar que los sprites parpadeen, si se acercan a la parte superior de la pantalla. 
 - Motor físico súper simple, sin inercia, sin nada... Esto puede resultar incómodo para mucha gente, pero en mi opinión, se controla muy bien.
 
 Un montón de código copiado de David Brackeen                                   
