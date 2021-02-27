@@ -70,6 +70,25 @@ SOUND
 To use the adlib music player, just enable adlib or soundblaster in the emulator, or connect an Adlib/SB card to your retro PC.
 Adlib IMF files must be 60/70 tics/second to work well on slow CPU's like the 8088.
 
+I added sample playbkac using Sound Blaster, it is not possible to play more than one sound at the same time (PCM 8 bits). The first Sound Blaster cards have only one channel.
+
+PCM Drums
+---------
+If you activate "PCM Drums" (Music_PCMDrums = 1), Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
+
+Ésta función utiliza las instrucciones "0xB0, 0xB1 o 0xB2" del archivo IMF, para reproducir los samples "0, 1 o 2". Es decir, cuando aparece alguna de ellas en el IMF, significa que se ha enviado la instrucción "seleccionar frecuencia" para los canales 0, 1 o 2 del chip OPL, y el reproductor de música enviará la orden de reproducir el sample 0, 1 o 2.
+
+Explicado con un ejemplo, primero debes crear tu melodía adlib, pero teniendo en cuenta que los canales 0, 1 y 2 van a activar la reproducción de samples, por lo que en estos canales debes utilizar un instrumento adlib que a penas suene (o diréctamente uno que no produzca sonido). Además no debes añadir efectos de ningún tipo al instrumento (ni cambios de frecuencia ni arpegios ni nada), simplemente pega una nota donde quieres que suene el sample.
+Las notas que estén en el canal 0, activaran la reproduccion del sample 0, las notas del canal 1 activan el sample 1, y las notas del canal 2 pues el sample 2.
+
+Si as activado "PCM Drums", ten en cuenta que deberás cargar los samples que vas a usar en la música en las tres primeras posiciones:
+```
+LT_Clear_Samples();
+sb_load_sample("drum.wav");
+sb_load_sample("snare.wav");
+sb_load_sample("other.wav");
+```
+Después puedes cargar más samples para efectos en el juego, pero ya sabes que se van a interrumpir unos a otros.
 
 NOTES
 -----
@@ -157,10 +176,9 @@ SONIDO
 Para utilizar el reproductor de música IMF, símplemente activa la emulación de Adlib o Sound blaster en un emulador.
 Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y listo.
 
-
 Para utilizar tus propias melodías, recomiendo crear cualquier música con Reality Adlib Tracker o Adlib Tracker II, y luego capturar un archivo .DRO con dosbox. Después solamente debes convertir el archivo .DRO a .IMF de 50 ticks/segundo.
 
-He añadido la reproducción de samples utilizando Sound Blaster, y no es posible reproducir más de un sonido al mismo tiempo(PCM 8 bits). Las primeras Sound Blaster solo cuentan con un canal.
+He añadido la reproducción de samples utilizando Sound Blaster, y no es posible reproducir más de un sonido al mismo tiempo (PCM 8 bits). Las primeras Sound Blaster solo cuentan con un canal.
 
 PCM Drums
 ---------
@@ -169,9 +187,17 @@ Si activas la función "PCM Drums" (Music_PCMDrums = 1), la Sound Blaster reprod
 
 Ésta función utiliza las instrucciones "0xB0, 0xB1 o 0xB2" del archivo IMF, para reproducir los samples "0, 1 o 2". Es decir, cuando aparece alguna de ellas en el IMF, significa que se ha enviado la instrucción "seleccionar frecuencia" para los canales 0, 1 o 2 del chip OPL, y el reproductor de música enviará la orden de reproducir el sample 0, 1 o 2.
 
-Vamos a poner un ejemplo, 
+Explicado con un ejemplo, primero debes crear tu melodía adlib, pero teniendo en cuenta que los canales 0, 1 y 2 van a activar la reproducción de samples, por lo que en estos canales debes utilizar un instrumento adlib que a penas suene (o diréctamente uno que no produzca sonido). Además no debes añadir efectos de ningún tipo al instrumento (ni cambios de frecuencia ni arpegios ni nada), simplemente pega una nota donde quieres que suene el sample.
+Las notas que estén en el canal 0, activaran la reproduccion del sample 0, las notas del canal 1 activan el sample 1, y las notas del canal 2 pues el sample 2.
 
-
+Si as activado "PCM Drums", ten en cuenta que deberás cargar los samples que vas a usar en la música en las tres primeras posiciones:
+```
+LT_Clear_Samples();
+sb_load_sample("drum.wav");
+sb_load_sample("snare.wav");
+sb_load_sample("other.wav");
+```
+Después puedes cargar más samples para efectos en el juego, pero ya sabes que se van a interrumpir unos a otros.
 
 NOTAS
 -----
