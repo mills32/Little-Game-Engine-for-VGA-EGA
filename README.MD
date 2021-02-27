@@ -15,7 +15,7 @@ So. why does it run so fast?
 - Uses Hardware scrolling
 - With VRAM to VRAM transfers (32 bits), you can update things on screen much faster.
 - Update only a row and/or one column of 16x16 tiles, and the sprites (Updating the whole screen is too slow). This way we don't need the page flipping technique, but it causes sprites to flicker or even disappear if they are near the top part of the screen.
-- Very simple "physics", no inertia, no nothing. This mmight be bad for some people, but the controls feel very responsive for me.
+- Very simple "physics": no inertia, no nothing... This might be bad for some people, but the controls feel very responsive for me.
 
 A lot of code from David Brackeen                                   
 http://www.brackeen.com/home/vga/                                     
