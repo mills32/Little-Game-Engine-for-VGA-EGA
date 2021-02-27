@@ -196,7 +196,7 @@ Si activas la función "PCM Drums" (Music_PCMDrums = 1), la Sound Blaster reprod
 Explicado con un ejemplo, primero debes crear tu melodía adlib, pero teniendo en cuenta que los canales 0, 1 y 2 van a activar la reproducción de samples, por lo que en estos canales debes utilizar un instrumento adlib que a penas suene (o diréctamente uno que no produzca sonido). Además no debes añadir efectos de ningún tipo al instrumento (ni cambios de frecuencia ni arpegios ni nada), simplemente pega una nota donde quieres que suene el sample.
 Las notas que estén en el canal 0, activaran la reproduccion del sample 0, las notas del canal 1 activan el sample 1, y las notas del canal 2 pues el sample 2.
 
-Si as activado "PCM Drums", ten en cuenta que deberás cargar los samples que vas a usar en la música en las tres primeras posiciones:
+Si has activado "PCM Drums", ten en cuenta que deberás cargar los samples que vas a usar en la música en las tres primeras posiciones:
 ```
 LT_Clear_Samples();
 sb_load_sample("drum.wav");
