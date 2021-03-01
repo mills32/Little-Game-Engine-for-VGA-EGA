@@ -14,6 +14,7 @@ void LT_Error(char *error, char *file);
 //ADLIB
 IMFsong LT_music;	// One song in ram stored at "LT_music"
 
+int LT_Music_PCMDrums = 0;
 const int opl2_base = 0x388;
 long next_event;
 long LT_imfwait;
@@ -65,15 +66,22 @@ void LT_Adlib_Detect(){
     }
 }
 
+void (*PCM_Drums)(void);
+
+void PCM_Drums_OFF(){};
+void PCM_Drums_ON(){
+	//B0-B2, set frequency for channels 0, 1 and 2. Use to play drums.
+	if (LT_music.sdata[LT_music.offset] == 0xB0) sb_play_sample(0,11025);
+	if (LT_music.sdata[LT_music.offset] == 0xB1) sb_play_sample(1,11025);
+	if (LT_music.sdata[LT_music.offset] == 0xB2) sb_play_sample(2,11025);
+};
+
 void LT_Play_Music(){
 	//byte *ost = music_sdata + music_offset;
 	while (!LT_imfwait){
         LT_imfwait = LT_music.sdata[LT_music.offset+2];
         opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
-		//B0-B2, set frequency for channels 0, 1 and 2. Use to play drums.
-		if (LT_music.sdata[LT_music.offset] == 0xB0) sb_play_sample(0,11025);
-		if (LT_music.sdata[LT_music.offset] == 0xB1) sb_play_sample(1,11025);
-		if (LT_music.sdata[LT_music.offset] == 0xB2) sb_play_sample(2,11025);
+		PCM_Drums();
 		LT_music.offset+=3;
 	}
 	LT_imfwait--;
@@ -97,7 +105,7 @@ void LT_Load_Music(char *fname){
 	outportb(0x43, 0x36);
 	outportb(0x40, 0xFF);	//lo-byte
 	outportb(0x40, 0xFF);	//hi-byte*/
-	setvect(0x1C, LT_old_time_handler);
+	//setvect(0x1C, LT_old_time_handler);
 	
 	if (!imfile) LT_Error("Can't find ",fname);
 		
@@ -129,15 +137,17 @@ void LT_Load_Music(char *fname){
 		offset1 += 3;
 	}
 	LT_music.size = offset1;
+	
+	if (LT_Music_PCMDrums) PCM_Drums = &PCM_Drums_ON;
+	else PCM_Drums = &PCM_Drums_OFF;
 }
-
 
 void LT_Stop_Music(){
 	//reset interrupt
 	outportb(0x43, 0x36);
 	outportb(0x40, 0xFF);	//lo-byte
 	outportb(0x40, 0xFF);	//hi-byte*/
-	setvect(0x1C, LT_old_time_handler);
+	//setvect(0x1C, LT_old_time_handler);
 	opl2_clear();
 }
 
@@ -333,31 +343,28 @@ void sb_load_sample(char *file_name){
 void sb_play_sample(char sample_number, int freq){
 	int pos = sample[sample_number].offset;
 	int length = sample[sample_number].size -1;
-	playing = 1;
-	
-	//Playback
-	outportb( MASK_REGISTER, 4 | sb_dma );
-	outportb( MSB_LSB_FLIP_FLOP, 0 );
-	outportb( MODE_REGISTER, 0x48 | sb_dma );
-	
-	/*switch( sb_dma ) {
-		case 0: outportb( DMA_CHANNEL_0, page); break;
-		case 1: outportb( DMA_CHANNEL_1, page); break;
-		case 3: outportb( DMA_CHANNEL_3, page); break;
-	}*/
-	outportb( DMA_CHANNEL_1, page);
-	
-	// program the DMA controller
-	outportb( sb_dma << 1, (sb_offset+pos) & 0xFF );
-	outportb( sb_dma << 1, (sb_offset+pos) >> 8 );
-	outportb((sb_dma << 1) + 1, length & 0xFF );
-	outportb((sb_dma << 1) + 1, length >> 8 );
-	
-	write_dsp(SB_SET_PLAYBACK_FREQUENCY);
-	write_dsp(256-1000000/freq);
-	
-	outportb(MASK_REGISTER, sb_dma);
-	write_dsp(SB_SINGLE_CYCLE_8PCM);
-	write_dsp(length & 0xFF);
-	write_dsp(length >> 8);
+	if (!playing) {
+		playing = 1;
+		
+		//Playback
+		outportb( MASK_REGISTER, 4 | 1 /*sb_dma*/ );
+		outportb( MSB_LSB_FLIP_FLOP, 0 );
+		outportb( MODE_REGISTER, 0x48 | 1 /*sb_dma*/ );
+		//switch( sb_dma ) //DMA_CHANNEL_0 DMA_CHANNEL_1 DMA_CHANNEL_3
+		outportb( DMA_CHANNEL_1, page); 
+		
+		// program the DMA controller
+		outportb( sb_dma << 1, (sb_offset+pos) & 0xFF );
+		outportb( sb_dma << 1, (sb_offset+pos) >> 8 );
+		outportb((sb_dma << 1) + 1, length & 0xFF );
+		outportb((sb_dma << 1) + 1, length >> 8 );
+		
+		write_dsp(SB_SET_PLAYBACK_FREQUENCY);
+		write_dsp(256-1000000/freq);
+		
+		outportb(MASK_REGISTER, sb_dma);
+		write_dsp(SB_SINGLE_CYCLE_8PCM);
+		write_dsp(length & 0xFF);
+		write_dsp(length >> 8);
+	}
 }

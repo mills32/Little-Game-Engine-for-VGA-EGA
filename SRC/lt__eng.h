@@ -235,6 +235,7 @@ extern SPRITE *sprite;
 extern unsigned char *LT_tile_tempdata; 
 extern unsigned char *LT_tile_tempdata2; 
 
+extern int LT_Music_PCMDrums;
 void LT_Adlib_Detect();
 void LT_Check_CPU();
 

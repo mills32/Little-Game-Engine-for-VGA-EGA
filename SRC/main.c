@@ -178,7 +178,7 @@ void Display_Intro(){
 	LT_WaitVsync();
 	if (LT_VIDEO_MODE)LT_Load_Image("GFX/DOTT.bmp");
 	else {VGA_EGAMODE_CustomPalette(PICO8_palette); LT_Load_Image("GFX/DOTT_EGA.bmp");}
-	LT_Load_Music("music/ADLIB/comun.imf");
+	LT_Load_Music("music/ADLIB/around.imf");
 	LT_Clear_Samples();
 	sb_load_sample("MUSIC/samples/drum.wav");
 	sb_load_sample("MUSIC/samples/snare.wav");
@@ -923,6 +923,8 @@ void main(){
 	
 	Load_Logo();
 	Run_Logo();
+	
+	LT_Music_PCMDrums = 1;
 	
 	Display_Intro();
 	

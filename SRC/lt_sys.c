@@ -267,6 +267,7 @@ void LT_ExitDOS(){
 	sb_deinit();
 	LT_Text_Mode();
 	LT_Stop_Music();
+	setvect(0x1C, LT_old_time_handler);
 	LT_Unload_Music();
 	LT_unload_tileset();
 	LT_unload_map();

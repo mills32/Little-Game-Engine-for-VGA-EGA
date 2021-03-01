@@ -964,6 +964,8 @@ void LT_Draw_Sprites_EGA(){
 		s->last_y = y;
 	}	
 } 
+
+void (*sprite_restore0_VGA)(void);
 	
 void LT_Draw_Sprites_VGA(){
 	int sprite_number;
@@ -1834,3 +1836,5 @@ void LT_unload_sprite(int sprite_number){
 	}*/
 }	
 
+
+void (*LT_Draw_Sprites)(void);
