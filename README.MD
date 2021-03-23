@@ -78,14 +78,14 @@ Warning!: samples are stored in "LT_tile_tempdata" and they will be overwritten 
 
 PCM Drums
 ---------
-If you activate PCM Drums (LT_Music_PCMDrums = 1), Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
+If you activate PCM Drums ( LT_Load_Music("music.imf",1) ) Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
 
 This function uses "0xB0, 0xB1 and 0xB2" instructions from the IMF file, to play samples number "0, 1 or 2". If one of these values have been read by the music player, a "set frequency" instruction has been sent to the OPL chip channel ("0, 1 or 2"), and the music player will play the first, second or the third sample.
 
 In other words, when you create an adlib tune, you must remember channels 0, 1 and 2, are going to activate sample playback, so you must use quiet instruments in these channels (or even use a muted instrument). You must also add plain notes, (with no arpeggio or note changing effects)
 Notes pasted on channel 0 will activate playback of sample 0, and so on... 
 
-If you activated PCM Drums, you must load the samples used for the music in the first three positions:
+If you activated PCM drums, you must load the samples used for the music in the first three positions:
 ```
 LT_Clear_Samples();
 sb_load_sample("drum.wav");
@@ -189,7 +189,7 @@ Atención!: los samples de audio son almacenados en "LT_tile_tempdata" y seran s
 PCM Drums
 ---------
 
-Si activas percusión PCM (LT_Music_PCMDrums = 1), la Sound Blaster reproducirá samples de audio sincronizados con la música. De esta forma puedes añadir sonidos de percusión a la musica adlib para que suene aun mejor :).
+Si activas percusión PCM ( LT_Load_Music("music.imf",1) ), la Sound Blaster reproducirá samples de audio sincronizados con la música. De esta forma puedes añadir sonidos de percusión a la musica adlib para que suene aun mejor :).
 
 Ésta función utiliza las instrucciones "0xB0, 0xB1 o 0xB2" del archivo IMF, para reproducir los samples "0, 1 o 2". Es decir, cuando aparece alguna de ellas en el IMF, significa que se ha enviado la instrucción "seleccionar frecuencia" para los canales 0, 1 o 2 del chip OPL, y el reproductor de música enviará la orden de reproducir el sample 0, 1 o 2.
 
