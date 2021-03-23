@@ -34,7 +34,7 @@ byte LT_Sprite_Stack = 0;
 byte LT_Sprite_Stack_Table[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 byte LT_AI_Stack = 0;
 byte LT_AI_Stack_Table[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-
+byte LT_Active_AI_Sprites[] = {0,0,0,0,0,0,0};
 byte Lt_AI_Sprite[] = {0,0,0,0,0,0,0,0};
 byte selected_AI_sprite;
 //NON SCROLLING WINDOW
@@ -77,33 +77,51 @@ int LT_player_jump_pos[] = {
 	 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
 
-//FUNCTIONS IN SPRC.ASM
-//int x_compile_bitmap(word logical_screen_width, char *bitmap, char *output);       
+int LT_wmap = 0;
+int LT_hmap = 0;//91.888
+int LT_Scroll_Camera_float = 0;
+int LT_Scroll_Camera_array[135] = {
+	0,1,1,2,2,2,3,3,3,3,4,4,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,
+	8,8,8,8,8,8,8,8,8,
+	8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+	8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+	8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+};
 
+int LT_Scroll_Camera_speed[] = {
+	0,0,0,0,0,0,0,0,
+	1,0,0,0,1,0,0,0,
+	1,0,1,0,1,0,1,0,
+	1,1,1,0,1,1,1,0,
+	1,1,1,1,1,1,1,1,
+	2,1,1,1,2,1,1,1,
+	2,1,2,1,2,1,2,1,
+	2,2,2,1,2,2,2,1,
+	2,2,2,2,2,2,2,2,
+};
 void LT_scroll_follow(int sprite_number){
 	SPRITE *s = &sprite[sprite_number];
-	//LIMITS
-	int x_limL = SCR_X + 120;
-	int x_limR = SCR_X + 200;
-	int y_limU = SCR_Y + 80;
-	int y_limD = SCR_Y + 140;
-	int wmap = LT_map_width<<4;
-	int hmap = LT_map_height<<4;
-	int x = abs(s->last_x - s->pos_x);
-	int y = abs(s->last_y - (s->pos_y+LT_Window));
-	int px = s->pos_x;
-	int py = s->pos_y+LT_Window;
-	//clamp limits
-	if ((SCR_X > -1) && ((SCR_X+319)<wmap) && (SCR_Y > -1) && ((SCR_Y+239)<hmap)){
-		if (py > y_limD) SCR_Y+=y;
-		if (py < y_limU) SCR_Y-=y;
-		if (px < x_limL) SCR_X-=x;
-		if (px > x_limR) SCR_X+=x;
+	int x = (s->pos_x-SCR_X) - 160;
+	int y = (s->pos_y-SCR_Y+LT_Window)-120;
+	int x1 = abs(x);
+	int y1 = abs(y);
+	int speed_x = 0;
+	int speed_y = 0;
+	if ((SCR_X > -1) && ((SCR_X+319)<LT_wmap) && (SCR_Y > -1) && ((SCR_Y+239)<LT_hmap)){
+		if (LT_Scroll_Camera_float == 8) LT_Scroll_Camera_float = 0;
+		speed_x = LT_Scroll_Camera_speed[(LT_Scroll_Camera_array[x1]<<3)+LT_Scroll_Camera_float];
+		speed_y = LT_Scroll_Camera_speed[(LT_Scroll_Camera_array[y1]<<3)+LT_Scroll_Camera_float];
+		if (x < 0) SCR_X-=speed_x;
+		if (x > 0) SCR_X+=speed_x;
+		if (y < 0) SCR_Y-=speed_y;
+		if (y > 0) SCR_Y+=speed_y;
+		
+		LT_Scroll_Camera_float++;
 	}
 	if (SCR_X < 0) SCR_X = 0; 
-	if ((SCR_X+320) > wmap) SCR_X = wmap-320;
+	if ((SCR_X+320) > LT_wmap) SCR_X = LT_wmap-320;
 	if (SCR_Y < 0) SCR_Y = 0; 
-	if ((SCR_Y+240) > hmap) SCR_Y = hmap-240; 
+	if ((SCR_Y+240) > LT_hmap) SCR_Y = LT_hmap-240;
 }
 
 
@@ -397,6 +415,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte size){
 	}
 	s->get_item = 0;
 	s->mode = 0;
+	s->ai_stack = 0;
 }
 
 void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
@@ -436,12 +455,14 @@ void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
 	c->next_scanline = 84 - c->siz;
 	c->get_item = 0;
 	c->mode = 0;
+	c->ai_stack = 0;
 }
 
 void LT_Init_Sprite(int sprite_number,int x,int y){
 	LT_Sprite_Stack_Table[LT_Sprite_Stack] = sprite_number;
 	sprite[sprite_number].pos_x = x;
 	sprite[sprite_number].pos_y = y;
+	sprite[sprite_number].ai_stack = LT_Sprite_Stack;
 	LT_Sprite_Stack++;
 }
 
@@ -456,6 +477,7 @@ void LT_Reset_Sprite_Stack(){
 	for (i = 0; i<33; i++) LT_Sprite_Stack_Table[i] = 0;
 	LT_AI_Sprite[0] = 0;
 }
+
 void LT_Reset_AI_Stack(){
 	int i;
 	LT_AI_Stack = 0;
@@ -659,18 +681,18 @@ void Wait_Scanline(){
 }
 
 unsigned char imagebuff[12] = {
-	0x55,//01010101
-	0x33,//00110011
-	0x0F,//00001111
-	0x91,//10010001
-	0x55,//01010101
-	0x33,//00110011
-	0x0F,//00001111
-	0x91,//10010001
-	0x55,//01010101
-	0x33,//00110011
-	0x0F,//00001111
-	0x91,//10010001
+	0x00,//01010101
+	0x00,//00110011
+	0x00,//00001111
+	0xff,//10010001
+	0xff,//01010101
+	0xff,//00110011
+	0xff,//00001111
+	0xff,//10010001
+	0xff,//01010101
+	0x00,//00110011
+	0x00,//00001111
+	0x00,//10010001
 };
 
 void (*LT_Draw_Sprites)(void);
@@ -865,77 +887,39 @@ void LT_Draw_Sprites_EGA(){
 				mov	di,screen_offset1	//ES:DI destination vram
 				//Test 16x16 sprite
 				mov	cx,16	//16 scanlines
+				mov	dx,03C4H+1
+				mov	al,0Fh
+				out	dx,al				//select 4 planes
+				
+				/*mov	dx,3CEh		//Graphics Controller port address
+				mov	al,5
+				out dx,al		//Select Mode register 
+				mov dx,3CFh
+				mov al,2
+				out dx,al*/		//Set Write Mode 1
 			}
 				drawsprit:
 				asm{
-					//Draw ega byte, really all this to draw 8 pixels?
-					mov	al,es:[di]			//load latches from VRAM destination es:di
-					mov	al,01100110b		//setup bit mask
+					mov	al,es:[di]
+					mov	al,01100110b
 					mov	dx,03CEH+1       		
-					out	dx,al				//al = mask from sprite data
+					out	dx,al
+					mov	byte ptr es:[di],01100110b //movsb
+					inc di
 					
-					mov	dx,03C4H+1
-					mov	al,01h
-					out	dx,al				//select plane 0 DX = 03C4H+1
-					movsb					//DS:SI to ES:DI, inc SI and DI.
-					dec 	di
-					mov	al,02h
-					out	dx,al				//select plane 1
-					movsb
-					dec	di
-					mov	al,04h
-					out	dx,al				//select plane 2
-					movsb
-					dec	di
-					mov	al,08h
-					out	dx,al				//select plane 3
-					movsb					//Inc SI, DI
-					
-					//Draw next ega byte
 					mov	al,es:[di]			
 					mov	al,01100110b
 					mov	dx,03CEH+1       		
 					out	dx,al
+					mov	byte ptr es:[di],00000000b
+					inc di		
 					
-					mov	dx,03C4H+1
-					mov	al,01h
-					out	dx,al				
-					movsb					
-					dec 	di
-					mov	al,02h
-					out	dx,al				
-					movsb
-					dec	di
-					mov	al,04h
-					out	dx,al				
-					movsb
-					dec	di
-					mov	al,08h
-					out	dx,al				
-					movsb
-					
-					//Draw next ega byte
 					mov	al,es:[di]			
 					mov	al,01100110b
 					mov	dx,03CEH+1       		
 					out	dx,al
-					
-					mov	dx,03C4H+1
-					mov	al,01h
-					out	dx,al				
-					movsb					
-					dec 	di
-					mov	al,02h
-					out	dx,al				
-					movsb
-					dec	di
-					mov	al,04h
-					out	dx,al				
-					movsb
-					dec	di
-					mov	al,08h
-					out	dx,al				
-					movsb
+					mov	byte ptr es:[di],00000110b
+					inc di		
 					
 					sub	si,12				//Go back to test array
 					add di,42-3				//Next scanline
@@ -966,7 +950,8 @@ void LT_Draw_Sprites_EGA(){
 } 
 
 void (*sprite_restore0_VGA)(void);
-	
+
+extern unsigned char Enemies;
 void LT_Draw_Sprites_VGA(){
 	int sprite_number;
 	//RESTORE SPRITE BKG
@@ -1050,7 +1035,7 @@ void LT_Draw_Sprites_VGA(){
 		
 		asm pop si
 		asm pop di
-		asm pop ds	
+		asm pop ds
 		}
 		
 		//GOT ITEM? REPLACE BKG BEFORE DRAWING NEXT SPRITE FRAME
@@ -1148,7 +1133,9 @@ void LT_Draw_Sprites_VGA(){
 			}
 			//draw sprite and destroy bkg
 			run_compiled_sprite(x,y,s->frames[s->frame].compiled_code);
-			
+			asm{
+				
+			}
 			s->last_x = x;
 			s->last_y = y;
 			s->s_delete = 1;
@@ -1158,12 +1145,31 @@ void LT_Draw_Sprites_VGA(){
 			s->s_delete = 0;
 			//LT_Unset_AI_Sprite(LT_Sprite_Stack_Table[sprite_number]);
 		}
-		if ((x < SCR_X-32)||(x > SCR_X+352)){
+
+		if ((x < SCR_X-16)||(x > SCR_X+336)){
+			int spr = LT_Sprite_Stack_Table[sprite_number];
+			int i;
+			for (i = 0; i < 7; i++){
+				if (!LT_Active_AI_Sprites[i]){
+					LT_Active_AI_Sprites[i] = spr; 
+					i = 10;
+				}
+			}
+			if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
 			memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
-			LT_Sprite_Stack--;
-		} else if ((y < SCR_Y-32)||(y > SCR_Y+272)){
+			LT_Delete_Sprite(spr);
+		} else if ((y < SCR_Y-16)||(y > SCR_Y+254)){
+			int spr = LT_Sprite_Stack_Table[sprite_number];
+			int i;
+			for (i = 0; i < 7; i++){
+				if (!LT_Active_AI_Sprites[i]){
+					LT_Active_AI_Sprites[i] = spr; 
+					i = 10;
+				}
+			}
+			if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
 			memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
-			LT_Sprite_Stack--;
+			//LT_Delete_Sprite(spr);
 		}
 		s->last_x = x;
 		s->last_y = y;
@@ -1315,7 +1321,7 @@ void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int
 	s->speed_x = sx;
 	s->speed_y = sy;
 	s->mode = mode;
-	
+	s->ai_stack = LT_Sprite_Stack;
 	//LT_AI_Stack_Table[0] = sprite_number;
 	//LT_AI_Stack = 1;
 	/*while (i != 16){
@@ -1327,7 +1333,7 @@ void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int
 		if (i<16)i++;
 	}*/
 }
-extern int Enemies;
+
 void LT_Unset_AI_Sprite(byte sprite_number){
 	//SPRITE *s = &sprite[sprite_number];
 	memcpy(&LT_AI_Stack_Table[sprite_number],&LT_AI_Stack_Table[sprite_number+1],8);
@@ -1345,8 +1351,10 @@ void LT_Unset_AI_Sprite(byte sprite_number){
 
 void LT_Set_AI_Sprites(byte first_ai, byte number_ai){
 	int i;
+	int j = 0;
 	LT_AI_Sprite[0] = first_ai;
-	for (i = first_ai+1; i < (first_ai+1)+number_ai; i++) LT_Clone_Sprite(i,first_ai);
+	for (i = first_ai+1; i < first_ai+number_ai; i++) LT_Clone_Sprite(i,first_ai);
+	for (i = 0; i < number_ai; i++) LT_Active_AI_Sprites[i] = first_ai+i;
 	//for (i = first_ai+1; i < number_ai; i++) LT_Clone_Sprite(i,first_ai);
 }
 
@@ -1712,7 +1720,7 @@ void LT_Update_AI_Sprites(){
 		int px = s->pos_x;
 		int py = s->pos_y;
 		//CALCULATE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((px > SCR_X)&&(px < (SCR_X+304))&&(py > SCR_Y)&&(py < (SCR_Y+224))){	
+		if ((px > SCR_X-32)&&(px < (SCR_X+352))&&(py > SCR_Y-32)&&(py < (SCR_Y+272))){	
 			byte col_x = 0;
 			byte col_y = 0;
 			int x,y;
@@ -1804,20 +1812,18 @@ void LT_Update_AI_Sprites(){
 }
 
 int LT_Player_Col_Enemy(){
-	int i = 0;
+	unsigned char i = 0;
 	int col = 0;
+	int ex = 0;
+	int ey = 0;
 	SPRITE *p = &sprite[LT_Sprite_Stack_Table[0]];
 	int px = p->pos_x;
 	int py = p->pos_y;
 	for (i = 1; i < LT_Sprite_Stack; i++){
 		SPRITE *s = &sprite[LT_Sprite_Stack_Table[i]];
-		int ex = s->pos_x;
-		int ey = s->pos_y;
-		//CALCULATE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((ex > SCR_X)&&(ex < (SCR_X+304))&&(ey > SCR_Y)&&(ey < (SCR_Y+224))){	
-			if ((abs(px-ex)<16)&&(abs(py-ey)<16)) col = 1;
-			else col = 0;
-		}
+		ex = s->pos_x;
+		ey = s->pos_y;
+		if ((abs(px-ex)<16)&&(abs(py-ey)<16)) col = 1;
 	}
 	return col;
 }

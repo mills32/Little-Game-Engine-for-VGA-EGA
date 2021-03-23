@@ -52,6 +52,7 @@ extern byte LT_Sprite_Stack;
 extern byte LT_Sprite_Stack_Table[];
 extern byte LT_AI_Stack;
 extern byte LT_AI_Stack_Table[];
+extern byte LT_Active_AI_Sprites[];
 extern byte selected_AI_sprite;
 
 //GLOBAL VARIABLES
@@ -410,6 +411,7 @@ void VGA_ClearScreen(){
 byte p[4] = {0,2,4,6};
 byte pix;
 
+void PC_Speaker_SFX_Player();//I don't want to use interrupts, play pc speaker sfx here if playing == 1
 void (*LT_WaitVsync)(void);
 //works smooth in dosbox, PCem, Real EGA/VGA.
 //Choppy on SVGA or modern VGA compatibles
@@ -467,6 +469,8 @@ void LT_WaitVsync0_EGA(){
 	
 	//enable interrupts because we finished doing crazy things
 	asm sti
+	
+	PC_Speaker_SFX_Player();
 }
 
 void LT_WaitVsync0_VGA(){
@@ -523,6 +527,8 @@ void LT_WaitVsync0_VGA(){
 	
 	//enable interrupts because we finished doing crazy things
 	asm sti
+	
+	PC_Speaker_SFX_Player();
 }
 
 //Works on all compatible VGA cards from SVGA to 2020 GPUS.
@@ -1046,31 +1052,34 @@ void LT_Print_Window_Variable_VGA(byte x, word var){
 		mov 	ax,0A000h
 		mov 	es,ax
 
+		mov		ax,2
+		mov		bx,82
+		
 		//UNWRAPPED COPY 8x8 TILE LOOP
-		mov 	cx,2
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82 //END LOOP
+		add 	di,bx //END LOOP
 	}
 	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
 		mov dx,0 
@@ -1094,34 +1103,36 @@ void LT_Print_Window_Variable_VGA(byte x, word var){
 		sub		di,2
 		mov 	ax,0A000h
 		mov 	es,ax
-
-		//UNWRAPPED COPY 8x8 TILE LOOP
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
-		add 	di,82 //END LOOP
 		
-		sub		di,2 //NEXT DIGIT POSITION (-
+		mov		ax,2
+		mov		bx,82
+		//UNWRAPPED COPY 8x8 TILE LOOP
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx //END LOOP
+		
+		sub		di,ax //NEXT DIGIT POSITION (-
 	}
 	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
 		mov dx,0 
@@ -1146,30 +1157,32 @@ void LT_Print_Window_Variable_VGA(byte x, word var){
 		mov 	ax,0A000h
 		mov 	es,ax
 
+		mov		ax,2
+		mov		bx,82
 		//UNWRAPPED COPY 8x8 TILE LOOP
-		mov 	cx,2
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb								
 	}
 		
 	asm{//END	
@@ -1219,21 +1232,21 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 		mov		di,screen_offset			//es:di destination address							
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov		ax,41
 		movsb			//COPY TILE (8 lines)
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
 	}
 	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
@@ -1258,21 +1271,21 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 		sub		di,1
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov		ax,41
 		movsb			//COPY TILE (8 lines)
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
 	}
 	asm{//DIVIDE VAR BY 10, GET REMAINDER, DRAW DIGIT
@@ -1297,21 +1310,21 @@ void LT_Print_Window_Variable_EGA(byte x, word var){
 		sub		di,2
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,41
 		movsb			//COPY TILE (8 lines)
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
 	}
 
@@ -1384,31 +1397,32 @@ void LT_Print_VGA(word x, word y, char *string, byte win){
 		
 		mov 	ax,0A000h
 		mov 	es,ax						//es:di destination address	
-
+		mov		ax,2
+		mov		bx,82
 		//UNWRAPPED COPY 8x8 TILE LOOP
-		mov 	cx,2
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,82
-		mov 	cx,2
-		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb								
 		//END LOOP
 		sub		di,588
 	}
@@ -1473,24 +1487,24 @@ void LT_Print_EGA(word x, word y, char *string, byte win){
 		
 		mov 	ax,0A000h
 		mov 	es,ax						//es:di destination address	
-
+		mov	ax,41
 		//UNWRAPPED COPY 8x8 TILE LOOP
 		movsb			//COPY TILE (8 lines)
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb
-		add di,41
+		add di,ax
 		movsb			
-		add di,41 //END LOOP
+		add di,ax //END LOOP
 		
 		sub	di,335
 	}
@@ -2021,11 +2035,15 @@ void LT_unload_map(){
 	//free(LT_map_collision); LT_map_collision = NULL;
 }
 
+extern int LT_wmap;
+extern int LT_hmap;
 void LT_Set_Map(int x, int y){
 	//UNDER CONSTRUCTION
 	int i = 0;
 	int j = 0;
 	Enemies = 0;
+	LT_wmap = LT_map_width<<4;
+	LT_hmap = LT_map_height<<4;
 	LT_map_offset = (LT_map_width*y)+x;
 	LT_map_offset_Endless = 20;
 	SCR_X = x<<4;
@@ -2084,56 +2102,56 @@ void LT_Edit_MapTile_VGA(word x, word y, byte ntile, byte col){
 		mov		di,screen_offset		//es:di destination address							
 		mov 	ax,0A000h
 		mov 	es,ax
-
+		mov		ax,4
+		mov		bx,80
 		//UNWRAPPED COPY 16x16 TILE LOOP
-		mov 	cx,4
+		mov 	cx,ax
 		rep		movsb		
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb		
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb	
 
 		//END LOOP
 		mov dx,GC_INDEX +1 //dx = indexregister
@@ -2184,52 +2202,52 @@ void LT_Edit_MapTile_EGA(word x, word y, byte ntile, byte col){
 		mov		di,screen_offset		//es:di destination address							
 		mov 	ax,0A000h
 		mov 	es,ax
-
+		mov	ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 
@@ -2287,122 +2305,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,map_offset
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-	}
-	asm{//COPY TILE
-		mov 	ax,0A000h
-		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -2427,52 +2376,124 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx	//END COPY TILE
 		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -2497,122 +2518,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,map_offset
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-	}
-	asm{//COPY TILE
-		mov 	ax,0A000h
-		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -2637,122 +2589,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,map_offset
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-	}
-	asm{//COPY TILE
-		mov 	ax,0A000h
-		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -2777,122 +2660,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,map_offset
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-	}
-	asm{//COPY TILE
-		mov 	ax,0A000h
-		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -2917,122 +2731,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,map_offset
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-	}
-	asm{//COPY TILE
-		mov 	ax,0A000h
-		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -3057,122 +2802,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,map_offset
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-	}
-	asm{//COPY TILE
-		mov 	ax,0A000h
-		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -3197,122 +2873,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		add		ax,[width]
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,map_offset
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-	}
-	asm{//COPY TILE
-		mov 	ax,0A000h
-		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -3337,52 +2944,53 @@ void draw_map_column_vga(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
-		mov 	cx,4		//COPY TILE (16 LINES)
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		mov 	cx,4
 		rep		movsb				
 		add 	di,80	//END COPY TILE
@@ -3404,7 +3012,431 @@ void draw_map_column_vga(word x, word y, word map_offset){
 		shl		ax,cl
 		add		si,ax
 	}
-	
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,4
+		rep		movsb				
+		add 	di,80	//END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}
+	asm{//COPY TILE
+		mov 	ax,0A000h
+		mov 	es,ax		//es:di screen address
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY TILE (16 LINES)
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,4
+		rep		movsb	///END COPY TILE
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		add		ax,[width]
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+	}	
 	asm{//END
 	
 		mov dx,GC_INDEX +1 //dx = indexregister
@@ -3415,8 +3447,9 @@ void draw_map_column_vga(word x, word y, word map_offset){
 		pop di
 		pop ds
 	}
+	
 	//LT_Sprite_Stack = 2;
-	for (i = 0; i <16;i++){
+	/*for (i = 0; i <16;i++){
 		int sprite = LT_map_collision[m_offset];
 		if ((sprite > 15) && (sprite < 32)) {
 			LT_Sprite_Stack_Table[LT_Sprite_Stack] = LT_AI_Sprite[0] + (Enemies&7);
@@ -3428,6 +3461,27 @@ void draw_map_column_vga(word x, word y, word map_offset){
 		//if (LT_Sprite_Stack == 8) LT_Sprite_Stack = 1;
 		
 		m_offset+= LT_map_width;
+	}*/
+	
+	for (i = 0; i <16;i++){
+		int sprite0 = LT_map_collision[m_offset]; //sprite0-16 for sprite type
+		if ((sprite0 > 15) && (sprite0 < 32)) {
+			if (LT_Sprite_Stack<8){
+				int j;
+				int sprite;
+				for (j = 0; j < 7; j++){
+					if (LT_Active_AI_Sprites[j]){
+						sprite = LT_Active_AI_Sprites[j]; 
+						LT_Active_AI_Sprites[j] = 0;
+						j = 10;
+					}
+				}
+				LT_Sprite_Stack_Table[LT_Sprite_Stack] = sprite;//LT_AI_Sprite[0]+(LT_Sprite_Stack-1);
+				LT_Set_AI_Sprite(sprite,sprite0-16,x>>4,(y>>4)+i-1,3,0);
+				LT_Sprite_Stack++;
+			}
+		}
+		m_offset+= LT_map_width;
 	}
 }
 
@@ -3436,8 +3490,8 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	word screen_offset = (y<<5)+(y<<3)+(y<<1)+(x>>3);
 	word width = LT_map_width;
 	unsigned char *mapdata = LT_map_data;
-	int i = 0;
-	word m_offset = map_offset;
+	//int i = 0;
+	//word m_offset = map_offset;
 
 	asm{
 		push ds
@@ -3470,55 +3524,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -3540,55 +3594,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -3610,55 +3664,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -3680,55 +3734,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -3750,55 +3804,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -3820,55 +3874,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -3890,55 +3944,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -3960,55 +4014,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4030,55 +4084,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4100,55 +4154,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4170,55 +4224,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4240,55 +4294,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4310,55 +4364,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4380,55 +4434,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4450,55 +4504,55 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
+		add di,ax
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4520,55 +4574,54 @@ void draw_map_column_ega(word x, word y, word map_offset){
 	asm{//COPY TILE
 		mov 	ax,0A000h
 		mov 	es,ax		//es:di screen address
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		add di,40
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4599,21 +4652,7 @@ void draw_map_column_ega(word x, word y, word map_offset){
 		pop ds
 	}
 
-	for (i = 0; i <16;i++){
-		int sprite = LT_map_collision[m_offset];
-		if ((sprite > 15) && (sprite < 32)) {
-			if (Enemies != 0) {
-				LT_Clone_Sprite(selected_AI_sprite+Enemies,selected_AI_sprite);
-				LT_Set_AI_Sprite(selected_AI_sprite+Enemies,1,x>>4,(y>>4)+i-1,2,0);
-				Enemies++;
-			}else{
-				selected_AI_sprite = LT_AI_Sprite[sprite-16];
-				LT_Set_AI_Sprite(selected_AI_sprite,1,x>>4,(y>>4)+i-1,2,0);
-				Enemies++;
-			}
-		}
-		m_offset+= LT_map_width;
-	}
+
 }
 
 void (*draw_map_row)(word,word,word);
@@ -4622,8 +4661,8 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	word TILE_ADDRESS = TILE_VRAM;
 	unsigned char *mapdata = LT_map_data;
 	word screen_offset = (y<<6)+(y<<4)+(y<<2) + (x>>2);
-	int i = 0;
-	word m_offset = map_offset;
+	//int i = 0;
+	//word m_offset = map_offset;
 	
 	asm{//SET ADDRESS
 		push ds
@@ -4656,128 +4695,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4802,128 +4769,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -4948,128 +4843,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -5094,128 +4917,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -5240,128 +4991,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -5386,128 +5065,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -5532,128 +5139,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -5678,128 +5213,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -5824,128 +5287,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -5970,128 +5361,56 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,6
-		shl		ax,cl
-		add		si,ax
-		
-		sub		di,84*16
-		add		di,4						//next horizontal tile position
-	}
-	asm{//COPY TILE	
-		mov 	ax,0A000h
-		mov 	es,ax
-		
-		mov 	cx,4		//COPY 16 LINES
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
-		mov 	cx,4
-		rep		movsb				
-		add 	di,80
+		add 	di,bx
 		
 		//SET ADDRESS FOR NEXT TILE
 		mov 	ax,0A000h
@@ -6116,54 +5435,795 @@ void draw_map_row_vga( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
 		
-		mov 	cx,4		//COPY 16 LINES
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
-		add 	di,80
-		mov 	cx,4
+		add 	di,bx
+		mov 	cx,ax
 		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		
+		//SET ADDRESS FOR NEXT TILE
+		mov 	ax,0A000h
+		mov 	ds,ax
+		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
+
+		mov		ax,map_offset
+		inc		ax
+		mov		map_offset,ax
+		
+		les		bx,[mapdata]
+		add		bx,ax
+		mov		al,byte ptr es:[bx]
+		mov		ah,0
+		mov		cl,6
+		shl		ax,cl
+		add		si,ax
+		
+		sub		di,84*16
+		add		di,4						//next horizontal tile position
+	}
+	asm{//COPY TILE	
+		mov 	ax,0A000h
+		mov 	es,ax
+		mov		ax,4
+		mov		bx,80
+		mov 	cx,ax		//COPY 16 LINES
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb				
+		add 	di,bx
+		mov 	cx,ax
+		rep		movsb
 	}
 	
 	asm{//END
@@ -6175,19 +6235,7 @@ void draw_map_row_vga( word x, word y, word map_offset){
 		pop di
 		pop ds
 	}
-	for (i = 0; i <20;i++){
-		int sprite = LT_map_collision[m_offset];
-		if ((sprite > 15) && (sprite < 32)) {
-			LT_Sprite_Stack_Table[LT_Sprite_Stack] = LT_AI_Sprite[0] + (Enemies&7);
-			LT_Set_AI_Sprite(LT_AI_Sprite[0] + (Enemies&7),sprite-16,x>>4,(y>>4)+i-1,3,0);
-			LT_Sprite_Stack++;
-			Enemies++;
-		}
-		//if (Enemies == 7) Enemies = 0;
-		//if (LT_Sprite_Stack == 8) LT_Sprite_Stack = 1;
-		
-		m_offset+= LT_map_width;
-	}
+
 }
 
 void draw_map_row_ega( word x, word y, word map_offset){
@@ -6227,52 +6275,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6298,52 +6346,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6369,52 +6417,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6440,52 +6488,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6511,52 +6559,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6582,52 +6630,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6653,52 +6701,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6724,52 +6772,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6795,52 +6843,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6866,52 +6914,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -6937,52 +6985,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7008,52 +7056,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7079,52 +7127,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7150,52 +7198,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7221,52 +7269,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7292,52 +7340,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7363,52 +7411,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7434,52 +7482,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7505,52 +7553,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7576,52 +7624,52 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
 		
@@ -7647,74 +7695,56 @@ void draw_map_row_ega( word x, word y, word map_offset){
 	asm{//COPY TILE	
 		mov 	ax,0A000h
 		mov 	es,ax
-		
+		mov ax,40
 		movsb			//COPY TILE (16 lines)
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb
-		add di,40
+		add di,ax
 		movsb	
 		movsb	//END COPY TILE
-		
-		//SET ADDRESS FOR NEXT TILE
-		mov 	ax,0A000h
-		mov 	ds,ax
-		mov		si,TILE_ADDRESS				//ds:si Tile data VRAM address = FIXED VRAM AT scan line 590; 
-
-		mov		ax,map_offset
-		inc		ax
-		mov		map_offset,ax
-		
-		les		bx,[mapdata]
-		add		bx,ax
-		mov		al,byte ptr es:[bx]
-		mov		ah,0
-		mov		cl,5
-		shl		ax,cl
-		add		si,ax
-
-		sub		di,42*15					//next horizontal tile position
 	}
+
 	asm{//END
 		mov dx,GC_INDEX +1 //dx = indexregister
 		mov ax,00ffh		
@@ -7724,6 +7754,8 @@ void draw_map_row_ega( word x, word y, word map_offset){
 		pop di
 		pop ds
 	}
+
+
 }
 
 //update rows and colums

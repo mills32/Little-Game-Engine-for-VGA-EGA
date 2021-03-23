@@ -14,7 +14,6 @@ void LT_Error(char *error, char *file);
 //ADLIB
 IMFsong LT_music;	// One song in ram stored at "LT_music"
 
-int LT_Music_PCMDrums = 0;
 const int opl2_base = 0x388;
 long next_event;
 long LT_imfwait;
@@ -69,11 +68,13 @@ void LT_Adlib_Detect(){
 void (*PCM_Drums)(void);
 
 void PCM_Drums_OFF(){};
+//int note = 7.78;
 void PCM_Drums_ON(){
 	//B0-B2, set frequency for channels 0, 1 and 2. Use to play drums.
 	if (LT_music.sdata[LT_music.offset] == 0xB0) sb_play_sample(0,11025);
 	if (LT_music.sdata[LT_music.offset] == 0xB1) sb_play_sample(1,11025);
 	if (LT_music.sdata[LT_music.offset] == 0xB2) sb_play_sample(2,11025);
+	//note+=7.78;
 };
 
 void LT_Play_Music(){
@@ -92,7 +93,7 @@ void LT_Play_Music(){
 	asm out dx, al	//PIC, EOI
 }
 
-void LT_Load_Music(char *fname){
+void LT_Load_Music(char *fname, int enable_pcm){
 	//long size = 0;
 	word offset = 0;
 	word offset1 = 0;
@@ -138,7 +139,7 @@ void LT_Load_Music(char *fname){
 	}
 	LT_music.size = offset1;
 	
-	if (LT_Music_PCMDrums) PCM_Drums = &PCM_Drums_ON;
+	if (enable_pcm) PCM_Drums = &PCM_Drums_ON;
 	else PCM_Drums = &PCM_Drums_OFF;
 }
 
@@ -235,7 +236,7 @@ void interrupt sb_irq_handler(){
 	/*if( sb_irq == 2 || sb_irq == 10 || sb_irq == 11 ) {
 		outportb( 0xA0, 0x20 );
 	}*/
-	playing = 0;
+	//playing = 0;
 }
 
 void init_irq(){
@@ -343,7 +344,7 @@ void sb_load_sample(char *file_name){
 void sb_play_sample(char sample_number, int freq){
 	int pos = sample[sample_number].offset;
 	int length = sample[sample_number].size -1;
-	if (!playing) {
+	//if (!playing) {
 		playing = 1;
 		
 		//Playback
@@ -366,5 +367,77 @@ void sb_play_sample(char sample_number, int freq){
 		write_dsp(SB_SINGLE_CYCLE_8PCM);
 		write_dsp(length & 0xFF);
 		write_dsp(length >> 8);
+	//}
+}
+
+//PC Speaker
+/*		
+	NOTE VALUES
+	-----------
+	Octave 0    1    2    3    4    5    6    7
+	Note
+	 C     16   33   65  131  262  523 1046 2093
+	 C#    17   35   69  139  277  554 1109 2217
+	 D     18   37   73  147  294  587 1175 2349
+	 D#    19   39   78  155  311  622 1244 2489
+	 E     21   41   82  165  330  659 1328 2637
+	 F     22   44   87  175  349  698 1397 2794
+	 F#    23   46   92  185  370  740 1480 2960
+	 G     24   49   98  196  392  784 1568 3136
+	 G#    26   52  104  208  415  831 1661 3322
+	 A     27   55  110  220  440  880 1760 3520
+	 A#    29   58  116  233  466  932 1865 3729
+	 B     31   62  123  245  494  988 1975 3951
+*/
+//1193180/Value
+int LT_PC_Speaker_Note[96] = {
+	//Note		C    C#     D    D#     E     F    F#     G    G#     A    A#     B
+	//Octave
+	/*0	*/	65535,65535,65535,62799,56818,54235,51877,49716,45892,44192,41144,38490,
+	/*1	*/	36157,34091,32248,30594,29102,27118,25939,24351,22946,21694,20572,19245,
+	/*2	*/  18357,17292,16345,15297,14551,13715,12969,12175,11473,10847,10286, 9701,
+	/*3	*/  9108 ,8584 ,8117 ,7698 ,7231 ,6818 ,6450 ,6088 ,5736 ,5424 ,5121 , 4870,
+	/*4	*/  4554 ,4308 ,4058 ,3837 ,3616 ,3419 ,3225 ,3044 ,2875 ,2712 ,2560 , 2415, 
+	/*5	*/ 	2281 ,2154 ,2033 ,1918 ,1811 ,1709 ,1612 ,1522 ,1436 ,1356 ,1280 ,1208 ,
+	/*6	*/ 	1141 ,1076 ,1015 ,959  ,898  ,854  ,806  ,761  ,718  ,678  ,640  ,604  ,
+	/*7	*/ 	570  ,538  ,508  ,479  ,452  ,427  ,403  ,380  ,359  ,339  ,320  ,302  ,	
+};
+
+int LT_PC_Speaker_Playing = 0;
+int LT_PC_Speaker_Offset = 0;
+int *LT_PC_Speaker_SFX;
+
+
+void LT_Play_PC_Speaker_SFX(int *note_array){
+	if (LT_PC_Speaker_Playing == 0) {
+		asm in al, 61h			//Enable speaker
+		asm or al, 3
+		asm out 61h, al
+		asm mov al, 0B6h
+		asm out 43h,al
+		LT_PC_Speaker_Playing = 1;
+		LT_PC_Speaker_Offset = 0;
+		LT_PC_Speaker_SFX = &note_array[0];
+	}
+}
+
+void PC_Speaker_SFX_Player(){	
+	int counter;
+	int note;
+	if (LT_PC_Speaker_Playing == 1){
+		if (LT_PC_Speaker_Offset < 16){
+			counter = LT_PC_Speaker_SFX[LT_PC_Speaker_Offset];
+			note = LT_PC_Speaker_Note[counter]; // calculated frequency (1193180/Value)
+			asm mov ax, note
+			asm out 42h,al
+			asm mov al,ah
+			asm out 42h,al
+			LT_PC_Speaker_Offset++;
+		} else {
+			LT_PC_Speaker_Playing = 0;
+			asm in al, 61h        //Disable speaker
+			asm and al, 252       
+			asm out 61h, al
+		}
 	}
 }

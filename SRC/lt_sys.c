@@ -1,6 +1,12 @@
 
 #include "lt__eng.h"
 
+extern byte LT_PICO8_palette[];
+extern const unsigned char LT_logo_palette[];
+extern byte LT_Setup_Map_Char[];
+extern byte LT_Setup_Map_Col[];
+
+COLORCYCLE cycle_logo;
 //debugging
 float t1 = 0;
 float t2 = 0;
@@ -9,13 +15,22 @@ float t2 = 0;
 long time_ctr;
 
 // this points to the 18.2hz system clock for debug in dosbox (does not work on PCEM). 
-word *my_clock=(word *)0x0000046C;    		
+word *my_clock=(word *)0x0000046C; 
+byte *XGA_TEXT_MAP=(byte *)0xB8000000L;    		
 word start;
 int Free_RAM;
 byte LT_VIDEO_MODE = 0;
+byte LT_SCROLL_MODE = 0;
+byte LT_MUSIC_MODE = 1;
+byte LT_SFX_MODE = 1;
+byte LT_BLASTER_PORT = 220;
+byte LT_BLASTER_IRQ = 5;
+byte LT_BLASTER_DMA = 1;
+byte LT_LANGUAGE = 0;
 extern byte *VGA;
 extern byte *EGA;
- 
+FILE *LT_setupfile;
+
 // define LT_old_..._handler to be a pointer to a function
 void interrupt (*LT_old_time_handler)(void); 	
 void interrupt (*LT_old_key_handler)(void);
@@ -76,6 +91,309 @@ void LT_Error(char *error, char *file){
 	LT_ExitDOS();
 	exit(1);
 } 
+
+void Disable_Cursor(){
+	outportb(0x3D4, 0x0A);
+	outportb(0x3D5, 0x20);
+}
+
+void Enable_Cursor(){
+	outportb(0x3D4, 0x0A);
+	outportb(0x3D5, (inportb(0x3D5) & 0xC0) | 14);
+	outportb(0x3D4, 0x0B);
+	outportb(0x3D5, (inportb(0x3D5) & 0xE0) | 15);
+}
+
+void print_gfxmode(int mode){
+	if (mode == 1){
+		gotoxy(16,8); textattr(RED << 4 | WHITE); cprintf("EGA 16 COLORS");
+		gotoxy(16,9); textattr(BLUE << 4 | WHITE); cprintf("VGA 16 COLORS");
+		gotoxy(16,10); cprintf("VGA 256 COLORS");
+		gotoxy(49,7); cprintf("EGA ORIGINAL MODE");
+		gotoxy(49,8); cprintf(" 16 FIXED COLORS ");
+		gotoxy(49,9); cprintf(" FOR SLOW 8088'S ");
+	}
+	if (mode == 2){
+		gotoxy(16,9); textattr(RED << 4 | WHITE); cprintf("VGA 16 COLORS");
+		gotoxy(16,8); textattr(BLUE << 4 | WHITE); cprintf("EGA 16 COLORS");
+		gotoxy(16,10); cprintf("VGA 256 COLORS");
+		gotoxy(49,7); cprintf(" VGA IN EGA MODE ");
+		gotoxy(49,8); cprintf(" PICO-8  PALETTE ");
+		gotoxy(49,9); cprintf(" FOR SLOW 8088'S ");
+	}
+	if (mode == 3){
+		gotoxy(16,10); textattr(RED << 4 | WHITE); cprintf("VGA 256 COLORS");
+		gotoxy(16,8); textattr(BLUE << 4 | WHITE); cprintf("EGA 16 COLORS");
+		gotoxy(16,9); cprintf("VGA 16 COLORS");
+		gotoxy(49,7); cprintf("   VGA MODE X    ");
+		gotoxy(49,8); cprintf("   256 COLORS    ");
+		gotoxy(49,9); cprintf("FOR FAST 8086/286");
+	}
+}
+
+void print_scrollmode(int mode){
+	if (mode == 0) {
+		XGA_TEXT_MAP[(10*160)+58] = 48;
+		textattr(BLUE << 4 | WHITE);
+		gotoxy(49,7); cprintf("HARDWARE SCROLL 0");
+		gotoxy(49,8); cprintf("FOR EGA/VGA CARDS");
+		gotoxy(49,9); cprintf("                 ");
+	}
+	if (mode == 1) {
+		XGA_TEXT_MAP[(10*160)+58] = 49;
+		textattr(BLUE << 4 | WHITE);
+		gotoxy(49,7); cprintf("HARDWARE SCROLL 1");
+		gotoxy(49,8); cprintf("FOR SVGA CARDS   ");
+		gotoxy(49,9); cprintf("                 ");
+	}
+}
+
+void print_musicmode(int music){
+	if (music == 5){
+		gotoxy(16,13); textattr(RED << 4 | WHITE); cprintf("ADLIB");
+		gotoxy(16,14); textattr(BLUE << 4 | WHITE); cprintf("SOUND BLASTER");
+		gotoxy(49,7); cprintf("MUSIC WILL USE   ");
+		gotoxy(49,8); cprintf("OPL2/YM3812 ONLY ");
+		gotoxy(49,9); cprintf("                 ");
+	}
+	if (music == 6){
+		gotoxy(16,13); textattr(BLUE << 4 | WHITE); cprintf("ADLIB");
+		gotoxy(49,7); cprintf("MUSIC WILL USE   ");
+		gotoxy(49,8); cprintf("OPL2/YM3812 AND  ");
+		gotoxy(49,9); cprintf("SOUND BLASTER PCM");
+		gotoxy(16,14); textattr(RED << 4 | WHITE); cprintf("SOUND BLASTER");
+	}
+}
+
+void print_sfxmode(int sfx){
+	if (sfx == 7){
+		gotoxy(16,16); textattr(RED << 4 | WHITE); cprintf("PC SPEAKER");
+		gotoxy(16,17); textattr(BLUE << 4 | WHITE); cprintf("SOUND BLASTER");
+		gotoxy(49,7); cprintf("SIMPLE SOUND     ");
+		gotoxy(49,8); cprintf("EFFECTS PLAYED BY");
+		gotoxy(49,9); cprintf("INTERNAL SPEAKER ");
+	}
+	if (sfx == 8){
+		gotoxy(16,16); textattr(BLUE << 4 | WHITE); cprintf("PC SPEAKER");
+		gotoxy(49,7); cprintf("8 BIT PCM SAMPLES");
+		gotoxy(49,8); cprintf("PLAYED BY SOUND  ");
+		gotoxy(49,9); cprintf("BLASTER CARD     ");
+		gotoxy(16,17); textattr(RED << 4 | WHITE); cprintf("SOUND BLASTER");
+	}
+}
+
+void print_langmode(int lang){
+	if (lang == 'E'){
+		gotoxy(17,19); textattr(RED << 4 | WHITE); cprintf("ENGLISH");
+		gotoxy(17,20); textattr(BLUE << 4 | WHITE); cprintf("SPANISH");
+	}
+	if (lang == 'S'){
+		gotoxy(17,19); textattr(BLUE << 4 | WHITE); cprintf("ENGLISH");
+		gotoxy(17,20); textattr(RED << 4 | WHITE); cprintf("SPANISH");
+	}
+}
+
+void Read_Setup(){
+	byte buffer[256];
+	fread(buffer,1,256,LT_setupfile);
+	LT_VIDEO_MODE = buffer[0x16]-48;
+	print_gfxmode(LT_VIDEO_MODE);
+	LT_SCROLL_MODE = buffer[0x20]-48;
+	print_scrollmode(LT_SCROLL_MODE);
+	LT_MUSIC_MODE = buffer[0x29]-48;
+	print_musicmode(LT_MUSIC_MODE);
+	LT_SFX_MODE = buffer[0x30]-48;
+	print_sfxmode(LT_SFX_MODE);
+	LT_BLASTER_PORT = buffer[0x39];
+	XGA_TEXT_MAP[(160*13)+100] = LT_BLASTER_PORT;
+	LT_BLASTER_PORT = buffer[0x3A];
+	XGA_TEXT_MAP[(160*13)+102] = LT_BLASTER_PORT;
+	LT_BLASTER_PORT = buffer[0x3B];
+	XGA_TEXT_MAP[(160*13)+104] = LT_BLASTER_PORT;
+	LT_BLASTER_IRQ = buffer[0x44];
+	XGA_TEXT_MAP[(160*13)+116] = LT_BLASTER_IRQ;
+	LT_BLASTER_DMA = buffer[0x4D];
+	XGA_TEXT_MAP[(160*13)+128] = LT_BLASTER_DMA;
+	LT_LANGUAGE = buffer[0x55];
+	print_langmode(LT_LANGUAGE);
+	
+	textattr(BLUE << 4 | WHITE);
+	gotoxy(49,7); cprintf("                 ");
+	gotoxy(49,8); cprintf("     WAITING     ");
+	gotoxy(49,9); cprintf("                 ");
+}
+
+void Save_Setup(){
+	fseek(LT_setupfile,0x16,SEEK_SET);
+	fputc(LT_VIDEO_MODE+48,LT_setupfile);
+	fseek(LT_setupfile,0x20,SEEK_SET);
+	fputc((LT_SCROLL_MODE&1)+48,LT_setupfile);
+	fseek(LT_setupfile,0x29,SEEK_SET);
+	fputc(LT_MUSIC_MODE+48,LT_setupfile);
+	fseek(LT_setupfile,0x30,SEEK_SET);
+	fputc(LT_SFX_MODE+48,LT_setupfile);
+	fseek(LT_setupfile,0x39,SEEK_SET);
+	fputc(XGA_TEXT_MAP[(160*13)+100],LT_setupfile);
+	fputc(XGA_TEXT_MAP[(160*13)+102],LT_setupfile);
+	fputc(XGA_TEXT_MAP[(160*13)+104],LT_setupfile);
+	LT_BLASTER_PORT = ((XGA_TEXT_MAP[(160*13)+100]-48)*100)+((XGA_TEXT_MAP[(160*13)+102]-48)*10)+(XGA_TEXT_MAP[(160*13)+104]-48);
+	fseek(LT_setupfile,0x44,SEEK_SET);
+	fputc(XGA_TEXT_MAP[(160*13)+116],LT_setupfile);
+	LT_BLASTER_IRQ = XGA_TEXT_MAP[(160*13)+116] - 48;
+	fseek(LT_setupfile,0x4D,SEEK_SET);
+	fputc(XGA_TEXT_MAP[(160*13)+128],LT_setupfile);
+	LT_BLASTER_DMA = XGA_TEXT_MAP[(160*13)+128] - 48;
+	fseek(LT_setupfile,0x55,SEEK_SET);
+	fputc(LT_LANGUAGE,LT_setupfile);
+}
+
+void LT_Setup(){
+	int i = 0;
+	int j = 0;
+	int start = 0;
+	int blaster_set = 0;
+	byte character = 0;
+	byte color = 0;
+	LT_setupfile = fopen("config.txt","rb+");
+	if (!LT_setupfile) {
+		system("cls");
+		printf("config.txt is missing\nNew default file created");
+		LT_setupfile = fopen("config.txt","w");
+		fprintf(LT_setupfile,"#SETUP\n------\nVIDEO=3\nSCROLL=0\nMUSIC=6\nSFX=8\nBLASP=220\nBLASI=5\nBLASD=1\nLANG=0\n#SAVE\n-----\nLEVEL_A=0 ENERGY_A=0\nLEVEL_B=0 ENERGY_B=0");
+		printf("#SETUP\n------\nVIDEO=3\nSCROLL=0\nMUSIC=6\nSFX=8\nBLASP=220\nBLASI=5\nBLASD=1\nLANG=0\n#SAVE\n-----\nLEVEL_A=0 ENERGY_A=0\nLEVEL_B=0 ENERGY_B=0");
+		fclose(LT_setupfile);
+		sleep(2);
+		LT_setupfile = fopen("config.txt","rb+");
+	}
+	
+	Disable_Cursor();
+	
+	//menu 80x25 text mode
+	system("cls");
+	for (i = 0;i <(80*25*2);i+=2){
+		//Set Character Map 
+		character = LT_Setup_Map_Char[j];
+		switch (character){
+			case '+': character = 205;break;
+			case '*': character = 188;break;
+			case '#': character = 178;break;
+			case '(': character = 201;break;
+			case ')': character = 187;break;
+			case '!': character = 186;break;
+			case '?': character = 200;break;
+			case '.': character = 177;break;
+			case '[': character = 223;break;
+		}
+		XGA_TEXT_MAP[i] = character;
+		//Set Color Map 
+		color = LT_Setup_Map_Col[j];
+		switch (color){
+			case '0': color = BLACK << 4 | WHITE;break;
+			case '1': color = RED << 4 | WHITE;break;
+			case '2': color = BLUE << 4 | WHITE;break;
+			case '3': color = CYAN << 4 | WHITE;break;
+			case '4': color = MAGENTA << 4 | WHITE;break;
+			case '5': color = GREEN << 4 | LIGHTGREEN;break;
+			case '.': color = BLUE << 4 | LIGHTGRAY;break;
+			case '#': color = BLUE << 4 | DARKGRAY;break;
+		}
+		XGA_TEXT_MAP[i+1] = color; 
+		j++;
+	}
+	
+	Read_Setup();
+	
+	while (start == 0){
+		if (!blaster_set){
+			if (kbhit()){
+				character = getch();
+				switch (character){
+					case 49: LT_VIDEO_MODE = 1; print_gfxmode(1); break;
+					case 50: LT_VIDEO_MODE = 2; print_gfxmode(2); break;
+					case 51: LT_VIDEO_MODE = 3; print_gfxmode(3); break;
+					case 52: LT_SCROLL_MODE++; print_scrollmode(LT_SCROLL_MODE & 1); break;
+					case 53: LT_MUSIC_MODE = 5; print_musicmode(5);break;
+					case 54: LT_MUSIC_MODE = 6; print_musicmode(6);break;
+					case 55: LT_SFX_MODE = 7; print_sfxmode(7);break;
+					case 56: LT_SFX_MODE = 8; print_sfxmode(8);break;
+					case 57: 
+						blaster_set = 1; 
+						gotoxy(51,14); textattr(BLACK << 4 | YELLOW);
+						cprintf("   ");
+						gotoxy(59,14); cprintf(" ");
+						gotoxy(65,14); cprintf(" ");
+						textattr(BLUE << 4 | WHITE);
+						gotoxy(49,7); cprintf("   SET BLASTER   ");
+						gotoxy(49,8); cprintf(" DEFAULT  VALUES ");
+						gotoxy(49,9); cprintf("P=220 IRQ=5 DMA=1");
+						Enable_Cursor();
+						textattr(BLACK << 4 | YELLOW);
+						gotoxy(51,14);
+					break;
+					case 69: LT_LANGUAGE = 'E'; print_langmode(LT_LANGUAGE); break;
+					case 101: LT_LANGUAGE = 'E'; print_langmode(LT_LANGUAGE); break;
+					case 83: LT_LANGUAGE = 'S'; print_langmode(LT_LANGUAGE); break;
+					case 115: LT_LANGUAGE = 'S'; print_langmode(LT_LANGUAGE); break;
+					
+					case 13: start = 1; break;
+					case 27: start = 2; break;
+				}
+				Clearkb();
+			}
+		} else {
+			if (kbhit()) {
+				character = getch();
+				if ((character>47)&&(character<58)){
+					cprintf("%c",character);
+					if (blaster_set == 3) gotoxy(59,14);
+					if (blaster_set == 4) gotoxy(65,14);
+					blaster_set++;
+				}
+				if ((character == 27) || (blaster_set == 6)){
+					character = BLUE << 4 | WHITE;
+					XGA_TEXT_MAP[(160*13)+101] = character;
+					XGA_TEXT_MAP[(160*13)+103] = character;
+					XGA_TEXT_MAP[(160*13)+105] = character;
+					XGA_TEXT_MAP[(160*13)+117] = character;
+					XGA_TEXT_MAP[(160*13)+129] = character;
+					blaster_set = 0; 
+					Disable_Cursor();
+				}
+				Clearkb();
+			}
+		}
+		
+		while( inp( INPUT_STATUS_0 ) & 0x08 );
+		while( !(inp( INPUT_STATUS_0 ) & 0x08 ) );
+	}
+	if (start == 2) {
+		fclose(LT_setupfile);
+		Enable_Cursor();
+		system("cls");
+		exit(1);
+	}
+
+	//SAVE SETTINGS
+	Save_Setup();
+
+	fclose(LT_setupfile);
+	system("cls");
+	
+	if (LT_VIDEO_MODE == 3) LT_VIDEO_MODE = 1;
+	else LT_VIDEO_MODE = 0;
+	if (LT_MUSIC_MODE == 6) LT_MUSIC_MODE = 1;
+	else LT_MUSIC_MODE = 0;
+	
+	
+	if (LT_VIDEO_MODE == 0) VGA_EGAMODE_CustomPalette(LT_PICO8_palette);
+	
+	Enable_Cursor();
+	LT_Adlib_Detect();
+    LT_init();
+	sb_init();//After LT_Init
+	if (LT_VIDEO_MODE)LT_Load_Font("GFX/0_font.bmp");
+	else LT_Load_Font("GFX/0_font_E.bmp");
+}
 
 void LT_Init(){
 	unsigned char *temp_buf;
@@ -212,6 +530,8 @@ void LT_Init(){
 		LT_Edit_MapTile = &LT_Edit_MapTile_EGA;
 		LT_Draw_Sprites = &LT_Draw_Sprites_EGA;
 		LT_Print = &LT_Print_EGA;
+		
+		VGA_EGAMODE_CustomPalette(LT_PICO8_palette);
 	}		
 
 	LT_old_time_handler = getvect(0x1C);
@@ -263,6 +583,26 @@ void LT_Init(){
 	//VGA_SplitScreen(0x0ffff);
 }
 
+void LT_Logo(){
+	int logotimer = 0;
+	LT_Load_Map("GFX/Logo.tmx");
+	if (LT_VIDEO_MODE) {
+		LT_Load_Tiles("GFX/Ltil_VGA.bmp");
+		LT_Fade_out();
+	}
+	else {LT_Load_Tiles("GFX/Ltil_EGA.bmp");}
+	LT_Set_Map(0,0);
+	cycle_init(&cycle_logo,LT_logo_palette);
+	
+	while (logotimer < 128){
+		cycle_palette(&cycle_logo,1);
+		if (LT_Keys[LT_ESC]) { logotimer = 128;}//if esc released, exit
+		LT_WaitVsync();
+		logotimer++;
+	}
+	Clearkb();
+}
+
 void LT_ExitDOS(){
 	sb_deinit();
 	LT_Text_Mode();
@@ -275,6 +615,113 @@ void LT_ExitDOS(){
 	farfree(sprite); sprite = NULL; 
 	exit(1);
 }
+
+byte LT_PICO8_palette[] = {//generated with gimp, then divided by 4 (max = 64).
+//I don't want to know why the EGA colors have to be arranged like this
+//In the VGA registers
+	0x00,0x00,0x00,	//0
+	0x06,0x0A,0x15,	//1
+	0x02,0x21,0x14,	//2
+	0x00,0x14,0x35,	//4
+	0x1F,0x09,0x14,	//3
+	0x3F,0x32,0x42,	//6
+	0x2B,0x14,0x0E, //5	
+	0x2F,0x31,0x31,	//7
+	0x00,0x00,0x00, //Not used in VGA-EGA mode
+	0x00,0x00,0x00,		//8
+	0x00,0x00,0x00,		//9
+	0x00,0x00,0x00,		//10
+	0x00,0x00,0x00,		//11
+	0x00,0x00,0x00,		//12
+	0x00,0x00,0x00,		//13
+	0x00,0x00,0x00,		//14
+	0x16,0x17,0x18,	//8	//15
+    0x20,0x1D,0x26,	//9	//16
+	0x00,0x39,0x0D,	//10//17
+	0x08,0x2B,0x3F,	//12//18
+	0x3F,0x00,0x12,	//11//19
+	0x3F,0x1D,0x29,	//14//20
+	0x3F,0x38,0x0D, //13//21	
+	0x3f,0x3f,0x3f, //15//22	
+};
+const unsigned char LT_logo_palette[] = {//generated with gimp, then divided by 4 (max = 64).
+	//2 copies of 8 colour cycle
+	0x35,0x3b,0x3f,//
+	0x26,0x39,0x3f,
+	0x18,0x36,0x3f,
+	0x09,0x32,0x3e,
+	0x0f,0x34,0x3f,
+	0x17,0x36,0x3f,
+	0x1c,0x3a,0x3e,
+	0x24,0x3e,0x3d,
+	0x35,0x3b,0x3f,//
+	0x26,0x39,0x3f,
+	0x18,0x36,0x3f,
+	0x09,0x32,0x3e,
+	0x0f,0x34,0x3f,
+	0x17,0x36,0x3f,
+	0x1c,0x3a,0x3e,
+	0x24,0x3e,0x3d,
+	0x35,0x3b,0x3f
+};
+
+byte LT_Setup_Map_Char[] = {"\
+.(++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++).\
+.!             Little Engine Setup Program - Not Copyrighted 2021             !#\
+.?++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*#\
+..##############################################################################\
+................................................................................\
+..............................................   SELECTION  INFO   .............\
+.......        VIDEO  MODE        ............!                   !#............\
+.......!     1 EGA 16 COLORS     !#...........!                   !#............\
+.......!     2 VGA 16 COLORS     !#...........!                   !#............\
+.......!     3 VGA 256 COLORS    !#...........?+++++++++++++++++++*#............\
+.......!     4 SCROLL MODE = 0   !#............#####################............\
+.......        MUSIC  MODE        #.............................................\
+.......!     5 ADLIB             !#...........   9 BLASTER SET     .............\
+.......!     6 SOUND BLASTER     !#...........! P=220 IRQ=5 DMA=1 !#............\
+.......          SFX MODE         #...........?+++++++++++++++++++*#............\
+.......!     7 PC SPEAKER        !#............#####################............\
+.......!     8 SOUND BLASTER     !#.............................................\
+.......          LANGUAGE         #.............................................\
+.......!     E: ENGLISH          !#...........    GAME  CONTROLS   .............\
+.......!     S: SPANISH          !#...........! ACTION: S D ENTER !#............\
+.......?+++++++++++++++++++++++++*#...........! START: ENTER      !#............\
+........###########################...........?+++++++++++++++++++*#............\
+...............................................#####################............\
+................................................................................\
+[[[[ EXIT: ESC [[[ SAVE & START: ENTER [[[[[ CHANGE SETTINGS: 1-9 / E S [[[[[[[[\
+"
+};
+
+byte LT_Setup_Map_Col[] = {"\
+.444444444444444444444444444444444444444444444444444444444444444444444444444444.\
+.444444444444444444444444444444444444444444444444444444444444444444444444444444#\
+.444444444444444444444444444444444444444444444444444444444444444444444444444444#\
+..##############################################################################\
+................................................................................\
+..............................................333333333333333333333.............\
+.......333333333333333333333333333............222222222222222222222#............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+.......222222222222222222222222222#............#####################............\
+.......333333333333333333333333333#.............................................\
+.......222222222222222222222222222#...........333333333333333333333.............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+.......333333333333333333333333333#...........222222222222222222222#............\
+.......222222222222222222222222222#............#####################............\
+.......222222222222222222222222222#.............................................\
+.......333333333333333333333333333#.............................................\
+.......222222222222222222222222222#...........333333333333333333333.............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+........###########################...........222222222222222222222#............\
+...............................................#####################............\
+................................................................................\
+55551111112222255511111111111111222222255555111111111111111112222222222255555555\
+"
+};
 
 //Pre calculated SIN and COS, Divide to use for smaller circles.
 int LT_SIN[365] = {

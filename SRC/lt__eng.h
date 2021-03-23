@@ -11,6 +11,7 @@
 #include <conio.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys\stat.h> //use stat to get correct file size
 #include <dos.h>
 #include <alloc.h>
@@ -125,6 +126,13 @@ void Clearkb();
 
 extern byte LT_MODE;
 extern byte LT_VIDEO_MODE;
+extern byte LT_SCROLL_MODE;
+extern byte LT_MUSIC_MODE;
+extern byte LT_SFX_MODE;
+extern byte LT_BLASTER_PORT;
+extern byte LT_BLASTER_IRQ;
+extern byte LT_BLASTER_DMA;
+extern byte LT_LANGUAGE;
 extern word LT_Scanline;
 extern word LT_tileset_width;
 extern word LT_tileset_height;
@@ -184,6 +192,7 @@ typedef struct tagSPRITE{				// structure for a sprite
 	byte ntile_item;
 	byte col_item;
 	byte mode; //FOR AI
+	byte ai_stack;	//FOR AI
 	word jump;
 	word jump_frame;
 	word climb;
@@ -235,10 +244,10 @@ extern SPRITE *sprite;
 extern unsigned char *LT_tile_tempdata; 
 extern unsigned char *LT_tile_tempdata2; 
 
-extern int LT_Music_PCMDrums;
 void LT_Adlib_Detect();
 void LT_Check_CPU();
-
+void LT_Setup();
+void LT_Logo();
 //
 void LT_Set_Loading_Interrupt();
 void LT_Delete_Loading_Interrupt();
@@ -331,7 +340,7 @@ void LT_unload_sprite(int sprite_number);
 void LT_scroll_follow(int sprite_number);
 
 //ADLIB 
-void LT_Load_Music(char *filename);
+void LT_Load_Music(char *filename, int enable_pcm);
 void LT_Play_Music();
 void LT_Stop_Music();
 void LT_Unload_Music();
@@ -344,3 +353,7 @@ void sb_deinit();
 void sb_load_sample(char *file_name);
 void sb_play_sample(char sample_number, int freq);
 void LT_Clear_Samples();
+
+//PC SPEAKER
+#define PIT_FREQ 0x1234DD;
+void LT_Play_PC_Speaker_SFX(int *note_array);
