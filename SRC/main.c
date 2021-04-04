@@ -151,9 +151,9 @@ void Load_Test(){
 		SINEX[ i ] = 320 * ( (sin( 2.0 * M_PI * i / 256.0 ) + 1.0 ) / 2.0 );
 		SINEY[ i ] = 200 * ( (sin( 2.0 * M_PI * i / 128.0 ) + 1.0 ) / 2.0 );
 	}
-	LT_Load_Map("gfx/wmap.tmx");
-	if (LT_VIDEO_MODE) LT_Load_Tiles("gfx/wmap_t.bmp");
-	//else LT_Load_Tiles("GFX/lisa_EGA.bmp");
+	LT_Load_Map("gfx/lisa.tmx");
+	if (LT_VIDEO_MODE) LT_Load_Tiles("gfx/lisa_VGA.bmp");
+	else LT_Load_Tiles("GFX/lisa_EGA.bmp");
 	LT_Load_Sprite("GFX/ship.bmp",28,32);
 	LT_Clone_Sprite(29,28);
 	LT_Delete_Loading_Interrupt();
