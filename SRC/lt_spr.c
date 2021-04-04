@@ -1146,30 +1146,32 @@ void LT_Draw_Sprites_VGA(){
 			//LT_Unset_AI_Sprite(LT_Sprite_Stack_Table[sprite_number]);
 		}
 
-		if ((x < SCR_X-16)||(x > SCR_X+336)){
-			int spr = LT_Sprite_Stack_Table[sprite_number];
-			int i;
-			for (i = 0; i < 7; i++){
-				if (!LT_Active_AI_Sprites[i]){
-					LT_Active_AI_Sprites[i] = spr; 
-					i = 10;
+		if (sprite_number){
+			if ((x < SCR_X-16)||(x > SCR_X+336)){
+				int spr = LT_Sprite_Stack_Table[sprite_number];
+				int i;
+				for (i = 0; i < 7; i++){
+					if (!LT_Active_AI_Sprites[i]){
+						LT_Active_AI_Sprites[i] = spr; 
+						i = 10;
+					}
 				}
-			}
-			if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
-			memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
-			LT_Delete_Sprite(spr);
-		} else if ((y < SCR_Y-16)||(y > SCR_Y+254)){
-			int spr = LT_Sprite_Stack_Table[sprite_number];
-			int i;
-			for (i = 0; i < 7; i++){
-				if (!LT_Active_AI_Sprites[i]){
-					LT_Active_AI_Sprites[i] = spr; 
-					i = 10;
+				if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
+				memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
+				LT_Delete_Sprite(spr);
+			} else if ((y < SCR_Y-16)||(y > SCR_Y+254)){
+				int spr = LT_Sprite_Stack_Table[sprite_number];
+				int i;
+				for (i = 0; i < 7; i++){
+					if (!LT_Active_AI_Sprites[i]){
+						LT_Active_AI_Sprites[i] = spr; 
+						i = 10;
+					}
 				}
+				if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
+				memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
+				//LT_Delete_Sprite(spr);
 			}
-			if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
-			memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
-			//LT_Delete_Sprite(spr);
 		}
 		s->last_x = x;
 		s->last_y = y;
