@@ -103,8 +103,8 @@ void Display_Intro(){
 	SCR_X = 0;SCR_Y = 0;
 	
 	LT_WaitVsync();
-	if (LT_VIDEO_MODE) LT_Load_Image("GFX/DOTT.bmp");
-	else LT_Load_Image("GFX/DOTT_EGA.bmp");
+	if (LT_VIDEO_MODE) LT_Load_Image("GFX/INTRO.bmp");
+	else LT_Load_Image("GFX/INTRO_EGA.bmp");
 	if (LT_MUSIC_MODE) LT_Load_Music("music/ADLIB/letsgpcm.imf",1);
 	else LT_Load_Music("music/ADLIB/letsg.imf",0);
 	LT_Clear_Samples();
@@ -151,9 +151,9 @@ void Load_Test(){
 		SINEX[ i ] = 320 * ( (sin( 2.0 * M_PI * i / 256.0 ) + 1.0 ) / 2.0 );
 		SINEY[ i ] = 200 * ( (sin( 2.0 * M_PI * i / 128.0 ) + 1.0 ) / 2.0 );
 	}
-	LT_Load_Map("gfx/wmap.tmx");
-	if (LT_VIDEO_MODE) LT_Load_Tiles("gfx/wmap_t.bmp");
-	//else LT_Load_Tiles("GFX/lisa_EGA.bmp");
+	LT_Load_Map("gfx/lisa.tmx");
+	if (LT_VIDEO_MODE) LT_Load_Tiles("gfx/lisa_VGA.bmp");
+	else LT_Load_Tiles("GFX/lisa_EGA.bmp");
 	LT_Load_Sprite("GFX/ship.bmp",28,32);
 	LT_Clone_Sprite(29,28);
 	LT_Delete_Loading_Interrupt();
@@ -165,8 +165,8 @@ void Load_Test(){
 	LT_MODE = 0;
 	Scene = 0;
 	i = 0;
-	LT_Set_Sprite_Animation(28,4,12,4);
-	LT_Set_Sprite_Animation(29,4,12,4);
+	LT_Set_Sprite_Animation(28,0,8,32);
+	LT_Set_Sprite_Animation(29,0,8,32);
 }
 
 void Run_Test(){
@@ -717,8 +717,8 @@ void Load_Shooter(){
 	
 	LT_Delete_Loading_Interrupt();
 
-	if(LT_VIDEO_MODE)LT_SetWindow("GFX/win_VGA.bmp");
-	else LT_SetWindow("GFX/win_EGA.bmp");
+	if(LT_VIDEO_MODE == 5)LT_SetWindow("GFX/win_VGA.bmp");
+	if ((LT_VIDEO_MODE == 2) || (LT_VIDEO_MODE == 3)) LT_SetWindow("GFX/win_EGA.bmp");
 }
 
 void Run_Shooter(){
@@ -754,10 +754,10 @@ void Run_Shooter(){
 	}
 	
 	//CLOSE SHIP
-	LT_Set_Sprite_Animation(28,1,4,12);
+	LT_Set_Sprite_Animation(28,1,2,16);
 	while (Scene == 1){
 		LT_Draw_Sprites();
-		if (sprite[28].frame == 4) Scene = 2; 
+		if (sprite[28].frame == 2) Scene = 2; 
 		cycle_palette(&cycle_water,2);
 		LT_WaitVsync();
 	}
@@ -776,7 +776,7 @@ void Run_Shooter(){
 	}
 	
 	//START ENGINE
-	LT_Set_Sprite_Animation(28,4,4,5);
+	LT_Set_Sprite_Animation(28,4,2,8);
 	while (Scene == 3){
 		LT_Draw_Sprites();
 
@@ -789,7 +789,7 @@ void Run_Shooter(){
 	//SIDE SCROLL
 	//LT_Start_Music(70);
 	LT_MODE = 3;
-	LT_Set_Sprite_Animation(28,8,4,4);
+	LT_Set_Sprite_Animation(28,6,2,32);
 	while(Scene == 4){
 		SCR_X++;
 		LT_Draw_Sprites();

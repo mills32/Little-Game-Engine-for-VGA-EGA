@@ -4,7 +4,8 @@ Little Game Engine for VGA and 8088/8086/286
 
 This is a very simple "engine" to create MS-DOS games for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses VGA hardware capabilities, and gets rid of some slow techniques that were used at the time, (due to lack of documentation about the VGA card).
 
-I keep updating this with any changes I made, so this is not any final release, it is a bunch of testing menus, stages etc, so keep in mind it will have bugs.
+Warning: I keep updating this with any changes I made, so this is not any final release, it is a bunch of testing menus, stages etc, so keep in mind it will have bugs, missing files...
+
 The predefined keys are: 
 - Move player/menus = UP DOWN LEFT RIGHT arrows.
 - load test in menu/Jump in platform stage = D
@@ -113,7 +114,7 @@ NOTES
 
 Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA, y evita técnicas muy lentas utilizadas en su epoca (por falta de información sobre el funcionamiento de la tarjeta VGA).
 
-Sigo actualizando cualquier cambio y subiendolo aquí, por lo que esta no es ni mucho menos una versión final, sino un montón de menús y pruebas de niveles a medias de terminar (por lo que habrá muchos bugs).
+Advertencia: Sigo actualizando cualquier cambio y subiendolo aquí, por lo que esta no es ni mucho menos una versión final, sino un montón de menús y pruebas de niveles a medias de terminar (por lo que habrá muchos bugs, a veces faltarán archivos etc...).
 
 Las teclas predefinidas son: 
 - Mover jugador/menus = teclas direccionales.

@@ -1,7 +1,7 @@
 # Compiled source #
 ###################
-*.exe
-*.bat
+#*.exe
+#*.bat
 
 # Packages #
 ############
@@ -12,10 +12,10 @@
 
 # GFX and MUSIC #
 ######################
-*.imf
-*.dro
-*.png
-*.tmx
+#*.imf
+#*.dro
+#*.png
+#*.tmx
 
 # OS generated files #
 ######################
