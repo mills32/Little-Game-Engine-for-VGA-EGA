@@ -1,0 +1,22 @@
+all: bin bin\play.exe
+
+clean:
+	-del bin\*.*
+	-rmdir bin
+
+{src}.c{bin}.obj:
+	tcc -G -O2 -IC:\TC\INCLUDE -Isrc -ml -c -o$@ $<
+
+{src}.asm{bin}.obj:
+	tasm /dc $<, $@
+
+# - prefix ignores exit code
+bin:
+	-mkdir bin
+
+bin\play.exe: bin\lt_lib.lib bin\main.obj
+	tlink c0l.obj bin\main.obj bin\lt_lib.lib, bin\play.exe,,emu mathl cl -Lc:\tc\lib
+
+bin\lt_lib.lib: bin\lt_sys.obj bin\lt_key.obj bin\lt_gfx.obj bin\lt_spr.obj bin\lt_sprc.obj bin\lt_sound.obj
+	-@del $@
+	tlib bin\lt_lib.lib +bin\lt_sys.obj+bin\lt_key.obj+bin\lt_gfx.obj+bin\lt_spr.obj+bin\lt_sprc.obj+bin\lt_sound.obj

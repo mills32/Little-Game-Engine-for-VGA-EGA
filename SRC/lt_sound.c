@@ -84,7 +84,7 @@ void Load_Music_Adlib0(char *fname){
 	//long size = 0;
 	word offset = 0;
 	word offset1 = 0;
-	FILE *imfile = fopen(fname, "rb");
+	FILE *imfile = LT_fopen(fname, "rb");
 	unsigned char rb[16];
 	//struct stat filestat;
 	
@@ -97,7 +97,7 @@ void Load_Music_Adlib0(char *fname){
 
 	if (!imfile) LT_Error("Can't find ",fname);
 		
-	if (fread(rb, sizeof(char), 2, imfile) != 2) LT_Error("Error in ",fname);
+	if (LT_fread(rb, sizeof(char), 2, imfile) != 2) LT_Error("Error in ",fname);
 	
 	//IMF
 	if (rb[0] == 0 && rb[1] == 0){
@@ -110,13 +110,13 @@ void Load_Music_Adlib0(char *fname){
 	}
 	
 	//get file size:
-	fseek(imfile, 0L, SEEK_END);
-	LT_music.size = ftell(imfile);
+	LT_fseek(imfile, 0L, SEEK_END);
+	LT_music.size = LT_ftell(imfile);
 	//fstat(fileno(imfile),&filestat);
-    fseek(imfile, 0L, SEEK_SET);
-	fread(LT_music.sdata, 1, LT_music.size,imfile);
+    LT_fseek(imfile, 0L, SEEK_SET);
+	LT_fread(LT_music.sdata, 1, LT_music.size,imfile);
 
-	fclose(imfile);
+	LT_fclose(imfile);
 	
 	for (offset = 0; offset < LT_music.size; offset+= 4){
 		LT_music.sdata[offset1] = LT_music.sdata[offset];
@@ -140,29 +140,29 @@ void Load_Music_Adlib(char *filename){
 	dword size = 0;
 	opl2_clear();
 	memset(vgm_dat2,0,(64*1024));
-	f = fopen(filename,"rb"); if(!f) LT_Error("Can't find file",filename);
-	fseek(f, 0, SEEK_SET);
+	f = LT_fopen(filename,"rb"); if(!f) LT_Error("Can't find file",filename);
+	LT_fseek(f, 0, SEEK_SET);
 	//Check vgm
-	fread(header, 1, 4, f);
+	LT_fread(header, 1, 4, f);
 	if ((header[0] != 0x56) || (header[1] != 0x67) || (header[2] != 0x6d) || (header[3] != 0x20)){
-		fclose(f);LT_Error("Not a VGM file",filename);
+		LT_fclose(f);LT_Error("Not a VGM file",filename);
 	}
 	
 	//get absolute file size, absolute tags offset
-	fread(&size, 1, 4, f); size +=4;
-	fseek(f, 0x14, SEEK_SET);
-	fread(&tag_offset, 1, 4, f);
+	LT_fread(&size, 1, 4, f); size +=4;
+	LT_fseek(f, 0x14, SEEK_SET);
+	LT_fread(&tag_offset, 1, 4, f);
 	if (tag_offset != 0) tag_offset += 0x14;
 	
 	//get loop start loop length.
-	fseek(f, 0x1C, SEEK_SET);
-	fread(&vgm_loop, 1, 2, f);
-	fseek(f, 2, SEEK_CUR);
-	fread(&vgm_loop_size, 1, 2, f);
+	LT_fseek(f, 0x1C, SEEK_SET);
+	LT_fread(&vgm_loop, 1, 2, f);
+	LT_fseek(f, 2, SEEK_CUR);
+	LT_fread(&vgm_loop_size, 1, 2, f);
 	
 	//get absolute data offset.
-	fseek(f, 0x34, SEEK_SET);
-	fread(&data_offset, 1, 4, f);
+	LT_fseek(f, 0x34, SEEK_SET);
+	LT_fread(&data_offset, 1, 4, f);
 	if (!data_offset) data_offset = 0x42;
 	else data_offset+=0x34;
 	
@@ -172,15 +172,15 @@ void Load_Music_Adlib(char *filename){
 	if (size > 0xFFFF) LT_Error("VGM bigger than 64kB",filename);
 	LT_music.size = size;
 	//What chip is it? vgm_chip 1 ym3812; 2 ym3526; 3 y8950; 4 SN76489
-	fseek(f, 0x0C, SEEK_SET);
-	fread(&opl_clock, 1, 4, f);
+	LT_fseek(f, 0x0C, SEEK_SET);
+	LT_fread(&opl_clock, 1, 4, f);
 	//if (!opl_clock) {fclose(f); vgm_ok = 0;return;}
 	//else 
 	//vgm_ok = 1;
 	//Read data to music_data
-	fseek(f, data_offset, SEEK_SET);
-	fread(vgm_dat, 1, LT_music.size, f);
-	fclose(f);
+	LT_fseek(f, data_offset, SEEK_SET);
+	LT_fread(vgm_dat, 1, LT_music.size, f);
+	LT_fclose(f);
 	
 	//Process VGM
 	skip = 0;
@@ -318,29 +318,29 @@ void Load_Music_Tandy(char *filename){
 	dword size = 0;
 	tandy_clear();
 	memset(vgm_dat,0,32768);
-	f = fopen(filename,"rb"); if(!f) LT_Error("Can't find file",filename);
-	fseek(f, 0, SEEK_SET);
+	f = LT_fopen(filename,"rb"); if(!f) LT_Error("Can't find file",filename);
+	LT_fseek(f, 0, SEEK_SET);
 	//Check vgm
-	fread(header, 1, 4, f);
+	LT_fread(header, 1, 4, f);
 	if ((header[0] != 0x56) || (header[1] != 0x67) || (header[2] != 0x6d) || (header[3] != 0x20)){
-		fclose(f);LT_Error("Not a VGM file",filename);
+		LT_fclose(f);LT_Error("Not a VGM file",filename);
 	}
 
 	//get absolute file size, absolute tags offset
-	fread(&size, 1, 4, f); size +=4;
-	fseek(f, 0x14, SEEK_SET);
-	fread(&tag_offset, 1, 4, f);
+	LT_fread(&size, 1, 4, f); size +=4;
+	LT_fseek(f, 0x14, SEEK_SET);
+	LT_fread(&tag_offset, 1, 4, f);
 	if (tag_offset != 0) tag_offset += 0x14;
 	
 	//get loop start loop length.
-	fseek(f, 0x1C, SEEK_SET);
-	fread(&vgm_loop, 1, 2, f);
-	fseek(f, 2, SEEK_CUR);
-	fread(&vgm_loop_size, 1, 2, f);
+	LT_fseek(f, 0x1C, SEEK_SET);
+	LT_fread(&vgm_loop, 1, 2, f);
+	LT_fseek(f, 2, SEEK_CUR);
+	LT_fread(&vgm_loop_size, 1, 2, f);
 	
 	//get absolute data offset.
-	fseek(f, 0x34, SEEK_SET);
-	fread(&data_offset, 1, 4, f);
+	LT_fseek(f, 0x34, SEEK_SET);
+	LT_fread(&data_offset, 1, 4, f);
 	if (!data_offset) data_offset = 0x42;
 	else data_offset+=0x34;
 	
@@ -350,14 +350,14 @@ void Load_Music_Tandy(char *filename){
 	LT_music.size = size;
 	if (LT_music.size > 32767) {vgm_ok = 0; LT_Error("VGM bigger than 32kB",filename);}
 	//What chip is it? vgm_chip 1 ym3812; 2 ym3526; 3 y8950; 4 SN76489
-	fseek(f, 0x0C, SEEK_SET);
-	fread(&opl_clock, 1, 4, f);
-	if (!opl_clock) {fclose(f); vgm_ok = 0;return;}
+	LT_fseek(f, 0x0C, SEEK_SET);
+	LT_fread(&opl_clock, 1, 4, f);
+	if (!opl_clock) {LT_fclose(f); vgm_ok = 0;return;}
 	else vgm_ok = 1;
 	//Read data to music_data
-	fseek(f, data_offset, SEEK_SET);
-	fread(vgm_dat, 1, LT_music.size, f);
-	fclose(f);
+	LT_fseek(f, data_offset, SEEK_SET);
+	LT_fread(vgm_dat, 1, LT_music.size, f);
+	LT_fclose(f);
 	
 	//Process VGM
 	val = 0;

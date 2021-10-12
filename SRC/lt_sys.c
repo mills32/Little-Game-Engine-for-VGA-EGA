@@ -1,5 +1,14 @@
 #include "lt__eng.h"
 
+// defaut content reader functions - stdio
+FILE * (_Cdecl *LT_fopen)(const char *, const char *) = fopen;
+int (_Cdecl *LT_fclose)(FILE *) = fclose;
+int (_Cdecl *LT_fseek)(FILE *, long, int) = fseek;
+int (_Cdecl *LT_fgetc)(FILE *) = fgetc;
+char *(_Cdecl *LT_fgets)(char *ptr, int size, FILE *stream) = fgets;
+int (_Cdecl *LT_fscanf)(FILE *stream, const char *format, ...) = fscanf;
+size_t (_Cdecl *LT_fread)(void *, size_t, size_t, FILE *) = fread;
+
 //debugging
 float t1 = 0;
 float t2 = 0;
@@ -108,7 +117,7 @@ void LT_Text_Mode(){
 void LT_Error(char *error, char *file){
 	asm STI; //enable interrupts
 	LT_Text_Mode();
-	printf("%s %s \n",error,file);
+	fprintf(stderr, "%s %s \n",error,file);
 	sleep(4);
 	LT_ExitDOS();
 }

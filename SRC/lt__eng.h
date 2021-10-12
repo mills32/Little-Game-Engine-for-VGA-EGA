@@ -256,6 +256,19 @@ extern SPRITE *sprite;
 extern unsigned char *LT_tile_tempdata; 
 extern unsigned char *LT_tile_tempdata2; 
 
+// Engine will use these function pointers to access content files
+// they default to stdio.h - re-direct if you have alternate storage (eg: WAD)
+extern FILE* (_Cdecl *LT_fopen)(const char *file, const char *mode);
+extern int (_Cdecl *LT_fclose)(FILE *stream);
+extern int (_Cdecl *LT_fseek)(FILE *stream, long offset, int whence);
+extern int (_Cdecl *LT_fgetc)(FILE *stream);
+extern char *(_Cdecl *LT_fgets)(char *ptr, int size, FILE *stream);
+extern int (_Cdecl *LT_fscanf)(FILE *stream, const char *format, ...);
+extern size_t (_Cdecl *LT_fread)(void *ptr, size_t size, size_t count, FILE *stream);
+
+// lt_wad.c redirector
+void LT_Use_WAD();
+
 void LT_Adlib_Detect();
 void LT_Check_CPU();
 void LT_Setup();

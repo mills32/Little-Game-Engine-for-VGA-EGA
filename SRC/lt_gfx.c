@@ -163,17 +163,17 @@ void LT_Header_BMP(FILE *fp,int mode, int sprite_number){
 	if (mode > 2){width = &_width; height = &_height;}
 	
 	//Read header
-	fread(&header, sizeof(word), 1, fp);
+	LT_fread(&header, sizeof(word), 1, fp);
 	if (header != 0x4D42) LT_Error("Not a BMP file",LT_Filename);
-	fseek(fp, 16, SEEK_CUR);
-	fread(width, sizeof(word), 1, fp);
-	fseek(fp, 2, SEEK_CUR);
-	fread(height,sizeof(word), 1, fp);
-	fseek(fp, 4, SEEK_CUR);
-	fread(&pixel_format,sizeof(byte), 1, fp);
-	fseek(fp, 17, SEEK_CUR);
-	fread(&num_colors,sizeof(word), 1, fp);
-	fseek(fp, 6, SEEK_CUR);
+	LT_fseek(fp, 16, SEEK_CUR);
+	LT_fread(width, sizeof(word), 1, fp);
+	LT_fseek(fp, 2, SEEK_CUR);
+	LT_fread(height,sizeof(word), 1, fp);
+	LT_fseek(fp, 4, SEEK_CUR);
+	LT_fread(&pixel_format,sizeof(byte), 1, fp);
+	LT_fseek(fp, 17, SEEK_CUR);
+	LT_fread(&num_colors,sizeof(word), 1, fp);
+	LT_fseek(fp, 6, SEEK_CUR);
 
 	if (num_colors==0)  num_colors=256;
 	if (num_colors > 256) LT_Error("Image has more than 256 colors",LT_Filename);
@@ -218,15 +218,15 @@ void LT_Header_BMP(FILE *fp,int mode, int sprite_number){
 	for(index=first_color;index<first_color+num_colors;index++){
 		if (index-first_color == pal_colors) get_pal = 0;
 		if (get_pal){
-			LT_tileset_palette[(int)(index*3+2)] = fgetc(fp) >> 2;
-			LT_tileset_palette[(int)(index*3+1)] = fgetc(fp) >> 2;
-			LT_tileset_palette[(int)(index*3+0)] = fgetc(fp) >> 2;
+			LT_tileset_palette[(int)(index*3+2)] = LT_fgetc(fp) >> 2;
+			LT_tileset_palette[(int)(index*3+1)] = LT_fgetc(fp) >> 2;
+			LT_tileset_palette[(int)(index*3+0)] = LT_fgetc(fp) >> 2;
 		} else {
-			fgetc(fp);
-			fgetc(fp);
-			fgetc(fp);
+			LT_fgetc(fp);
+			LT_fgetc(fp);
+			LT_fgetc(fp);
 		}
-		fgetc(fp);
+		LT_fgetc(fp);
 	}
 }
 
@@ -263,7 +263,7 @@ void LT_Load_Animation(char *file){
 	
 	LT_Filename = file;
 	
-	fp = fopen(file,"rb");
+	fp = LT_fopen(file,"rb");
 	if(!fp) LT_Error("Can't find ",file);
 	LT_Header_BMP(fp,4,0);
 	if (LT_VIDEO_MODE < 2) {width = 128; w = 7;}
@@ -271,7 +271,7 @@ void LT_Load_Animation(char *file){
 	
 	for(index=31*64;index>=0;index-=64){
 		for(x=0;x<64;x++){
-			unsigned char c = (byte)fgetc(fp);
+			unsigned char c = (byte)LT_fgetc(fp);
 			if (LT_VIDEO_MODE == 1){
 				LT_tile_tempdata[(index+x<<1)]   = ((c & 0xF0)>>4) + 248; //1111 0000c
 				LT_tile_tempdata[(index+x<<1)+1] =  (c & 0x0F)     + 248; //0000 1111c Animation colors from 248 to 251
@@ -286,7 +286,7 @@ void LT_Load_Animation(char *file){
 		}
 	}
 	
-	fclose(fp);
+	LT_fclose(fp);
 	
 	index = 0; //use a chunk of temp allocated RAM to rearrange the sprite frames
 	//Rearrange sprite frames one after another in temp memory
@@ -764,7 +764,7 @@ void LT_Load_Font(char *file){
 	
 	LT_Filename = file;
 	
-	fp = fopen(file,"rb");
+	fp = LT_fopen(file,"rb");
 	
 	if(!fp)LT_Error("Can't find ",file);
 	
@@ -773,12 +773,12 @@ void LT_Load_Font(char *file){
 	//LOAD TO TEMP RAM
 	x = 0; //data offset
 	for (offset = 0; offset < 128*32/2; offset ++){
-		unsigned char c = fgetc(fp); //it is a 4 bit BMP, every byte contains 2 pixels
+		unsigned char c = LT_fgetc(fp); //it is a 4 bit BMP, every byte contains 2 pixels
 		LT_tile_tempdata[x  ] = (((c & 0xF0)>>4)); //1111 0000
 		LT_tile_tempdata[x+1] =  ((c & 0x0F)    ); //0000 1111
 		x+=2;
 	}
-	fclose(fp);
+	LT_fclose(fp);
 
 	//COPY TO VRAM
 	w = 16;
@@ -1635,22 +1635,22 @@ void LT_Load_Image(char *file){
 	word y = 0;
 	byte plane = 0;
 	dword offset = 0;
-	dword offset_Image = 0;
+	//dword offset_Image = 0;
 	FILE *fp;
 	
 	LT_Filename = file;
 	
 	//Open the same file with ".ega" extension for ega
-	fp = fopen(file,"rb");
+	fp = LT_fopen(file,"rb");
 	if(!fp)LT_Error("Can't find ",file);
 	LT_Header_BMP(fp,0,0);
 
-	offset_Image = ftell(fp);
+	offset_Image = LT_ftell(fp);
 	
 	//COPY TO VGA VRAM
 	h = LT_tileset_height;
-	fseek(fp,offset_Image,SEEK_SET);
-	fread(&LT_tile_tempdata[0],sizeof(unsigned char),320*200, fp);
+	LT_fseek(fp,offset_Image,SEEK_SET);
+	LT_fread(&LT_tile_tempdata[0],sizeof(unsigned char),320*200, fp);
 	
 	if (LT_VIDEO_MODE == 0){
 		asm CLI //disable interrupts so that loading animation does not interfere
@@ -1762,7 +1762,7 @@ void LT_Load_Image(char *file){
 		}
 	}	
 	
-	fclose(fp);
+	LT_fclose(fp);
 	LT_Loaded_Image = 1;
 }
 
@@ -1785,7 +1785,7 @@ void LT_Load_Tiles_EGA_VGA(char *file){
 	LT_Filename = file;
 	
 	//Open the same file with ".ega" extension for ega
-	fp = fopen(file,"rb");
+	fp = LT_fopen(file,"rb");
 	
 	if(!fp)LT_Error("Can't find ",file);
 	
@@ -1794,9 +1794,9 @@ void LT_Load_Tiles_EGA_VGA(char *file){
 	LT_tileset_ntiles = (LT_tileset_width>>4) * (LT_tileset_height>>4);
 
 	//LOAD TO TEMP RAM
-	fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*LT_tileset_height, fp);
+	LT_fread(&LT_tile_tempdata[0],sizeof(unsigned char), LT_tileset_width*LT_tileset_height, fp);
 	
-	fclose(fp);
+	LT_fclose(fp);
 	//COPY TO VGA VRAM
 	w = LT_tileset_width>>4;
 	h = LT_tileset_height>>4;
@@ -1936,7 +1936,7 @@ void LT_unload_tileset(){
 //Load tiled TMX map in CSV format
 //Be sure bkg layer map is the first to be exported, (before collision layer map)
 void LT_Load_Map(char *file){ 
-	FILE *f = fopen(file, "rb");
+	FILE *f = LT_fopen(file, "rb");
 	word start_bkg_data = 0;
 	word start_col_data = 0;
 	word tile;
@@ -1950,10 +1950,10 @@ void LT_Load_Map(char *file){
 	if(!f) LT_Error("Can't find ",file);
 	
 	//read file
-	fseek(f, 0, SEEK_SET);			
+	LT_fseek(f, 0, SEEK_SET);
 	while(start_bkg_data == 0){	//read lines 
 		memset(line, 0, 64);
-		fgets(line, 64, f);
+		LT_fgets(line, 64, f);
 		if((line[1] == '<')&&(line[2] == 't')){ // get tilecount
 			sscanf(line," <tileset firstgid=\"%i[^\"]\" name=\"%24[^\"]\" tilewidth=\"%i[^\"]\" tileheight=\"%i[^\"]\" tilecount=\"%i[^\"]\"",&tilecount,&tilecount,&tilecount,&tilecount,&tilecount);
 		}
@@ -1970,25 +1970,25 @@ void LT_Load_Map(char *file){
 			LT_Error("Error, map must be 256x19",0);
 		}
 	}
-	fgets(line, 64, f); //skip line: <data encoding="csv">
+	LT_fgets(line, 64, f); //skip line: <data encoding="csv">
 
 	//read tile array
 	if (LT_VIDEO_MODE == 0){//Store actual tile addresses, to avoid calculations
 		for (index = 0; index < LT_map_ntiles; index++){
-			fscanf(f, "%i,",&tile);
+			LT_fscanf(f, "%i,",&tile);
 			LT_map_data[index  ] = TILE_VRAM + ((tile -1)<<5); 
 		}
 	}
 	if (LT_VIDEO_MODE == 1){//Store actual tile addresses, to avoid calculations
 		for (index = 0; index < LT_map_ntiles; index++){
-			fscanf(f, "%i,",&tile);
+			LT_fscanf(f, "%i,",&tile);
 			LT_map_data[index  ] = TILE_VRAM + ((tile -1)<<6); 
 		}
 	}
 	if (LT_VIDEO_MODE == 4){
 		word a = 0;word w = 0;
 		for (index = 0; index < LT_map_ntiles; index++){
-			fscanf(f, "%i,",&tile);
+			LT_fscanf(f, "%i,",&tile);
 			a = (tile-1)<<2;
 			w = LT_map_width<<1;
 			LT_map_data[tindex  ] = a;LT_map_data[tindex+1] = a+2;
@@ -2001,20 +2001,20 @@ void LT_Load_Map(char *file){
 	//skip 
 	while(start_col_data == 0){	//read lines 
 		memset(line, 0, 64);
-		fgets(line, 64, f);
+		LT_fgets(line, 64, f);
 		if((line[1] == '<')&&(line[2] == 'l')){
 			sscanf(line," <layer name=\"%24[^\"]\" width=\"%i\" height=\"%i\"",&name,&LT_map_width,&LT_map_height);
 			start_col_data = 1;
 		}
 	}
-	fgets(line, 64, f); //skip line: <data encoding="csv">
+	LT_fgets(line, 64, f); //skip line: <data encoding="csv">
 	
 	//read collision array
 	for (index = 0; index < LT_map_ntiles; index++){
-		fscanf(f, "%d,", &tile);
+		LT_fscanf(f, "%d,", &tile);
 		LT_map_collision[index] = tile -tilecount;
 	}
-	fclose(f);
+	LT_fclose(f);
 }
 
 void LT_unload_map(){
