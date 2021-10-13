@@ -1,4 +1,4 @@
-all: bin bin\play.exe
+all: bin bin\play.exe bin\GAME.WAD
 
 clean:
 	-del bin\*.*
@@ -20,3 +20,11 @@ bin\play.exe: bin\lt_lib.lib bin\main.obj
 bin\lt_lib.lib: bin\lt_sys.obj bin\lt_key.obj bin\lt_gfx.obj bin\lt_spr.obj bin\lt_sprc.obj bin\lt_sound.obj
 	-@del $@
 	tlib bin\lt_lib.lib +bin\lt_sys.obj+bin\lt_key.obj+bin\lt_gfx.obj+bin\lt_spr.obj+bin\lt_sprc.obj+bin\lt_sound.obj
+
+bin\GAME.WAD: bin\makewad.exe
+	bin\makewad.exe -w $@ GFX/* MUSIC/ADLIB/* MUSIC/samples/*
+
+bin\makewad.exe: makewad.c
+	cd bin
+	tcc -ml ../makewad.c
+	cd ..
