@@ -87,6 +87,20 @@ sb_load_sample("other.wav");
 ```
 Then you can load more samples for sfx, but remember you can only play one sound, so they will interrupt each other.
 
+Install, Make and Run
+---------------
+* Install the required compiler in drive C:
+	```
+	Borland Turbo C++ 3.0
+	Borland Turbo Assembler 2.0 
+	```
+* Assuming you run DOSBOX, install TC++ and TASM on drive C: 
+	```
+	set PATH=Z:\;C:\TC\BIN;C:\TASM
+	```
+* Go to project dir then `make`
+* If nothing goes wrong, working `play.exe` should exist
+
 NOTES
 -----
 - 	Read source to see how the functions are used in the samples, I tried to leave it as simple as possible.
@@ -100,7 +114,7 @@ NOTES
 	Doing this, a lot of malloc trouble is fixed, the code is simplified and the engine works like a console.
 	So every time you load a map, tileset or music, the last one is overwritten.
 -	If a bmp is loaded as an image, map data will be erased.	
-	
+
 "Little Game Engine" para VGA y 8088/8086/286
 ---------------------------------------------
 
