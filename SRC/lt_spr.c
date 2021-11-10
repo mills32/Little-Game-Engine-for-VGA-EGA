@@ -76,7 +76,7 @@ int LT_Spr_speed[] = {
 	-1,-1,-1, 0, 0,-1,-1,-1,
 	-1, 0,-1,-1,-1, 0,-1, 0,
 	-1, 0,-1, 0,-1, 0,-1, 0,
-	-1, 0, 0,-1, 0, 0, 1, 0,	
+	-1, 0, 0,-1, 0, 0,-1, 0,	
 	-1, 0, 0, 0,-1, 0, 0, 0,
 	-1, 0, 0, 0, 0, 0, 0, 0,
 	
@@ -99,6 +99,7 @@ int LT_Spr_speed[] = {
 	2,2,2,2,1,2,2,2,
 	2,2,3,2,2,3,2,2,	//8x32
 };
+
 
 int LT_wmap = 0;
 int LT_hmap = 0;//91.888
@@ -948,8 +949,10 @@ void LT_Set_AI_Sprites(byte first_type, byte second_type, byte mode_0, byte mode
 extern word TILE_VRAM;
 
 byte LT_Player_Dir = 0;
+byte LT_Slope_Timer = 0; //A dirty way of making big slopes or long conveyor belts impossible to cross
 LT_Sprite_State LT_move_player(int sprite_number){
 	SPRITE *s = &sprite[sprite_number];
+	byte slope_speed = 16; //A dirty way of making big slopes or long conveyor belts impossible to cross
 	int tsize = 4;//16
 	LT_Sprite_State LT_Collision;
 	byte col_x = 0;
@@ -1151,6 +1154,7 @@ LT_Sprite_State LT_move_player(int sprite_number){
 		tile_number_HD = 0;
 		if (LT_Spr_speed_float == 4) LT_Spr_speed_float = 0;
 		col_y = 0; col_x = 0;
+		
 		//UP
 		if (LT_Keys[LT_UP]){ LT_Collision.move = 1; if (s->speed_y>8) s->speed_y-=8;}
 		//DOWN
@@ -1162,24 +1166,27 @@ LT_Sprite_State LT_move_player(int sprite_number){
 		
 		//Tile physics
 		if(LT_Spr_speed_float&1){
+			if (LT_Slope_Timer < 8) slope_speed = 16;
+			else slope_speed = 24;
 			switch (tilecol_number){
 				case 0://Flat tile, friction
-					if (s->speed_y < 128) s->speed_y+=4;
-					if (s->speed_y > 128) s->speed_y-=4;
-					if (s->speed_x < 128) s->speed_x+=4;
-					if (s->speed_x > 128) s->speed_x-=4;
+					if (s->speed_y < 128) s->speed_y+=8;
+					if (s->speed_y > 128) s->speed_y-=8;
+					if (s->speed_x < 128) s->speed_x+=8;
+					if (s->speed_x > 128) s->speed_x-=8;
+					LT_Slope_Timer = 0;
 				break;
 				//breakable block
 				case 5:  break;
 				//UP
-				case 6: if (s->speed_y>16) s->speed_y-=16; break;
+				case 6: if (s->speed_y>16) s->speed_y-=slope_speed; LT_Slope_Timer++; break;
 				//DOWN
-				case 7: if (s->speed_y<8*30) s->speed_y+=16;break;
+				case 7: if (s->speed_y<8*30) s->speed_y+=slope_speed; LT_Slope_Timer++; break;
 				//LEFT
-				case 8: if (s->speed_x>16) s->speed_x-=16;break;
+				case 8: if (s->speed_x>16) s->speed_x-=slope_speed; LT_Slope_Timer++; break;
 				//RIGHT
-				case 9: if (s->speed_x<8*30) s->speed_x+=16;break;
-			}
+				case 9: if (s->speed_x<8*30) s->speed_x+=slope_speed; LT_Slope_Timer++; break;
+			} 
 		}
 		
 		if (s->speed_x < 128){
@@ -1188,13 +1195,13 @@ LT_Sprite_State LT_move_player(int sprite_number){
 			tile_number_HD = LT_map_collision[(((s->pos_y+siz)>>tsize) <<8) + x];
 			if ((tile_number_HU==1) || (tile_number_HD==1)) s->speed_x = 8*21;
 		} else if (s->speed_x > 128){
-			x = (s->pos_x+size-1)>>tsize;
+			x = (s->pos_x+size)>>tsize;
 			tile_number_HU = LT_map_collision[((s->pos_y>>tsize) <<8) + x];
 			tile_number_HD = LT_map_collision[(((s->pos_y+siz)>>tsize) <<8) + x];
 			if ((tile_number_HU==1) || (tile_number_HD==1)) s->speed_x = 8*11;
 		}
 		if (s->speed_y < 128){
-			y = (s->pos_y-1)>>tsize;
+			y = (s->pos_y)>>tsize;
 			tile_number_VR = LT_map_collision[( y <<8) + ((s->pos_x+siz)>>tsize)];
 			tile_number_VL = LT_map_collision[( y <<8) + (s->pos_x>>tsize)];
 			if ((tile_number_VR==1) || (tile_number_VL==1)) s->speed_y = 8*21;
