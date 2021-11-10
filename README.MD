@@ -2,6 +2,8 @@
 Little Game Engine for VGA and 8088/8086/286
 --------------------------------------------
 
+<img src="play_011.png">
+
 This is a very simple "engine" to create MS-DOS games for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses VGA hardware capabilities, and gets rid of some slow techniques that were used at the time, such as redrawing the entire screen (due to lack of documentation about the VGA card).
 
 Major update: I got rid of sprite flickering by using page flipping, but only for the sprites. The rest is still very fast and I can consider this the first more or less stable version. Also I dropped EGA support, EGA can copy 8 pixels at a time from VRAM to VRAM, but is is still slower than VGA, and sprite drawing is a nightmare. If you want a game engine that uses EGA for slow PCs, use editors like abiathar to create your game by modding commander keen.
@@ -69,7 +71,7 @@ Warning!: samples are stored in "LT_tile_tempdata" and they will be overwritten 
 
 PCM Drums
 ---------
-If you activate SOUND BLASTE music, Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
+If you activate SOUND BLASTER music, Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
 
 This function uses "0xB0, 0xB1 and 0xB2" instructions from the IMF file, to play samples number "0, 1 or 2". If one of these values have been read by the music player, a "set frequency" instruction has been sent to the OPL chip channel ("0, 1 or 2"), and the music player will play the first, second or the third sample.
 
@@ -85,6 +87,20 @@ sb_load_sample("other.wav");
 ```
 Then you can load more samples for sfx, but remember you can only play one sound, so they will interrupt each other.
 
+Install, Make and Run
+---------------
+* Install the required compiler in drive C:
+	```
+	Borland Turbo C++ 3.0
+	Borland Turbo Assembler 2.0 
+	```
+* Assuming you run DOSBOX, install TC++ and TASM on drive C: 
+	```
+	set PATH=Z:\;C:\TC\BIN;C:\TASM
+	```
+* Go to project dir then `make`
+* If nothing goes wrong, working `play.exe` should exist
+
 NOTES
 -----
 - 	Read source to see how the functions are used in the samples, I tried to leave it as simple as possible.
@@ -98,7 +114,7 @@ NOTES
 	Doing this, a lot of malloc trouble is fixed, the code is simplified and the engine works like a console.
 	So every time you load a map, tileset or music, the last one is overwritten.
 -	If a bmp is loaded as an image, map data will be erased.	
-	
+
 "Little Game Engine" para VGA y 8088/8086/286
 ---------------------------------------------
 
@@ -165,8 +181,8 @@ He añadido la reproducción de samples utilizando Sound Blaster, y no es posibl
 
 Atención!: los samples de audio son almacenados en "LT_tile_tempdata" y seran sobreescritos si se carga un mapa o un sprite, así que carga los samples despues de haber cargado tus mapas/sprites.
 
-PCM Drums
----------
+Percusión PCM
+-------------
 
 Si activas la música SOUND BLASTER, la Sound Blaster reproducirá samples de audio sincronizados con la música. De esta forma puedes añadir sonidos de percusión a la musica adlib para que suene aun mejor :).
 
@@ -184,7 +200,19 @@ sb_load_sample("other.wav");
 ```
 Después puedes cargar más samples para efectos en el juego, pero ya sabes que se van a interrumpir unos a otros.
 
-
+Instalación, compilar y ejecutar
+---------------
+* Instala el compilador en el disco C:
+	```
+	Borland Turbo C++ 3.0
+	Borland Turbo Assembler 2.0 
+	```
+* Suponiendo que utilizas DOSBOX, instala TC++ y TASM en el disco C: 
+	```
+	set PATH=Z:\;C:\TC\BIN;C:\TASM
+	```
+* Ve al directorio del proyecto y escribe `make`
+* Si todo va bien, un archivo llamado `play.exe` aparecerá en el directorio.
 
 NOTAS
 -----
