@@ -71,7 +71,7 @@ Warning!: samples are stored in "LT_tile_tempdata" and they will be overwritten 
 
 PCM Drums
 ---------
-If you activate SOUND BLASTE music, Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
+If you activate SOUND BLASTER music, Sound Blaster will play audio samples sincronized with music. This way you can add PCM drums to the adlib music so that it sounds even better :).
 
 This function uses "0xB0, 0xB1 and 0xB2" instructions from the IMF file, to play samples number "0, 1 or 2". If one of these values have been read by the music player, a "set frequency" instruction has been sent to the OPL chip channel ("0, 1 or 2"), and the music player will play the first, second or the third sample.
 
@@ -181,8 +181,8 @@ He añadido la reproducción de samples utilizando Sound Blaster, y no es posibl
 
 Atención!: los samples de audio son almacenados en "LT_tile_tempdata" y seran sobreescritos si se carga un mapa o un sprite, así que carga los samples despues de haber cargado tus mapas/sprites.
 
-PCM Drums
----------
+Percusión PCM
+-------------
 
 Si activas la música SOUND BLASTER, la Sound Blaster reproducirá samples de audio sincronizados con la música. De esta forma puedes añadir sonidos de percusión a la musica adlib para que suene aun mejor :).
 
@@ -200,7 +200,19 @@ sb_load_sample("other.wav");
 ```
 Después puedes cargar más samples para efectos en el juego, pero ya sabes que se van a interrumpir unos a otros.
 
-
+Instalación, compilar y ejecutar
+---------------
+* Instala el compilador en el disco C:
+	```
+	Borland Turbo C++ 3.0
+	Borland Turbo Assembler 2.0 
+	```
+* Suponiendo que utilizas DOSBOX, instala TC++ y TASM en el disco C: 
+	```
+	set PATH=Z:\;C:\TC\BIN;C:\TASM
+	```
+* Ve al directorio del proyecto y escribe `make`
+* Si todo va bien, un archivo llamado `play.exe` aparecerá en el directorio.
 
 NOTAS
 -----
