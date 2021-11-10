@@ -2,6 +2,8 @@
 Little Game Engine for VGA and 8088/8086/286
 --------------------------------------------
 
+<img src="play_011.png">
+
 This is a very simple "engine" to create MS-DOS games for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses VGA hardware capabilities, and gets rid of some slow techniques that were used at the time, such as redrawing the entire screen (due to lack of documentation about the VGA card).
 
 Major update: I got rid of sprite flickering by using page flipping, but only for the sprites. The rest is still very fast and I can consider this the first more or less stable version. Also I dropped EGA support, EGA can copy 8 pixels at a time from VRAM to VRAM, but is is still slower than VGA, and sprite drawing is a nightmare. If you want a game engine that uses EGA for slow PCs, use editors like abiathar to create your game by modding commander keen.
