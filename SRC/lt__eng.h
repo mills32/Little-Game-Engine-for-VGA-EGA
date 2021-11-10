@@ -103,6 +103,13 @@
 #define LT_LEFT				0x4B
 #define LT_RIGHT			0x4D
 
+//SPRITE ACTIONS
+#define LT_SPR_STOP			0x00
+#define LT_SPR_UP			0x01
+#define LT_SPR_DOWN			0x02
+#define LT_SPR_LEFT			0x03
+#define LT_SPR_RIGHT		0x04
+
 
 /* macro to write a word to a port */
 #define word_out(port,register,value) \
@@ -111,7 +118,6 @@
 extern int Free_RAM;
 extern int SCR_X;
 extern int SCR_Y;
-extern float t1,t2; //debug
 extern int LT_SIN[]; 
 extern int LT_COS[]; 
 
@@ -133,6 +139,10 @@ extern byte LT_BLASTER_PORT;
 extern byte LT_BLASTER_IRQ;
 extern byte LT_BLASTER_DMA;
 extern byte LT_LANGUAGE;
+extern byte LT_ENDLESS_SIDESCROLL;
+extern byte LT_IMAGE_MODE;	//0 map; 1 image
+extern byte LT_SPRITE_MODE; //0 fast, no delete; 1 slow, delete
+extern int LT_Text_Speak_End;
 extern word LT_Scanline;
 extern word LT_tileset_width;
 extern word LT_tileset_height;
@@ -142,12 +152,13 @@ extern byte *LT_tileset_data;
 extern word LT_map_width;
 extern word LT_map_height;
 extern word LT_map_ntiles;
-extern byte *LT_map_data;
+extern word *LT_map_data;
 extern byte *LT_map_collision;
 extern byte LT_AI_Sprite[];
 extern byte LT_AI_Stack;
 extern byte LT_Sprite_Stack;
 extern byte LT_Sprite_Stack_Table[];
+extern int LT_PC_Speaker_Playing;
 
 typedef struct tagANIMATION{			// structure for an animation
 	word width;
@@ -166,12 +177,6 @@ typedef struct tagANIMATION{			// structure for an animation
 	byte *data;	
 } ANIMATION;
 
-typedef struct tagCOLORCYCLE{			// structure for colour cycle
-	byte frame;
-	byte counter;
-	const unsigned char *palette;
-} COLORCYCLE;
-
 typedef struct tagSPRITEFRAME{			// structure for a sprite frame
 	char *compiled_code;
 } SPRITEFRAME;
@@ -179,7 +184,6 @@ typedef struct tagSPRITEFRAME{			// structure for a sprite frame
 typedef struct tagSPRITE{				// structure for a sprite
 	word width;
 	word height;
-	byte palette[256*3];
 	word init;	//init sprite to captute bak data
 	word animate;
 	word speed;
@@ -202,25 +206,28 @@ typedef struct tagSPRITE{				// structure for a sprite
 	word pos_y;
 	word last_x;
 	word last_y;
-	float fpos_x;
-	float fpos_y;
+	word last_last_x;
+	word last_last_y;
 	int mspeed_x;
 	int mspeed_y;
 	int speed_x;
 	int speed_y;
 	word s_x;		//To control speed
 	word s_y;
-	word misc;
-	word state;		//0 no speed
+	word fixed_sprite_number;
+	word state;		//Motion
 	word frame;
+	word last_frame;
 	word nframes;
-	word bkg_data;	//restore bkg variables
+	byte animations[64];
+	word bkg_data;	//restore bkg
+	char *bkg_cgadata;	//restore bkg cga
 	word size;
 	word siz;
 	word next_scanline;
 	word s_delete;
 	word code_size;
-	SPRITEFRAME frames[24];	
+	SPRITEFRAME frames[32];	
 } SPRITE;
 
 typedef struct tagIMFsong{				// structure for adlib IMF song, or MOD pattern data
@@ -230,12 +237,17 @@ typedef struct tagIMFsong{				// structure for adlib IMF song, or MOD pattern da
 	byte *sdata;
 } IMFsong;
 
-typedef struct tagLT_Col{				// structure to return collision data
+typedef struct tagLT_Sprite_State{				// structure to return collision data
 	byte tile_number;	
 	byte tilecol_number;	
 	byte col_x;
-	byte col_y;	
-} LT_Col;
+	byte col_y;
+	byte hit;
+	byte jump;
+	byte action;
+	byte move;	//0 1 2 3 4: Stop U D L R 
+	byte ground;
+} LT_Sprite_State;
 
 extern IMFsong LT_music;	
 		
@@ -256,12 +268,11 @@ void LT_Delete_Scanline_Interrupt();
 
 
 //EGA/VGA Hardware scroll
+void LT_Update(int sprite_follow, int sprite);
 void VGA_Scroll(word x, word y);
 extern void (*LT_WaitVsync)(void);
-void LT_WaitVsync0_EGA();
-void LT_WaitVsync0_VGA();
-void LT_WaitVsync1_EGA();
-void LT_WaitVsync1_VGA();
+void LT_WaitVsync_VGA();
+void LT_WaitVsync_SVGA();
 void VGA_ClearScreen();
 void VGA_SplitScreen();
 
@@ -270,73 +281,59 @@ void LT_ExitDOS();
 
 // GFX
 void LT_Load_Image(char *file);
-void LT_Load_Animation(char *file, byte size);
-void LT_Set_Animation(byte baseframe, byte frames, byte speed);
-void LT_Unload_Animation();
+void LT_Load_Animation(char *file);
+void LT_Set_Animation(byte speed);
 void LT_SetWindow(char *file);
 void LT_MoveWindow(int line);
 void LT_ResetWindow();
 void LT_Load_Font(char *file);
 extern void (*LT_Print_Window_Variable)(byte,word);
-void LT_Print_Window_Variable_EGA(byte x, word var);
 void LT_Print_Window_Variable_VGA(byte x, word var);
-extern void (*LT_Print)(word,word,char*,byte);
-void LT_Print_EGA(word x, word y, char *string, byte win);
-void LT_Print_VGA(word x, word y, char *string, byte win);
-void LT_Draw_Text_Box(byte x, byte y, byte w, byte h,byte win);
+void LT_Draw_Text_Box(word x, word y, byte w, byte h, byte mode, char *string);
+void LT_Delete_Text_Box(word x, word y, byte w, byte h);
 void LT_Load_Tiles(char *file);
 void LT_unload_tileset();
 void LT_Load_Map(char *file);
-void LT_Set_Map(int x, int y);
+void LT_Set_Map(int x);
 extern void (*LT_Edit_MapTile)(word,word,byte,byte);
-void LT_Edit_MapTile_EGA(word x, word y, byte ntile, byte col);
 void LT_Edit_MapTile_VGA(word x, word y, byte ntile, byte col);
-extern void (*draw_map_column)(word, word, word);
-extern void (*draw_map_row)(word, word, word);
-void draw_map_column_vga(word x, word y, word map_offset);
-void draw_map_column_ega(word x, word y, word map_offset);
-void draw_map_row_vga(word x, word y, word map_offset);
-void draw_map_row_ega(word x, word y, word map_offset);
+extern void (*draw_map_column)(word, word, word, word);
+void draw_map_column_vga(word x, word y, word map_offset, word ntiles);
 void LT_unload_map();
-void LT_scroll_map();
+void LT_Scroll_Map();
 void LT_Endless_SideScroll_Map(int y);
 
 //palettes
 void VGA_ClearPalette();                                                           
 void set_palette(unsigned char *palette);
 extern void (*LT_Fade_in)(void);
-void LT_Fade_in_EGA();
 void LT_Fade_in_VGA();
 extern void (*LT_Fade_out)(void);
-void LT_Fade_out_EGA();
 void LT_Fade_out_VGA();
-void cycle_init(COLORCYCLE *cycle,const unsigned char *palette);
-void cycle_palette(COLORCYCLE *cycle, byte speed);
-void VGA_EGAMODE_CustomPalette(unsigned char *palette);
+void LT_Cycle_palette(byte palnum, byte speed);
+void LT_Parallax();
 
 //SPRITE
-void LT_Load_Sprite(char *file,int sprite_number, byte size);
+void LT_Load_Sprite(char *file,int sprite_number,byte *animations);
 void LT_Clone_Sprite(int sprite_number_c,int sprite_number);
 void LT_Init_Sprite(int sprite_number,int x,int y);
-void LT_Set_Sprite_Animation(int sprite_number, byte baseframe, byte frames, byte speed);
+void LT_Set_Sprite_Animation(int sprite_number, byte anim);
+void LT_Set_Sprite_Animation_Speed(int sprite_number,byte speed);
+void LT_Sprite_Stop_Animation(int sprite_number);
 extern void (*LT_Draw_Sprites)(void);
-void LT_Draw_Sprites_EGA();
 void LT_Draw_Sprites_VGA();
-void LT_Draw_Sprites_Fast();
+extern void (*LT_Draw_Sprites_Fast)(void);
+void LT_Draw_Sprites_Fast_VGA();
 void LT_Get_Item(int sprite_number, byte ntile, byte col);
-void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int sy);
-void LT_Set_AI_Sprites(byte first_ai, byte number_ai);
-void LT_Unset_AI_Sprite(byte sprite_number);
-LT_Col LT_move_player(int sprite_number);
-LT_Col LT_Bounce_Ball(int sprite_number);
+//void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int sy);
+void LT_Set_AI_Sprites(byte first_type, byte second_type, byte mode_0, byte mode_1);
+LT_Sprite_State LT_move_player(int sprite_number);
+//LT_Sprite_State LT_Bounce_Ball(int sprite_number);
 int LT_Player_Col_Enemy();
-void LT_Update_AI_Sprites();
 void LT_Reset_Sprite_Stack();
-void LT_Reset_AI_Stack();
 extern void (*LT_Delete_Sprite)(int);
-void LT_Delete_Sprite_EGA(int sprite_number);
 void LT_Delete_Sprite_VGA(int sprite_number);
-void LT_unload_sprite(int sprite_number);
+void LT_Unload_Sprites();
 void LT_scroll_follow(int sprite_number);
 
 //ADLIB 

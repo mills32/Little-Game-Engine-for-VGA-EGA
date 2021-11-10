@@ -19,13 +19,21 @@ long next_event;
 long LT_imfwait;
 
 void opl2_out(unsigned char reg, unsigned char data){
-	asm mov ah,0
 	asm mov dx, 00388h
 	asm mov al, reg
 	asm out dx, al
+	
+	//Wait at least 3.3 microseconds
+	asm mov cx,6
+	wait:
+		asm in ax,dx
+		asm loop wait	//for (i = 0; i < 6; i++) inp(lpt_ctrl);
+	
 	asm inc dx
 	asm mov al, data
 	asm out dx, al
+	
+	//for( i = 35; i ; i-- )inport(0x388);
 }
 
 void opl2_clear(void){
@@ -306,7 +314,7 @@ void assign_dma_buffer(){
 
 void sb_init(){
 	sb_detect();
-	init_irq();
+	//init_irq();
 	assign_dma_buffer();
 	write_dsp( SB_ENABLE_SPEAKER );
 }
@@ -319,7 +327,7 @@ void sb_set_freq(int freq){
 void sb_deinit(){
 	write_dsp( SB_DISABLE_SPEAKER );
 	//free( dma_buffer );
-	deinit_irq();
+	//deinit_irq();
 }
 
 void LT_Clear_Samples(){
@@ -344,6 +352,7 @@ void sb_load_sample(char *file_name){
 void sb_play_sample(char sample_number, int freq){
 	int pos = sample[sample_number].offset;
 	int length = sample[sample_number].size -1;
+	if (LT_SFX_MODE == 2){
 	//if (!playing) {
 		playing = 1;
 		
@@ -368,6 +377,7 @@ void sb_play_sample(char sample_number, int freq){
 		write_dsp(length & 0xFF);
 		write_dsp(length >> 8);
 	//}
+	}
 }
 
 //PC Speaker
@@ -376,18 +386,18 @@ void sb_play_sample(char sample_number, int freq){
 	-----------
 	Octave 0    1    2    3    4    5    6    7
 	Note
-	 C     16   33   65  131  262  523 1046 2093
-	 C#    17   35   69  139  277  554 1109 2217
-	 D     18   37   73  147  294  587 1175 2349
-	 D#    19   39   78  155  311  622 1244 2489
-	 E     21   41   82  165  330  659 1328 2637
-	 F     22   44   87  175  349  698 1397 2794
-	 F#    23   46   92  185  370  740 1480 2960
-	 G     24   49   98  196  392  784 1568 3136
-	 G#    26   52  104  208  415  831 1661 3322
-	 A     27   55  110  220  440  880 1760 3520
-	 A#    29   58  116  233  466  932 1865 3729
-	 B     31   62  123  245  494  988 1975 3951
+	 C     0    12   24   36   48   60   72   84
+	 C#    1    13   25   37   49   61   73   85
+	 D     2    14   26   38   50   62   74   86
+	 D#    3    15   27   39   51   63   75   87
+	 E     4    16   28   40   52   64   76   88
+	 F     5    17   29   41   53   65   77   89
+	 F#    6    18   30   42   54   66   78   90
+	 G     7    19   31   43   55   67   79   91
+	 G#    8    20   32   44   56   68   80   92
+	 A     9    21   33   45   57   69   81   93
+	 A#    10   22   34   46   58   70   82   94
+	 B     11   23   35   47   59   71   83   95
 */
 //1193180/Value
 int LT_PC_Speaker_Note[96] = {
@@ -406,26 +416,12 @@ int LT_PC_Speaker_Note[96] = {
 int LT_PC_Speaker_Playing = 0;
 int LT_PC_Speaker_Offset = 0;
 int *LT_PC_Speaker_SFX;
-
-
-void LT_Play_PC_Speaker_SFX(int *note_array){
-	if (LT_PC_Speaker_Playing == 0) {
-		asm in al, 61h			//Enable speaker
-		asm or al, 3
-		asm out 61h, al
-		asm mov al, 0B6h
-		asm out 43h,al
-		LT_PC_Speaker_Playing = 1;
-		LT_PC_Speaker_Offset = 0;
-		LT_PC_Speaker_SFX = &note_array[0];
-	}
-}
-
-void PC_Speaker_SFX_Player(){	
+byte LT_PC_Speaker_Size = 16;
+void interrupt PC_Speaker_SFX_Player(void){
 	int counter;
 	int note;
 	if (LT_PC_Speaker_Playing == 1){
-		if (LT_PC_Speaker_Offset < 16){
+		if (LT_PC_Speaker_Offset != LT_PC_Speaker_Size){
 			counter = LT_PC_Speaker_SFX[LT_PC_Speaker_Offset];
 			note = LT_PC_Speaker_Note[counter]; // calculated frequency (1193180/Value)
 			asm mov ax, note
@@ -438,6 +434,34 @@ void PC_Speaker_SFX_Player(){
 			asm in al, 61h        //Disable speaker
 			asm and al, 252       
 			asm out 61h, al
+			//remove interrupt
+			outportb(0x43, 0x36);
+			outportb(0x40, 0xFF);	//lo-byte
+			outportb(0x40, 0xFF);	//hi-byte
+			setvect(0x1C, LT_old_time_handler);
 		}
 	}
 }
+
+void LT_Play_PC_Speaker_SFX(int *note_array){
+	unsigned long spd = 1193182/60;
+	if (LT_PC_Speaker_Playing == 0) {
+		asm in al, 61h			//Enable speaker
+		asm or al, 3
+		asm out 61h, al
+		asm mov al, 0B6h
+		asm out 43h,al
+		LT_PC_Speaker_Playing = 1;
+		LT_PC_Speaker_Offset = 0;
+		LT_PC_Speaker_SFX = &note_array[0];
+		
+		//set timer
+		outportb(0x43, 0x36);
+		outportb(0x40, spd % 0x100);	//lo-byte
+		outportb(0x40, spd / 0x100);	//hi-byte
+		//set interrupt
+		setvect(0x1C, PC_Speaker_SFX_Player);		//interrupt 1C not available on NEC 9800-series PCs.
+	}
+}
+
+

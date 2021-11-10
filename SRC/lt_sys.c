@@ -1,12 +1,32 @@
 
 #include "lt__eng.h"
 
-extern byte LT_PICO8_palette[];
-extern const unsigned char LT_logo_palette[];
+
+const unsigned char LT_logo_palette[] = {//generated with gimp, then divided by 4 (max = 64).
+	//2 copies of 8 colour cycle
+	0x35,0x3b,0x3f,//
+	0x26,0x39,0x3f,
+	0x18,0x36,0x3f,
+	0x09,0x32,0x3e,
+	0x0f,0x34,0x3f,
+	0x17,0x36,0x3f,
+	0x1c,0x3a,0x3e,
+	0x24,0x3e,0x3d,
+	0x35,0x3b,0x3f,//
+	0x26,0x39,0x3f,
+	0x18,0x36,0x3f,
+	0x09,0x32,0x3e,
+	0x0f,0x34,0x3f,
+	0x17,0x36,0x3f,
+	0x1c,0x3a,0x3e,
+	0x24,0x3e,0x3d,
+	0x35,0x3b,0x3f
+};
+
 extern byte LT_Setup_Map_Char[];
 extern byte LT_Setup_Map_Col[];
 
-COLORCYCLE cycle_logo;
+
 //debugging
 float t1 = 0;
 float t2 = 0;
@@ -16,7 +36,8 @@ long time_ctr;
 
 // this points to the 18.2hz system clock for debug in dosbox (does not work on PCEM). 
 word *my_clock=(word *)0x0000046C; 
-byte *XGA_TEXT_MAP=(byte *)0xB8000000L;    		
+byte *XGA_TEXT_MAP=(byte *)0xB8000000L;
+   		
 word start;
 int Free_RAM;
 byte LT_VIDEO_MODE = 0;
@@ -27,10 +48,16 @@ byte LT_BLASTER_PORT = 220;
 byte LT_BLASTER_IRQ = 5;
 byte LT_BLASTER_DMA = 1;
 byte LT_LANGUAGE = 0;
+byte LT_DETECTED_CARD = 0;
+
+byte LT_ENDLESS_SIDESCROLL = 0;
+byte LT_IMAGE_MODE = 0;	//0 map; 1 image
+byte LT_SPRITE_MODE = 0; //0 fast, no delete; 1 slow, delete
+
 extern byte *VGA;
 extern byte *EGA;
 FILE *LT_setupfile;
-
+int LT_Load_Logo = 0;
 // define LT_old_..._handler to be a pointer to a function
 void interrupt (*LT_old_time_handler)(void); 	
 void interrupt (*LT_old_key_handler)(void);
@@ -44,40 +71,24 @@ word ScrnLogicalHeight = 0;			//Logical Height of screen
 
 extern unsigned char *LT_sprite_data; 
 
-void LT_Check_CPU(){
-	asm{
-		pushf                   // push original FLAGS
-        pop     ax              // get original FLAGS
-        mov     cx, ax          // save original FLAGS
-        and     ax, 0fffh       // clear bits 12-15 in FLAGS
-        push    ax              // save new FLAGS value on stack
-        popf                    // replace current FLAGS value
-        pushf                   // get new FLAGS
-        pop     ax              // store new FLAGS in AX
-        and     ax, 0f000h      // if bits 12-15 are set, then processor is an 8086/8088
-        cmp     ax, 0f000h       
-        je      _8086_8088		// jump if processor is 8086/8088
-	}
-	printf("\nCPU: 286+ - Little engine will work great!!\n");
-	sleep(5);
-	return;
-	_8086_8088:
-	printf("\nCPU: 8088 - Little engine will work a bit slow\n");
-	printf("\nCPU: 8086 - Little engine will work OK!!\n");
-	sleep(5);
-	return;
+int LT_Selected_Text = RED << 4 | WHITE;
+int LT_Not_Selected_Text = BLUE << 4 | WHITE;
+
+void write_crtc(unsigned int port, unsigned char reg, unsigned char val){
+	outportb(port, reg);
+	outportb(port+1,val);
 }
 
 void LT_Text_Mode(){
 	union REGS regs;
 	LT_Fade_out();
-	//Enable cursor
-	outportb(0x3D4, 0x0A);
-	outportb(0x3D5, (inportb(0x3D5) & 0xC0) | 14);
-	outportb(0x3D4, 0x0B);
-	outportb(0x3D5, (inportb(0x3D5) & 0xE0) | 15);
-	
-	VGA_SplitScreen(0x0ffff);
+	if (LT_DETECTED_CARD > 2){
+		outportb(0x3D4, 0x0A);
+		outportb(0x3D5, (inportb(0x3D5) & 0xC0) | 14);
+		outportb(0x3D4, 0x0B);
+		outportb(0x3D5, (inportb(0x3D5) & 0xE0) | 15);
+		VGA_SplitScreen(0x0ffff);
+	}
 	regs.h.ah = 0x00;
 	regs.h.al = TEXT_MODE;
 	int86(0x10, &regs, &regs);
@@ -87,117 +98,81 @@ void LT_Error(char *error, char *file){
 	asm STI; //enable interrupts
 	LT_Text_Mode();
 	printf("%s %s \n",error,file);
-	sleep(2);
+	sleep(4);
 	LT_ExitDOS();
 	exit(1);
-} 
-
-void Disable_Cursor(){
-	outportb(0x3D4, 0x0A);
-	outportb(0x3D5, 0x20);
-}
-
-void Enable_Cursor(){
-	outportb(0x3D4, 0x0A);
-	outportb(0x3D5, (inportb(0x3D5) & 0xC0) | 14);
-	outportb(0x3D4, 0x0B);
-	outportb(0x3D5, (inportb(0x3D5) & 0xE0) | 15);
-}
-
-void print_gfxmode(int mode){
-	if (mode == 1){
-		gotoxy(16,8); textattr(RED << 4 | WHITE); cprintf("EGA 16 COLORS");
-		gotoxy(16,9); textattr(BLUE << 4 | WHITE); cprintf("VGA 16 COLORS");
-		gotoxy(16,10); cprintf("VGA 256 COLORS");
-		gotoxy(49,7); cprintf("EGA ORIGINAL MODE");
-		gotoxy(49,8); cprintf(" 16 FIXED COLORS ");
-		gotoxy(49,9); cprintf(" FOR SLOW 8088'S ");
-	}
-	if (mode == 2){
-		gotoxy(16,9); textattr(RED << 4 | WHITE); cprintf("VGA 16 COLORS");
-		gotoxy(16,8); textattr(BLUE << 4 | WHITE); cprintf("EGA 16 COLORS");
-		gotoxy(16,10); cprintf("VGA 256 COLORS");
-		gotoxy(49,7); cprintf(" VGA IN EGA MODE ");
-		gotoxy(49,8); cprintf(" PICO-8  PALETTE ");
-		gotoxy(49,9); cprintf(" FOR SLOW 8088'S ");
-	}
-	if (mode == 3){
-		gotoxy(16,10); textattr(RED << 4 | WHITE); cprintf("VGA 256 COLORS");
-		gotoxy(16,8); textattr(BLUE << 4 | WHITE); cprintf("EGA 16 COLORS");
-		gotoxy(16,9); cprintf("VGA 16 COLORS");
-		gotoxy(49,7); cprintf("   VGA MODE X    ");
-		gotoxy(49,8); cprintf("   256 COLORS    ");
-		gotoxy(49,9); cprintf("FOR FAST 8086/286");
-	}
 }
 
 void print_scrollmode(int mode){
 	if (mode == 0) {
-		XGA_TEXT_MAP[(10*160)+58] = 48;
-		textattr(BLUE << 4 | WHITE);
+		XGA_TEXT_MAP[(8*160)+54] = 48;
+		textattr(0x1F);
 		gotoxy(49,7); cprintf("HARDWARE SCROLL 0");
-		gotoxy(49,8); cprintf("FOR EGA/VGA CARDS");
+		gotoxy(49,8); cprintf("FOR VGA CARDS");
 		gotoxy(49,9); cprintf("                 ");
 	}
 	if (mode == 1) {
-		XGA_TEXT_MAP[(10*160)+58] = 49;
-		textattr(BLUE << 4 | WHITE);
+		XGA_TEXT_MAP[(8*160)+54] = 49;
+		textattr(0x1F);
 		gotoxy(49,7); cprintf("HARDWARE SCROLL 1");
-		gotoxy(49,8); cprintf("FOR SVGA CARDS   ");
+		gotoxy(49,8); cprintf(" FOR SVGA CARDS  ");
 		gotoxy(49,9); cprintf("                 ");
 	}
 }
 
 void print_musicmode(int music){
-	if (music == 5){
-		gotoxy(16,13); textattr(RED << 4 | WHITE); cprintf("ADLIB");
-		gotoxy(16,14); textattr(BLUE << 4 | WHITE); cprintf("SOUND BLASTER");
+	unsigned char c[] = {0,0,0,0};
+	int i;
+	for (i = 0; i <4;i++) c[i] = 0x1F;
+	c[music] = 0x4F;
+	for (i = 1; i <33;i+=2){
+		XGA_TEXT_MAP[(10*160)+30+i] = c[1];
+		XGA_TEXT_MAP[(11*160)+30+i] = c[2];
+	}
+	textattr(0x1F);
+	if (music == 1){
 		gotoxy(49,7); cprintf("MUSIC WILL USE   ");
 		gotoxy(49,8); cprintf("OPL2/YM3812 ONLY ");
 		gotoxy(49,9); cprintf("                 ");
 	}
-	if (music == 6){
-		gotoxy(16,13); textattr(BLUE << 4 | WHITE); cprintf("ADLIB");
+	if (music == 2){
 		gotoxy(49,7); cprintf("MUSIC WILL USE   ");
 		gotoxy(49,8); cprintf("OPL2/YM3812 AND  ");
 		gotoxy(49,9); cprintf("SOUND BLASTER PCM");
-		gotoxy(16,14); textattr(RED << 4 | WHITE); cprintf("SOUND BLASTER");
 	}
 }
 
 void print_sfxmode(int sfx){
-	if (sfx == 7){
-		gotoxy(16,16); textattr(RED << 4 | WHITE); cprintf("PC SPEAKER");
-		gotoxy(16,17); textattr(BLUE << 4 | WHITE); cprintf("SOUND BLASTER");
+	if (sfx == 1){
+		gotoxy(16,14); textattr(0x4F); cprintf("PC SPEAKER");
+		gotoxy(16,15); textattr(0x1F); cprintf("SOUND BLASTER");
 		gotoxy(49,7); cprintf("SIMPLE SOUND     ");
 		gotoxy(49,8); cprintf("EFFECTS PLAYED BY");
 		gotoxy(49,9); cprintf("INTERNAL SPEAKER ");
 	}
-	if (sfx == 8){
-		gotoxy(16,16); textattr(BLUE << 4 | WHITE); cprintf("PC SPEAKER");
+	if (sfx == 2){
+		gotoxy(16,14); textattr(0x1F); cprintf("PC SPEAKER");
 		gotoxy(49,7); cprintf("8 BIT PCM SAMPLES");
 		gotoxy(49,8); cprintf("PLAYED BY SOUND  ");
 		gotoxy(49,9); cprintf("BLASTER CARD     ");
-		gotoxy(16,17); textattr(RED << 4 | WHITE); cprintf("SOUND BLASTER");
+		gotoxy(16,15); textattr(0x4F); cprintf("SOUND BLASTER");
 	}
 }
 
 void print_langmode(int lang){
-	if (lang == 'E'){
-		gotoxy(17,19); textattr(RED << 4 | WHITE); cprintf("ENGLISH");
-		gotoxy(17,20); textattr(BLUE << 4 | WHITE); cprintf("SPANISH");
+	if (lang == 1){
+		gotoxy(16,18); textattr(0x4F); cprintf("ENGLISH");
+		gotoxy(16,19); textattr(0x1F); cprintf("SPANISH");
 	}
-	if (lang == 'S'){
-		gotoxy(17,19); textattr(BLUE << 4 | WHITE); cprintf("ENGLISH");
-		gotoxy(17,20); textattr(RED << 4 | WHITE); cprintf("SPANISH");
+	if (lang == 2){
+		gotoxy(16,18); textattr(0x1F); cprintf("ENGLISH");
+		gotoxy(16,19); textattr(0x4F); cprintf("SPANISH");
 	}
 }
 
 void Read_Setup(){
 	byte buffer[256];
 	fread(buffer,1,256,LT_setupfile);
-	LT_VIDEO_MODE = buffer[0x16]-48;
-	print_gfxmode(LT_VIDEO_MODE);
 	LT_SCROLL_MODE = buffer[0x20]-48;
 	print_scrollmode(LT_SCROLL_MODE);
 	LT_MUSIC_MODE = buffer[0x29]-48;
@@ -214,18 +189,16 @@ void Read_Setup(){
 	XGA_TEXT_MAP[(160*13)+116] = LT_BLASTER_IRQ;
 	LT_BLASTER_DMA = buffer[0x4D];
 	XGA_TEXT_MAP[(160*13)+128] = LT_BLASTER_DMA;
-	LT_LANGUAGE = buffer[0x55];
+	LT_LANGUAGE = buffer[0x55]-48;
 	print_langmode(LT_LANGUAGE);
 	
-	textattr(BLUE << 4 | WHITE);
+	textattr(0x1F);
 	gotoxy(49,7); cprintf("                 ");
 	gotoxy(49,8); cprintf("     WAITING     ");
 	gotoxy(49,9); cprintf("                 ");
 }
 
 void Save_Setup(){
-	fseek(LT_setupfile,0x16,SEEK_SET);
-	fputc(LT_VIDEO_MODE+48,LT_setupfile);
 	fseek(LT_setupfile,0x20,SEEK_SET);
 	fputc((LT_SCROLL_MODE&1)+48,LT_setupfile);
 	fseek(LT_setupfile,0x29,SEEK_SET);
@@ -244,7 +217,39 @@ void Save_Setup(){
 	fputc(XGA_TEXT_MAP[(160*13)+128],LT_setupfile);
 	LT_BLASTER_DMA = XGA_TEXT_MAP[(160*13)+128] - 48;
 	fseek(LT_setupfile,0x55,SEEK_SET);
-	fputc(LT_LANGUAGE,LT_setupfile);
+	fputc(LT_LANGUAGE+48,LT_setupfile);
+}
+
+void Check_Graphics_Card(){
+	union REGS regs;
+	regs.h.ah=0x1A;
+	regs.h.al=0x00;
+	regs.h.bl=0x32;
+	int86(0x10, &regs, &regs);
+	if (regs.h.al == 0x1A) printf("\nCard detected: VGA\n");
+	else {
+		regs.h.ah=0x12;
+		regs.h.bh=0x10;
+		regs.h.bl=0x10;
+		int86(0x10, &regs, &regs);
+		if (regs.h.bh == 0) {
+			printf("\nCard detected: EGA\nYou need a VGA card to run this. I added EGA suppont at first, because it has   hardware scrolling. But sprites in EGA are so slow and complicated, and VRAM to VRAM transfers seem too slow to help...\nAlso if you want to make great games for EGA, use commander keen editors, and   you'll get awesome results.");
+			exit(1);
+		} else {
+			regs.h.ah=0x0F;
+			regs.h.bl=0x00;
+			int86(0x10, &regs, &regs);
+			if (regs.h.al == 0x07) {
+				printf("\nCard detected: CGA or TANDY\nYou need a VGA card to run this\nI want to add CGA support in the future, but with non transparent sprites.");
+				exit(1);
+			} else {
+				printf("\nCard detected: Hercules\nYou need a VGA card to run this\n");
+				exit(1);
+			}
+		}
+	}	
+	sleep(1);
+	Clearkb();
 }
 
 void LT_Setup(){
@@ -254,19 +259,18 @@ void LT_Setup(){
 	int blaster_set = 0;
 	byte character = 0;
 	byte color = 0;
+	Check_Graphics_Card();
 	LT_setupfile = fopen("config.txt","rb+");
 	if (!LT_setupfile) {
 		system("cls");
 		printf("config.txt is missing\nNew default file created");
 		LT_setupfile = fopen("config.txt","w");
-		fprintf(LT_setupfile,"#SETUP\n------\nVIDEO=3\nSCROLL=0\nMUSIC=6\nSFX=8\nBLASP=220\nBLASI=5\nBLASD=1\nLANG=0\n#SAVE\n-----\nLEVEL_A=0 ENERGY_A=0\nLEVEL_B=0 ENERGY_B=0");
-		printf("#SETUP\n------\nVIDEO=3\nSCROLL=0\nMUSIC=6\nSFX=8\nBLASP=220\nBLASI=5\nBLASD=1\nLANG=0\n#SAVE\n-----\nLEVEL_A=0 ENERGY_A=0\nLEVEL_B=0 ENERGY_B=0");
+		fprintf(LT_setupfile,"#SETUP\n------\nVIDEO=0\nSCROLL=0\nMUSIC=1\nSFX=1\nBLASP=220\nBLASI=5\nBLASD=1\nLANG=0\n#SAVE\n-----\nLEVEL_A=0 ENERGY_A=0\nLEVEL_B=0 ENERGY_B=0");
+		printf("#SETUP\n------\nVIDEO=0\nSCROLL=0\nMUSIC=1\nSFX=1\nBLASP=220\nBLASI=5\nBLASD=1\nLANG=0\n#SAVE\n-----\nLEVEL_A=0 ENERGY_A=0\nLEVEL_B=0 ENERGY_B=0");
 		fclose(LT_setupfile);
 		sleep(2);
 		LT_setupfile = fopen("config.txt","rb+");
 	}
-	
-	Disable_Cursor();
 	
 	//menu 80x25 text mode
 	system("cls");
@@ -308,15 +312,12 @@ void LT_Setup(){
 			if (kbhit()){
 				character = getch();
 				switch (character){
-					case 49: LT_VIDEO_MODE = 1; print_gfxmode(1); break;
-					case 50: LT_VIDEO_MODE = 2; print_gfxmode(2); break;
-					case 51: LT_VIDEO_MODE = 3; print_gfxmode(3); break;
-					case 52: LT_SCROLL_MODE++; print_scrollmode(LT_SCROLL_MODE & 1); break;
-					case 53: LT_MUSIC_MODE = 5; print_musicmode(5);break;
-					case 54: LT_MUSIC_MODE = 6; print_musicmode(6);break;
-					case 55: LT_SFX_MODE = 7; print_sfxmode(7);break;
-					case 56: LT_SFX_MODE = 8; print_sfxmode(8);break;
-					case 57: 
+					case 49: LT_SCROLL_MODE++; print_scrollmode(LT_SCROLL_MODE & 1); break;
+					case 50: LT_MUSIC_MODE = 1; print_musicmode(1);break;
+					case 51: LT_MUSIC_MODE = 2; print_musicmode(2);break;
+					case 52: LT_SFX_MODE = 1; print_sfxmode(1);break;
+					case 53: LT_SFX_MODE = 2; print_sfxmode(2);break;
+					case 56: //break;
 						blaster_set = 1; 
 						gotoxy(51,14); textattr(BLACK << 4 | YELLOW);
 						cprintf("   ");
@@ -326,14 +327,11 @@ void LT_Setup(){
 						gotoxy(49,7); cprintf("   SET BLASTER   ");
 						gotoxy(49,8); cprintf(" DEFAULT  VALUES ");
 						gotoxy(49,9); cprintf("P=220 IRQ=5 DMA=1");
-						Enable_Cursor();
 						textattr(BLACK << 4 | YELLOW);
 						gotoxy(51,14);
 					break;
-					case 69: LT_LANGUAGE = 'E'; print_langmode(LT_LANGUAGE); break;
-					case 101: LT_LANGUAGE = 'E'; print_langmode(LT_LANGUAGE); break;
-					case 83: LT_LANGUAGE = 'S'; print_langmode(LT_LANGUAGE); break;
-					case 115: LT_LANGUAGE = 'S'; print_langmode(LT_LANGUAGE); break;
+					case 54: LT_LANGUAGE = 1; print_langmode(LT_LANGUAGE); break;
+					case 55: LT_LANGUAGE = 2; print_langmode(LT_LANGUAGE); break;
 					
 					case 13: start = 1; break;
 					case 27: start = 2; break;
@@ -350,14 +348,12 @@ void LT_Setup(){
 					blaster_set++;
 				}
 				if ((character == 27) || (blaster_set == 6)){
-					character = BLUE << 4 | WHITE;
-					XGA_TEXT_MAP[(160*13)+101] = character;
-					XGA_TEXT_MAP[(160*13)+103] = character;
-					XGA_TEXT_MAP[(160*13)+105] = character;
-					XGA_TEXT_MAP[(160*13)+117] = character;
-					XGA_TEXT_MAP[(160*13)+129] = character;
+					XGA_TEXT_MAP[(160*13)+101] = 0x1F;
+					XGA_TEXT_MAP[(160*13)+103] = 0x1F;
+					XGA_TEXT_MAP[(160*13)+105] = 0x1F;
+					XGA_TEXT_MAP[(160*13)+117] = 0x1F;
+					XGA_TEXT_MAP[(160*13)+129] = 0x1F;
 					blaster_set = 0; 
-					Disable_Cursor();
 				}
 				Clearkb();
 			}
@@ -368,31 +364,30 @@ void LT_Setup(){
 	}
 	if (start == 2) {
 		fclose(LT_setupfile);
-		Enable_Cursor();
 		system("cls");
 		exit(1);
 	}
-
+	/*printf("error");
+	sleep(1);
+	exit(1);*/
+	
 	//SAVE SETTINGS
 	Save_Setup();
 
 	fclose(LT_setupfile);
 	system("cls");
 	
-	if (LT_VIDEO_MODE == 3) LT_VIDEO_MODE = 1;
-	else LT_VIDEO_MODE = 0;
-	if (LT_MUSIC_MODE == 6) LT_MUSIC_MODE = 1;
-	else LT_MUSIC_MODE = 0;
+	//Check_Graphics_Card();
 	
-	
-	if (LT_VIDEO_MODE == 0) VGA_EGAMODE_CustomPalette(LT_PICO8_palette);
-	
-	Enable_Cursor();
 	LT_Adlib_Detect();
     LT_init();
-	sb_init();//After LT_Init
-	if (LT_VIDEO_MODE)LT_Load_Font("GFX/0_font.bmp");
-	else LT_Load_Font("GFX/0_font_E.bmp");
+	if ((LT_MUSIC_MODE == 2) || (LT_SFX_MODE == 2)) sb_init();//After LT_Init
+	LT_Load_Font("GFX/0_fontV.bmp");
+}
+
+void LT_Null(){//Debug
+	int i = 0;
+	i = i+1;
 }
 
 void LT_Init(){
@@ -404,36 +399,17 @@ void LT_Init(){
 	word i;
 	word *sprite_bkg;
 	byte sprite_number;
-	word spr_VGA[33] = {	
+	word spr_VGA[20] = {	
 		//8x8
-		0xB280,0xB298,0xB2B0,0xB2C8,0xB2E0,0xB2F8,0xB310,0xB328,
-		0xB340,0xB358,0xB370,0xB388,0xB3A0,0xB3B8,0xB3D0,0xB3E8,
+		0xD104,0xD11C,0xD134,0xD14C,0xD164,0xD17C,0xD194,0xD1AC,
 		//16x16
-		0xB400,0xB450,0xB4A0,0xB4F0,0xB540,0xB590,0xB5E0,0xB630,
-		0xB680,0xB6D0,0xB720,0xB770,
+		0xD1C4,0xD214,0xD264,0xD2B4,0xD304,0xD354,0xD3A4,0xD3F4,
 		//32x32
-		0xB7C0,0xB8E0,0xBA00,0xBB20,
-		//64x64
-		0xBC40
+		0xD444,0xD564,0xD684,0xD7A4,
 	};
-	word spr_EGA[33] = {	//+2A0+2A0
-		//8x8
-		0x5400,0x5410,0x5420,0x5430,0x5440,0x5450,0x5460,0x5470,
-		0x5480,0x5490,0x54A0,0x54B0,0x54C0,0x54D0,0x54E0,0x54F0,
-		//16x16
-		0x5500,0x5530,0x5560,0x5590,0x55C0,0x55F0,
-		0x5620,0x5650,0x5680,0x56B0,0x56E0,0x5710,
-		//32x32
-		0x5740,0x57E0,0x5880,0x5920,
-		//64x64
-		0x59C0
-	};
-	if (LT_VIDEO_MODE == 0) sprite_bkg = &spr_EGA[0];
-	if (LT_VIDEO_MODE == 1) sprite_bkg = &spr_VGA[0];
 	
 	//FIXED SPRITE BKG ADDRESSES IN VRAM
-		
-	if (LT_VIDEO_MODE == 1){//VGA 320 x 240 x 256
+	{//VGA 320 x 240 x 256 MODE X
 		LT_Fade_in = &LT_Fade_in_VGA;
 		LT_Fade_out = &LT_Fade_out_VGA;
 		
@@ -458,6 +434,22 @@ void LT_Init(){
 		
 		/* turn off write protect */
 		word_out(CRTC_INDEX, V_RETRACE_END, 0x2c);
+
+		//delete vram
+		asm mov ax,0xA000
+		asm mov es,ax
+		asm mov di,0			//es:di destination
+		asm mov al,0
+		asm mov cx,65535
+		asm rep STOSB 			//Store AL at address ES:DI.
+	
+		//Read Mode: all planes
+		asm mov dx,GC_INDEX
+		asm mov ax,0x0509	//Read all planes	Write mode 1	
+		asm out dx,ax
+		asm mov dx,GC_INDEX + 1
+		asm mov ax,0x00ff	
+		asm out dx,ax
 	
 		//320x240 60Hz
 		word_out(CRTC_INDEX, V_TOTAL, 0x0d);
@@ -484,55 +476,15 @@ void LT_Init(){
 		// set vertical retrace back to normal
 		word_out(0x03d4, V_RETRACE_END, 0x8e);
 		
-		LT_WaitVsync = &LT_WaitVsync0_VGA;
+		LT_WaitVsync = &LT_WaitVsync_VGA;
 		LT_Print_Window_Variable = &LT_Print_Window_Variable_VGA;
 		draw_map_column = &draw_map_column_vga;
-		draw_map_row = &draw_map_row_vga;
+		LT_Draw_Sprites = &LT_Draw_Sprites_VGA;
+		LT_Draw_Sprites_Fast = &LT_Draw_Sprites_Fast_VGA;
 		LT_Delete_Sprite = &LT_Delete_Sprite_VGA;
 		LT_Edit_MapTile = &LT_Edit_MapTile_VGA;
 		LT_Draw_Sprites = &LT_Draw_Sprites_VGA;
-		LT_Print = &LT_Print_VGA;
 	}
-	if (LT_VIDEO_MODE == 0){// EGA 320 x 240 x 16
-		LT_Fade_in = &LT_Fade_in_EGA;
-		LT_Fade_out = &LT_Fade_out_EGA;
-		
-		LT_Fade_out();
-	
-		regs.h.ah = 0;
-		regs.h.al = 0x0D;
-		int86(0x10, &regs, &regs);
-		
-		/* turn off write protect */
-		word_out(CRTC_INDEX, V_RETRACE_END, 0x2c);
-		
-		word_out(CRTC_INDEX, V_TOTAL, 0x0d);
-		word_out(CRTC_INDEX, OVERFLOW, 0x3e);
-		word_out(CRTC_INDEX, V_RETRACE_START, 0xea);
-		word_out(CRTC_INDEX, V_RETRACE_END, 0xac);
-		word_out(CRTC_INDEX, V_DISPLAY_END, 0xdf);
-		word_out(CRTC_INDEX, V_BLANK_START, 0xe7);
-		word_out(CRTC_INDEX, V_BLANK_END, 0x06);
-	
-		//LOGICAL WIDTH = 320 + 16
-		word_out(0x03d4,OFFSET,21);
-	
-		// set vertical retrace back to normal
-		word_out(0x03d4, V_RETRACE_END, 0x8e);
-	
-		memset(EGA,0x00,(320*240)/8);
-		
-		LT_WaitVsync = &LT_WaitVsync0_EGA;
-		LT_Print_Window_Variable = &LT_Print_Window_Variable_EGA;
-		draw_map_column = &draw_map_column_ega;
-		draw_map_row = &draw_map_row_ega;
-		LT_Delete_Sprite = &LT_Delete_Sprite_EGA;
-		LT_Edit_MapTile = &LT_Edit_MapTile_EGA;
-		LT_Draw_Sprites = &LT_Draw_Sprites_EGA;
-		LT_Print = &LT_Print_EGA;
-		
-		VGA_EGAMODE_CustomPalette(LT_PICO8_palette);
-	}		
 
 	LT_old_time_handler = getvect(0x1C);
 	LT_old_key_handler = getvect(9);    
@@ -542,10 +494,10 @@ void LT_Init(){
 	// 64kb Temp Data (Load Tilesets, Load Sprites)
 	// 8kb Map + 8kb collision map
 	// 64kb Music 
-	// 128Kb for sprites
-	// Asume EXE file around 128KB Max
+	// 64Kb for sprites
+	// Asume EXE file around 96KB 
 	// Add 16 Kb of used defined data (palette tables...)
-	// Then we need around 420 Kb of Free Ram
+	// Then we need around 384 Kb of Free Ram
 	
 	//Allocate the first 32 KB of temp data inside a 64KB block for DMA
 	temp_buf = farcalloc(32768,sizeof(byte));
@@ -564,47 +516,230 @@ void LT_Init(){
 	//if ((LT_map_collision = farcalloc(32767,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 32 Kb of collision map data",0);
 	if ((LT_music.sdata = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 64 Kb of music data",0);
 	
-	if ((LT_map_data = farcalloc(8192,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate map data",0);
+	if ((LT_map_data = farcalloc(256*19*2,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate map data",0);
 	if ((LT_map_collision = farcalloc(8192,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate collision data",0);
 	
-	//33 fixed sprites:
-	//	8x8   (16 sprites: 0 - 15)	4kb
-	//	16x16 (12 sprites: 16 - 27) <16kb
-	//	32x32 ( 4 sprites: 28 - 31) 16kb
-	//	64x64 ( 1 sprite : 32) 16 Kb
+	//14 fixed sprites:
+	//	8x8   ( 8 sprites: 0 - 7) 200 bytes/frame
+	//	16x16 ( 8 sprites: 8 - 15) 900 bytes/frame, you can use a lot of frames in this sprites
+	//	32x32 ( 4 sprites: 16 - 19) 4kb/frame, you can use 2 sprites wih 8 frames at the same time
+	//	64x64 ( 1 sprite: 20) 14 kb/frame, you can only use 3 frames for this sprite.
 	
-	if ((sprite = farcalloc(33,sizeof(SPRITE))) == NULL) LT_Error("Not enough RAM to allocate 33 predefined sprite structs",0);
+	if ((sprite = farcalloc(22,sizeof(SPRITE))) == NULL) LT_Error("Not enough RAM to allocate 22 predefined sprite structs",0);
 	if ((LT_sprite_data = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate sprite data",0);
 	//STORE BKG AT FIXED VRAM ADDRESS
-	for (sprite_number = 0; sprite_number != 33; sprite_number++){
-		sprite[sprite_number].bkg_data = sprite_bkg[sprite_number];
+	for (sprite_number = 0; sprite_number != 20; sprite_number++){
+		sprite[sprite_number].bkg_data = spr_VGA[sprite_number];
 	}
-	
 	//VGA_SplitScreen(0x0ffff);
 }
 
-void LT_Logo(){
-	int logotimer = 0;
-	LT_Load_Map("GFX/Logo.tmx");
-	if (LT_VIDEO_MODE) {
-		LT_Load_Tiles("GFX/Ltil_VGA.bmp");
-		LT_Fade_out();
-	}
-	else {LT_Load_Tiles("GFX/Ltil_EGA.bmp");}
-	LT_Set_Map(0,0);
-	cycle_init(&cycle_logo,LT_logo_palette);
+void Draw_Roll(){
+	byte page = 0;
+	int roll = 240+32;
+	int drawing_offset = 0;
+	int bitmap_offset = 80*(240+240+240+128); //Image at third "page"
 	
-	while (logotimer < 128){
-		cycle_palette(&cycle_logo,1);
-		if (LT_Keys[LT_ESC]) { logotimer = 128;}//if esc released, exit
-		LT_WaitVsync();
-		logotimer++;
+	// Write all planes
+	asm mov dx, 0x03C4
+	asm mov ax, 0x0F02
+	asm out dx, ax
+	
+	while (roll){
+		//asm sti
+		
+		//wait for the vertical retrace end
+		asm mov		dx,003dah
+		WaitVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jz		WaitVsync
+		WaitNotVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jnz		WaitNotVsync
+		
+		if (page&1){//VGA screen HIGH_ADDRESS
+			asm mov dx,0x03D4 	//VGA PORT
+			asm mov ax,0x0A0C	
+			asm out dx,ax	//(y & 0xFF00) | 0x0C to VGA port
+			drawing_offset-=(240+32)*80;
+		} else {
+			asm mov dx,0x03D4
+			asm mov ax,0x5F0C	//240 lines
+			asm out dx,ax
+			drawing_offset+=(240+32)*80;
+		}
+		
+		asm push ds
+		asm push di
+		asm push si
+		
+		//Setup transfers
+		asm mov ax,0xA000
+		asm mov ds,ax
+		asm mov si,bitmap_offset			//ds:si source
+		asm mov es,ax
+		asm mov di,drawing_offset			//es:di destination
+		
+		
+		//ROLLING BAR/////////////
+		//color lines = 2-Nor 1-34 1-58 1-91 2-Nor 1-4 1-Nor 2-4 1-Nor 1-4 12-Nor 1-58 1-Nor 1-58 1-92 2-34 1-23 
+		// VRAM to VRAM transfer read mode
+		asm mov dx, 0x03CE
+		asm mov ax, 0x0008
+		asm out dx, ax
+		//Draw 2 lines of normal image at the top of the roller
+		asm mov cx,80
+		asm rep movsb
+		asm sub	si,160
+		asm mov cx,80
+		asm rep movsb
+		asm sub	si,64*80	//go back some bytes to draw the rolling data	
+		asm add di,80*2		//skip 2 lines
+		
+		asm add si,80*4
+		asm mov cx,80
+		asm rep movsb
+		asm add si,80*3
+		asm mov cx,80
+		asm rep movsb
+		asm add si,80*2
+		asm mov cx,80
+		asm rep movsb
+		asm add si,80
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		
+		asm sub si,80
+		asm mov cx,80
+		asm rep movsb
+		
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		
+		asm mov cx,80
+		asm rep movsb
+		asm mov cx,80
+		asm rep movsb
+		asm add si,80
+		asm mov cx,80
+		asm rep movsb
+		asm add si,80*2
+		asm mov cx,80
+		asm rep movsb
+		asm add si,80*3
+		asm mov cx,80
+		asm rep movsb
+		asm add si,80*4
+		asm mov cx,80
+		asm rep movsb
+		
+		//Write pixels (flat colour lines, colours 0 1 2 3)
+		asm mov dx, 0x03CE
+		asm mov ax, 0xFF08
+		asm out dx, ax
+		asm sub di,26*80 // go back to upper part of bar
+		
+		//Draw upper shadow
+		asm mov cx,40
+		asm mov ax,0x0101
+		asm rep stosw
+		asm mov cx,40
+		asm mov ax,0x0202
+		asm rep stosw
+		asm add di,2*80 //Skip lines
+
+		//Draw bright part
+		asm mov cx,80
+		asm mov ax,0x0303
+		asm rep stosw
+		asm add di,19*80 //Skip lines
+
+		//Draw bottom shadow
+		asm mov cx,40
+		asm mov ax,0x0101//95 95
+		asm rep stosw
+		asm mov cx,40
+		asm mov ax,0x0000
+		asm rep stosw
+			
+		//	asm pop cx
+		//	asm loop copyloop
+	
+		asm pop ds
+		asm pop di
+		asm pop si
+		
+		page++;
+		drawing_offset+=80;
+		bitmap_offset-=80;
+		roll--;
+		
+		//asm cli
 	}
+}
+extern int LT_PC_Speaker_Size;
+void LT_Logo(){
+	int GameBoy_Sound[24] = {72,72,72,72,72,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84};
+	int logotimer = 0;
+	LT_Load_Logo = 1;
+	LT_PC_Speaker_Size = 24;
+	LT_Load_Image("Logo.bmp");
+	word_out(0x03d4,OFFSET,40);
+	
+	LT_Fade_in();
+	Draw_Roll();
+	LT_Play_PC_Speaker_SFX(GameBoy_Sound);
+	while (logotimer < 120){
+		logotimer++;
+		//wait for the vertical retrace end
+		asm mov		dx,003dah
+		WaitVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jz		WaitVsync
+		WaitNotVsync:
+		asm in      al,dx
+		asm test    al,08h
+		asm jnz		WaitNotVsync
+	}
+	LT_Load_Logo = 0;
+	LT_Fade_out();
+	word_out(0x03d4,OFFSET,42);
+	LT_PC_Speaker_Size = 16;
 	Clearkb();
+	//LT_Load_Tiles("GFX/Ltil_TR.bmp");
 }
 
 void LT_ExitDOS(){
-	sb_deinit();
+	if ((LT_MUSIC_MODE == 2) || (LT_SFX_MODE == 2))sb_deinit();
 	LT_Text_Mode();
 	LT_Stop_Music();
 	setvect(0x1C, LT_old_time_handler);
@@ -616,55 +751,6 @@ void LT_ExitDOS(){
 	exit(1);
 }
 
-byte LT_PICO8_palette[] = {//generated with gimp, then divided by 4 (max = 64).
-//I don't want to know why the EGA colors have to be arranged like this
-//In the VGA registers
-	0x00,0x00,0x00,	//0
-	0x06,0x0A,0x15,	//1
-	0x02,0x21,0x14,	//2
-	0x00,0x14,0x35,	//4
-	0x1F,0x09,0x14,	//3
-	0x3F,0x32,0x42,	//6
-	0x2B,0x14,0x0E, //5	
-	0x2F,0x31,0x31,	//7
-	0x00,0x00,0x00, //Not used in VGA-EGA mode
-	0x00,0x00,0x00,		//8
-	0x00,0x00,0x00,		//9
-	0x00,0x00,0x00,		//10
-	0x00,0x00,0x00,		//11
-	0x00,0x00,0x00,		//12
-	0x00,0x00,0x00,		//13
-	0x00,0x00,0x00,		//14
-	0x16,0x17,0x18,	//8	//15
-    0x20,0x1D,0x26,	//9	//16
-	0x00,0x39,0x0D,	//10//17
-	0x08,0x2B,0x3F,	//12//18
-	0x3F,0x00,0x12,	//11//19
-	0x3F,0x1D,0x29,	//14//20
-	0x3F,0x38,0x0D, //13//21	
-	0x3f,0x3f,0x3f, //15//22	
-};
-const unsigned char LT_logo_palette[] = {//generated with gimp, then divided by 4 (max = 64).
-	//2 copies of 8 colour cycle
-	0x35,0x3b,0x3f,//
-	0x26,0x39,0x3f,
-	0x18,0x36,0x3f,
-	0x09,0x32,0x3e,
-	0x0f,0x34,0x3f,
-	0x17,0x36,0x3f,
-	0x1c,0x3a,0x3e,
-	0x24,0x3e,0x3d,
-	0x35,0x3b,0x3f,//
-	0x26,0x39,0x3f,
-	0x18,0x36,0x3f,
-	0x09,0x32,0x3e,
-	0x0f,0x34,0x3f,
-	0x17,0x36,0x3f,
-	0x1c,0x3a,0x3e,
-	0x24,0x3e,0x3d,
-	0x35,0x3b,0x3f
-};
-
 byte LT_Setup_Map_Char[] = {"\
 .(++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++).\
 .!             Little Engine Setup Program - Not Copyrighted 2021             !#\
@@ -672,25 +758,25 @@ byte LT_Setup_Map_Char[] = {"\
 ..##############################################################################\
 ................................................................................\
 ..............................................   SELECTION  INFO   .............\
-.......        VIDEO  MODE        ............!                   !#............\
-.......!     1 EGA 16 COLORS     !#...........!                   !#............\
-.......!     2 VGA 16 COLORS     !#...........!                   !#............\
-.......!     3 VGA 256 COLORS    !#...........?+++++++++++++++++++*#............\
-.......!     4 SCROLL MODE = 0   !#............#####################............\
-.......        MUSIC  MODE        #.............................................\
-.......!     5 ADLIB             !#...........   9 BLASTER SET     .............\
-.......!     6 SOUND BLASTER     !#...........! P=220 IRQ=5 DMA=1 !#............\
-.......          SFX MODE         #...........?+++++++++++++++++++*#............\
-.......!     7 PC SPEAKER        !#............#####################............\
-.......!     8 SOUND BLASTER     !#.............................................\
-.......          LANGUAGE         #.............................................\
-.......!     E: ENGLISH          !#...........    GAME  CONTROLS   .............\
-.......!     S: SPANISH          !#...........! ACTION: S D ENTER !#............\
-.......?+++++++++++++++++++++++++*#...........! START: ENTER      !#............\
-........###########################...........?+++++++++++++++++++*#............\
+..............................................!                   !#............\
+.......           VIDEO           ............!                   !#............\
+.......!     1 VGA SCROLL: 0     !#...........!                   !#............\
+.......        MUSIC  MODE        #...........?+++++++++++++++++++*#............\
+.......!     2 ADLIB             !#............#####################............\
+.......!     3 SOUND BLASTER     !#.............................................\
+.......          SFX MODE         #...........   8 BLASTER SET     .............\
+.......!     4 PC SPEAKER        !#...........! P=220 IRQ=5 DMA=1 !#............\
+.......!     5 SOUND BLASTER     !#...........?+++++++++++++++++++*#............\
+.......!                         !#............#####################............\
+.......         LANGUAGE          #.............................................\
+.......!     6 ENGLISH           !#.............................................\
+.......!     7 SPANISH           !#...........    GAME  CONTROLS   .............\
+.......?+++++++++++++++++++++++++*#...........! ACTION: S D       !#............\
+........###########################...........! START: ENTER      !#............\
+..............................................?+++++++++++++++++++*#............\
 ...............................................#####################............\
 ................................................................................\
-[[[[ EXIT: ESC [[[ SAVE & START: ENTER [[[[[ CHANGE SETTINGS: 1-9 / E S [[[[[[[[\
+[[[[ EXIT: ESC [[[ SAVE & START: ENTER [[[[[ CHANGE SETTINGS: 1-6 [[[[[[[[[[[[[[\
 "
 };
 
@@ -701,25 +787,25 @@ byte LT_Setup_Map_Col[] = {"\
 ..##############################################################################\
 ................................................................................\
 ..............................................333333333333333333333.............\
+..............................................222222222222222222222#............\
 .......333333333333333333333333333............222222222222222222222#............\
-.......222222222222222222222222222#...........222222222222222222222#............\
-.......222222222222222222222222222#...........222222222222222222222#............\
-.......222222222222222222222222222#...........222222222222222222222#............\
-.......222222222222222222222222222#............#####################............\
-.......333333333333333333333333333#.............................................\
-.......222222222222222222222222222#...........333333333333333333333.............\
 .......222222222222222222222222222#...........222222222222222222222#............\
 .......333333333333333333333333333#...........222222222222222222222#............\
 .......222222222222222222222222222#............#####################............\
 .......222222222222222222222222222#.............................................\
+.......333333333333333333333333333#...........333333333333333333333.............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+.......222222222222222222222222222#...........222222222222222222222#............\
+.......222222222222222222222222222#............#####################............\
 .......333333333333333333333333333#.............................................\
+.......222222222222222222222222222#.............................................\
 .......222222222222222222222222222#...........333333333333333333333.............\
 .......222222222222222222222222222#...........222222222222222222222#............\
-.......222222222222222222222222222#...........222222222222222222222#............\
 ........###########################...........222222222222222222222#............\
+..............................................222222222222222222222#............\
 ...............................................#####################............\
 ................................................................................\
-55551111112222255511111111111111222222255555111111111111111112222222222255555555\
+55551111112222255511111111111111222222255555111111111111111112222255555555555555\
 "
 };
 
