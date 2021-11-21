@@ -1,6 +1,6 @@
 # Little-Game-Engine-for-VGA
-Little Game Engine for VGA and 8088/8086/286
---------------------------------------------
+Little Game Engine optimized for VGA and very slow computers (8088/8086/286)
+----------------------------------------------------------------------------
 
 <img src="play_011.png">
 
@@ -115,8 +115,8 @@ NOTES
 	So every time you load a map, tileset or music, the last one is overwritten.
 -	If a bmp is loaded as an image, map data will be erased.	
 
-"Little Game Engine" para VGA y 8088/8086/286
----------------------------------------------
+"Little Game Engine" optimizado para VGA y ordenadores/computadores muy muy lentos (8088/8086/286)
+--------------------------------------------------------------------------------------------------
 
 Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA, y evita técnicas muy lentas utilizadas en su epoca (por falta de información sobre el funcionamiento de la tarjeta VGA).
 
