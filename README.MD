@@ -11,8 +11,8 @@ Also EGA 320x200@60Hz was added, and due to the complexity of EGA hardware, spri
 
 The predefined keys are: 
 - Move player/menus = UP DOWN LEFT RIGHT arrows.
-- Jump in platform levels = D
-- choose option in menu = ENTER
+- Jump in platform levels = D.
+- choose option in menu = ENTER.
 - Exit stage/game = ESC. 
 
 So. why does it run so fast?
@@ -28,10 +28,10 @@ This is a 16-bit MS-DOS program, it will only work on MS-DOS, FreeDos and window
 Remember to compile in the LARGE memory model!                        
 
 I tested the requirements on PCem, and 86Box emulator (they simulate very accurately 8088 CPU's).
-Also tested on a 286 at 6 Mhz and 8088/NEC V20 from 4.77 to 10 MHz.
+Also tested on a 286 at 6 MHz and 8088/NEC V20 from 4.77 to 10 MHz.
 
 Requirements:
-- CPU: 8088/NEC V20 4.77 Mhz (7.16Mhz recommended).
+- CPU: 8088/NEC V20 4.77 MHz (7.16 MHz recommended).
 - RAM: about 380 Kb free.
 - GRAPHICS: EGA (128Kb), VGA.
 - SOUND: PC Speaker (Adlib recommended).
@@ -103,8 +103,8 @@ Ahora usa el modo 320x200, modificado para funcionar a 60Hz en VGA. Además he a
 
 Las teclas predefinidas son: 
 - Mover jugador/menus = teclas direccionales.
-- Saltar en el nivel plataformas = D
-- Elegir opcion en menús = ENTER
+- Saltar en el nivel plataformas = D.
+- Elegir opcion en menús = ENTER.
 - Salir de nivel/juego = ESC. 
 
 Pero... ¿Por qué va tan rápido en PC's tan lentos?.
@@ -122,7 +122,7 @@ Recuerda que hay que compilarlo usando el "LARGE memory model".
 He probado los requisitos en PCem y 86Box unos emuladores muy precisos. También lo he probado en un 286 real, y algunas personas me han informado de que el motor funciona en otras máquinas reales: 8088/NEC v20 a 9 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster parecen funcionar.
 
 Requisitos rmínimos:
-- CPU: 8088/NEC V20 4.77 Mhz (Recomendado 8088 a 7.16MHz).
+- CPU: 8088/NEC V20 4.77 MHz (Recomendado 7.16 MHz).
 - RAM: unos 380 Kb libres.
 - GRÁFICOS: EGA(128Kb),VGA.
 - SONIDO: PC Speaker (Recomendado Adlib).
