@@ -94,7 +94,7 @@ NOTES
 	So every time you load a map, tileset or music, the last one is overwritten.
 -	If a bmp is loaded as an image, map data will be erased.	
 
-"Little Game Engine" optimizado para VGA/RGA y ordenadores/computadoras muy muy lentos (8088/8086/286)
+"Little Game Engine" optimizado para VGA/EGA y ordenadores/computadoras muy muy lentos (8088/8086/286)
 --------------------------------------------------------------------------------------------------
 
 <img src="play_011.png">
