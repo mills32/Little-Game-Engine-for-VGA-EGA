@@ -97,6 +97,8 @@ NOTES
 "Little Game Engine" optimizado para VGA/RGA y ordenadores/computadoras muy muy lentos (8088/8086/286)
 --------------------------------------------------------------------------------------------------
 
+<img src="play_011.png">
+
 Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA y EGA, y evita técnicas muy lentas utilizadas en su época (por falta de información sobre el funcionamiento de la tarjetas).
 
 Ahora usa el modo 320x200, modificado para funcionar a 60Hz en VGA. Además he añadido el modo EGA 320x200@60, pero los sprites en este modo, son en blanco y negro, debido a la complejidad del hardware EGA. 
