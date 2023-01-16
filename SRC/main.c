@@ -601,7 +601,7 @@ void Load_Puzzle(){
 		LT_Load_Sprite("GFX/balle.bmp",8,Ball_Animation);
 		LT_Load_Sprite("GFX/ball1e.bmp",9,Enemy0_Animation);
 	}
-	LT_Load_Music("music/ADLIB/flowers.imf",0);
+	LT_Load_Music("music/ADLIB/puzzle.imf",0);
 	
 	LT_Delete_Loading_Interrupt();
 
