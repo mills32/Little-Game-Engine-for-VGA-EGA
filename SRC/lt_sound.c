@@ -73,24 +73,11 @@ void LT_Adlib_Detect(){
     }
 }
 
-void (*PCM_Drums)(void);
-
-void PCM_Drums_OFF(){};
-//int note = 7.78;
-void PCM_Drums_ON(){
-	//B0-B2, set frequency for channels 0, 1 and 2. Use to play drums.
-	if (LT_music.sdata[LT_music.offset] == 0xB0) sb_play_sample(0,11025);
-	if (LT_music.sdata[LT_music.offset] == 0xB1) sb_play_sample(1,11025);
-	if (LT_music.sdata[LT_music.offset] == 0xB2) sb_play_sample(2,11025);
-	//note+=7.78;
-};
-
 void LT_Play_Music(){
 	//byte *ost = music_sdata + music_offset;
 	while (!LT_imfwait){
         LT_imfwait = LT_music.sdata[LT_music.offset+2];
         opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
-		PCM_Drums();
 		LT_music.offset+=3;
 	}
 	LT_imfwait--;
@@ -102,6 +89,7 @@ void LT_Play_Music(){
 }
 
 void LT_Load_Music(char *fname, int enable_pcm){
+	
 	//long size = 0;
 	word offset = 0;
 	word offset1 = 0;
@@ -115,7 +103,7 @@ void LT_Load_Music(char *fname, int enable_pcm){
 	outportb(0x40, 0xFF);	//lo-byte
 	outportb(0x40, 0xFF);	//hi-byte*/
 	//setvect(0x1C, LT_old_time_handler);
-	
+	enable_pcm += 0;
 	if (!imfile) LT_Error("Can't find ",fname);
 		
 	if (fread(rb, sizeof(char), 2, imfile) != 2) LT_Error("Error in ",fname);
@@ -131,11 +119,11 @@ void LT_Load_Music(char *fname, int enable_pcm){
 	}
 	
 	//get file size:
-	//fseek(imfile, 0L, SEEK_END);
-	//LT_music.size = ftell(imfile);
+	fseek(imfile, 0L, SEEK_END);
+	LT_music.size = ftell(imfile);
 	//fstat(fileno(imfile),&filestat);
     fseek(imfile, 0L, SEEK_SET);
-	LT_music.size = fread(LT_music.sdata, 1, 65535,imfile);
+	fread(LT_music.sdata, 1, LT_music.size,imfile);
 
 	fclose(imfile);
 	
@@ -146,16 +134,13 @@ void LT_Load_Music(char *fname, int enable_pcm){
 		offset1 += 3;
 	}
 	LT_music.size = offset1;
-	
-	if (enable_pcm) PCM_Drums = &PCM_Drums_ON;
-	else PCM_Drums = &PCM_Drums_OFF;
 }
 
 void LT_Stop_Music(){
 	//reset interrupt
-	outportb(0x43, 0x36);
-	outportb(0x40, 0xFF);	//lo-byte
-	outportb(0x40, 0xFF);	//hi-byte*/
+	//outportb(0x43, 0x36);
+	//outportb(0x40, 0xFF);	//lo-byte
+	//outportb(0x40, 0xFF);	//hi-byte*/
 	//setvect(0x1C, LT_old_time_handler);
 	opl2_clear();
 }
@@ -171,214 +156,42 @@ void LT_Unload_Music(){
 	}
 }
 
-//SOUND BLASTER PCM
-short sb_base; // default 220h
-char sb_irq; // default 7
-char sb_dma; // default 1
-void interrupt ( *old_irq )();
 
-volatile int playing;
+//Adlib SFX INS format 
+const unsigned char OPL2_op_table[9] =
+  {0x00, 0x01, 0x02, 0x08, 0x09, 0x0a, 0x10, 0x11, 0x12};
 
-unsigned char *dma_buffer;
-int page;
-int sb_offset;
+const unsigned short OPL2_notetable[12] =
+  {340,363,385,408,432,458,485,514,544,577,611,647};
 
-typedef struct{
-	int offset;
-	int size;
-} audio_sample;
-
-audio_sample sample[16];
-int LT_sb_nsamples = 0;
-int LT_sb_offset = 0;
-
-int reset_dsp(short port){
-	outportb( port + SB_RESET, 1 );
-	delay(10);
-	outportb( port + SB_RESET, 0 );
-	delay(10);
-	if( ((inportb(port + SB_READ_DATA_STATUS) & 0x80) == 0x80) && (inportb(port + SB_READ_DATA) == 0x0AA )) {
-		sb_base = port;
-		return 1;
-	}
-	return 0;
-}
-
-void write_dsp( unsigned char command ){
-	while( (inportb( sb_base + SB_WRITE_DATA ) & 0x80) == 0x80 );
-	outportb( sb_base + SB_WRITE_DATA, command );
-}
-
-int sb_detect(){
-	char temp;
-	char *BLASTER;
-	sb_base = 0;
-
-	// possible values: 210, 220, 230, 240, 250, 260, 280
-	for( temp = 1; temp < 9; temp++ ) {
-		if( temp != 7 ) {
-			if( reset_dsp( 0x200 + (temp << 4) ) ) break;
-		}
-	}
-	if( temp == 9 ) return 0;
-
-	BLASTER = getenv("BLASTER");
-	sb_dma = 0;
-	for( temp = 0; temp < strlen( BLASTER ); ++temp ) {
-		if((BLASTER[temp] | 32) == 'd') sb_dma = BLASTER[temp + 1] - '0';
-	}
-
-	for( temp = 0; temp < strlen( BLASTER ); ++temp ) {
-		if((BLASTER[temp] | 32) == 'i') {
-			sb_irq = BLASTER[temp + 1] - '0';
-			if( BLASTER[temp + 2] != ' ' ) sb_irq = sb_irq * 10 + BLASTER[ temp + 2 ] - '0';
-		}
-	}
-
-	return sb_base != 0;
-}
-
-void interrupt sb_irq_handler(){
-	inportb(sb_base + SB_READ_DATA_STATUS);
-	outportb( 0x20, 0x20 );
-	/*if( sb_irq == 2 || sb_irq == 10 || sb_irq == 11 ) {
-		outportb( 0xA0, 0x20 );
-	}*/
-	//playing = 0;
-}
-
-void init_irq(){
-	old_irq = getvect( sb_irq + 8 );
-	setvect( sb_irq + 8, sb_irq_handler );
-	outportb( 0x21, inportb( 0x21 ) & !(1 << sb_irq) );
-	// save the old irq vector
-	/*if( sb_irq == 2 || sb_irq == 10 || sb_irq == 11 ) {
-		if( sb_irq == 2) old_irq = getvect( 0x71 );
-		if( sb_irq == 10) old_irq = getvect( 0x72 );
-		if( sb_irq == 11) old_irq = getvect( 0x73 );
-	} else {
-		old_irq = getvect( sb_irq + 8 );
-	//}
-	// set our own irq vector
-	if( sb_irq == 2 || sb_irq == 10 || sb_irq == 11 ) {
-		if( sb_irq == 2) setvect( 0x71, sb_irq_handler );
-		if( sb_irq == 10) setvect( 0x72, sb_irq_handler );
-		if( sb_irq == 11) setvect( 0x73, sb_irq_handler );
-	} else {
-		setvect( sb_irq + 8, sb_irq_handler );
-	//}
-	// enable irq with the mainboard's PIC
-	/*if( sb_irq == 2 || sb_irq == 10 || sb_irq == 11 ) {
-		if( sb_irq == 2) outportb( 0xA1, inportb( 0xA1 ) & 253 );
-		if( sb_irq == 10) outportb( 0xA1, inportb( 0xA1 ) & 251 );
-		if( sb_irq == 11) outportb( 0xA1, inportb( 0xA1 ) & 247 );
-		outportb( 0x21, inportb( 0x21 ) & 251 );
-	} else {
-		outportb( 0x21, inportb( 0x21 ) & !(1 << sb_irq) );
-	//}*/
-}
-
-void deinit_irq(){
-	setvect( sb_irq + 8, old_irq );
-	outportb( 0x21, inportb( 0x21 ) & (1 << sb_irq) );
-	// restore the old irq vector
-	/*if( sb_irq == 2 || sb_irq == 10 || sb_irq == 11 ) {
-		if( sb_irq == 2) setvect( 0x71, old_irq );
-		if( sb_irq == 10) setvect( 0x72, old_irq );
-		if( sb_irq == 11) setvect( 0x73, old_irq );
-	} else {
-		setvect( sb_irq + 8, old_irq );
-	//}
-	// enable irq with the mainboard's PIC
-	if( sb_irq == 2 || sb_irq == 10 || sb_irq == 11 ) {
-		if( sb_irq == 2) outportb( 0xA1, inportb( 0xA1 ) | 2 );
-		if( sb_irq == 10) outportb( 0xA1, inportb( 0xA1 ) | 4 );
-		if( sb_irq == 11) outportb( 0xA1, inportb( 0xA1 ) | 8 );
-		outportb( 0x21, inportb( 0x21 ) | 4 );
-	} else {
-		outportb( 0x21, inportb( 0x21 ) & (1 << sb_irq) );
-	//}*/
-}
-
-void assign_dma_buffer(){
-	long linear_address;
-	//dma_buffer = (unsigned char*) calloc(32768,sizeof(byte));
-	linear_address = FP_SEG(LT_tile_tempdata);
-	linear_address = (linear_address << 4)+FP_OFF(LT_tile_tempdata);
+void LT_Play_AdLib_SFX(unsigned char *ins, byte chan, byte octave, byte note){
+	unsigned char op = OPL2_op_table[chan];
+	unsigned char *data = ins;
+	word chanfreq = OPL2_notetable[note];
+	word chanoct = octave << 2;
 	
-	page = linear_address >> 16;
-	sb_offset = linear_address & 0xFFFF;
+	opl2_out(0xb0 +  chan, 0);	// stop old note
+	opl2_out(0x01,0x20);
 	
-	//printf("DMA OFFSET 0x%04X\n",FP_OFF(LT_tile_tempdata));
-}
-
-void sb_init(){
-	sb_detect();
-	//init_irq();
-	assign_dma_buffer();
-	write_dsp( SB_ENABLE_SPEAKER );
-}
-
-void sb_set_freq(int freq){
-	write_dsp(SB_SET_PLAYBACK_FREQUENCY);
-	write_dsp(256-1000000/freq);
-}
-
-void sb_deinit(){
-	write_dsp( SB_DISABLE_SPEAKER );
-	//free( dma_buffer );
-	//deinit_irq();
-}
-
-void LT_Clear_Samples(){
-	LT_sb_nsamples = 0;
-	LT_sb_offset = 0;
-	memset(LT_tile_tempdata,0x00,sizeof(byte)*32768);
-}
-
-void sb_load_sample(char *file_name){
-	FILE *raw_file;
-	if (LT_sb_offset > 31*1024) LT_Error("Not enough RAM to load sample",file_name);
-	sample[LT_sb_nsamples].offset = LT_sb_offset;
+	// set instrument data
+	opl2_out(0x23 + op, data[0]);	//mod misc
+	opl2_out(0x20 + op, data[1]);	//car misc
+	opl2_out(0x43 + op, data[2]);	//mod scale vol
+	opl2_out(0x40 + op, data[3]);	//car scale vol
+	opl2_out(0x63 + op, data[4]);	//mod AD
+	opl2_out(0x60 + op, data[5]);	//car AD
+	opl2_out(0x83 + op, data[6]);	//mod SR
+	opl2_out(0x80 + op, data[7]);	//car SR
+	opl2_out(0xc0 + chan, data[8]);	//feedback
+	opl2_out(0xe3 + op, data[9]);	//mod wave
+	opl2_out(0xe0 + op, data[10]);	//car wave
 	
-	raw_file = fopen(file_name, "rb");
-	fseek(raw_file, 0x2C, SEEK_SET);
-	sample[LT_sb_nsamples].size = fread(LT_tile_tempdata+LT_sb_offset, 1, 32*1024, raw_file);
-	LT_sb_offset += sample[LT_sb_nsamples].size;
-	LT_sb_nsamples++;
-	fclose(raw_file);
+	//set frequency
+	opl2_out(0xa0 + chan, chanfreq & 255);
+	opl2_out(0xb0 + chan, ((chanfreq & 768) >> 8) + chanoct | 32);//32 = key push
 }
 
-void sb_play_sample(char sample_number, int freq){
-	int pos = sample[sample_number].offset;
-	int length = sample[sample_number].size -1;
-	if (LT_SFX_MODE == 2){
-	//if (!playing) {
-		playing = 1;
-		
-		//Playback
-		outportb( MASK_REGISTER, 4 | 1 /*sb_dma*/ );
-		outportb( MSB_LSB_FLIP_FLOP, 0 );
-		outportb( MODE_REGISTER, 0x48 | 1 /*sb_dma*/ );
-		//switch( sb_dma ) //DMA_CHANNEL_0 DMA_CHANNEL_1 DMA_CHANNEL_3
-		outportb( DMA_CHANNEL_1, page); 
-		
-		// program the DMA controller
-		outportb( sb_dma << 1, (sb_offset+pos) & 0xFF );
-		outportb( sb_dma << 1, (sb_offset+pos) >> 8 );
-		outportb((sb_dma << 1) + 1, length & 0xFF );
-		outportb((sb_dma << 1) + 1, length >> 8 );
-		
-		write_dsp(SB_SET_PLAYBACK_FREQUENCY);
-		write_dsp(256-1000000/freq);
-		
-		outportb(MASK_REGISTER, sb_dma);
-		write_dsp(SB_SINGLE_CYCLE_8PCM);
-		write_dsp(length & 0xFF);
-		write_dsp(length >> 8);
-	//}
-	}
-}
+
 
 //PC Speaker
 /*		
@@ -445,7 +258,8 @@ void interrupt PC_Speaker_SFX_Player(void){
 
 void LT_Play_PC_Speaker_SFX(int *note_array){
 	unsigned long spd = 1193182/60;
-	if (LT_PC_Speaker_Playing == 0) {
+	//if (LT_PC_Speaker_Playing == 0) {
+	LT_PC_Speaker_Playing = 0;
 		asm in al, 61h			//Enable speaker
 		asm or al, 3
 		asm out 61h, al
@@ -461,7 +275,7 @@ void LT_Play_PC_Speaker_SFX(int *note_array){
 		outportb(0x40, spd / 0x100);	//hi-byte
 		//set interrupt
 		setvect(0x1C, PC_Speaker_SFX_Player);		//interrupt 1C not available on NEC 9800-series PCs.
-	}
+	//}
 }
 
 
