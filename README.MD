@@ -1,4 +1,4 @@
-# Little-Game-Engine-for-VGA
+# Little-Game-Engine-for-VGA/EGA
 Little Game Engine optimized for VGA/EGA and very slow computers (8088/8086/286)
 ----------------------------------------------------------------------------
 
