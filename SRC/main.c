@@ -127,17 +127,18 @@ void Run_Shooter();
 //Main function
 void main(){
 	LT_Setup();	//Allways the first, loads setup and initializes engine
+	if (LT_VIDEO_MODE == 4) LT_Logo("logo_EGA.bmp");
 	if (LT_VIDEO_MODE == 0) LT_Logo("logo_EGA.bmp");	//If you want a logo
 	if (LT_VIDEO_MODE == 1) LT_Logo("logo_VGA.bmp");
-	//Load these or the engine will crash
+	if (LT_VIDEO_MODE == 2) LT_Logo("logo_txt.map");
+	//Load this or the engine will crash
 	LT_Load_Font("GFX/0_fontV.bmp"); //Load a font
 	//Load a custom loading animation for Loading process
 	if (LT_VIDEO_MODE == 0) LT_Load_Animation("GFX/loadinge.bmp");
 	if (LT_VIDEO_MODE == 1) LT_Load_Animation("GFX/loading.bmp");
+	if (LT_VIDEO_MODE == 4) LT_Load_Animation("GFX/loadingt.bmp");
 	LT_Set_Animation(4); //Loading animation speed
-	
 	//That's it, let's play
-	
 	LT_MODE = 0;
 	game = 0;
 	//MENU
@@ -161,7 +162,7 @@ void main(){
 	
 }
 
-//Game functions
+//Game functions 
 
 //LT_Draw_Text_Box prints stuff inside a box.
 //If you want the box to "talk", set LT_Text_Speak_End to 0, then
@@ -178,7 +179,6 @@ void Print_Info_Wait_ENTER(word x, word y, int w, int h, unsigned char* text){
 	Clearkb();
 	LT_Delete_Text_Box(x,y,w,h);
 }
-
 
 void Display_Intro(){
 	int key_timmer = 0;
@@ -198,6 +198,7 @@ void Display_Intro(){
 	LT_ENDLESS_SIDESCROLL = 0;
 	//Enable this to load stuff, it will fade out automatically
 	//and show a cute animation
+	
 	LT_Set_Loading_Interrupt();
 		if (LT_VIDEO_MODE == 0){
 			LT_Load_Image("GFX/INTREGA.bmp"); //Load a 320x200 bkg image
@@ -211,10 +212,31 @@ void Display_Intro(){
 			LT_Load_Sprite("GFX/cursorb.bmp",8, Menu_Cursor_Animation); //Load sprites to one of the fixed structs
 			LT_Load_Sprite("GFX/Rocketc.bmp",20,0);
 		}
+		if (LT_VIDEO_MODE == 2){
+			LT_Load_Tiles("gfx/intrtxt.png");
+			LT_Load_Map("gfx/intrtxt.map");
+		}
+		if (LT_VIDEO_MODE == 4){
+			LT_Load_Image("GFX/INTREGA.bmp"); //Load a 320x200 bkg image
+			LT_Load_Sprite("GFX/orbt.bmp",0,0);
+			LT_Load_Sprite("GFX/cursorbt.bmp",8, Menu_Cursor_Animation); //Load sprites to one of the fixed structs
+			LT_Load_Sprite("GFX/rockett.bmp",20,0);
+			
+			/*{
+				FILE *test = fopen("test2.bin","wb");
+				fwrite(&sprite[0].tga_sprite_data_offset[0],2,1,test);
+				fwrite(&sprite[9].tga_sprite_data_offset[0],2,1,test);
+				fwrite(&sprite[10].tga_sprite_data_offset[0],2,1,test);
+				fclose(test);
+			}*/
+		}
+		
 		//Some music
-		LT_Load_Music("music/ADLIB/menu.imf",0);
-
+		if(LT_MUSIC_MODE) LT_Load_Music("music/ADLIB/menu.vgm");
+		if(!LT_MUSIC_MODE) LT_Load_Music("music/TANDY/menu.vgm");
 	LT_Delete_Loading_Interrupt(); //End loading
+	if (LT_VIDEO_MODE == 2)LT_Set_Map(0);
+	
 	
 	LT_Set_Sprite_Animation(8,0);
 	LT_Set_Sprite_Animation_Speed(8,6);
@@ -227,7 +249,11 @@ void Display_Intro(){
 	
 	//This box won't talk
 	LT_Text_Speak_End = 0;
+	LT_Text_Mode_BG = 6;
+	LT_Text_Mode_FG = 15;
 	LT_Draw_Text_Box(13,10,12,7,0,"SELECT  DEMO             TOP DOWN    PLATFORM    PLATFORM 1  PUZZLE      SHOOTER   ");
+	
+	
 	while (Scene == 1) {
 		
 		//sprite[0].pos_x++;
@@ -257,7 +283,7 @@ void Display_Intro(){
 				else change = 0;
 				if (transition == -8){
 					if (LT_SFX_MODE == 0) LT_Play_PC_Speaker_SFX(Speaker_Menu);
-					if (LT_SFX_MODE == 1) LT_Play_AdLib_SFX(Adlib_Select_Sound,2,2,2);
+					if (LT_SFX_MODE == 1) LT_Play_AdLib_SFX(Adlib_Select_Sound,8,2,2);
 					menu_option --; 
 					game-=2;
 					change = 3;
@@ -269,7 +295,7 @@ void Display_Intro(){
 				else change = 0;
 				if (transition == 8){
 					if (LT_SFX_MODE == 0) LT_Play_PC_Speaker_SFX(Speaker_Menu);
-					if (LT_SFX_MODE == 1) LT_Play_AdLib_SFX(Adlib_Select_Sound,2,2,2);
+					if (LT_SFX_MODE == 1) LT_Play_AdLib_SFX(Adlib_Select_Sound,8,2,2);
 					menu_option ++; 
 					game+=2;
 					change = 3;
@@ -304,22 +330,28 @@ void Display_Intro(){
 void Load_TopDown(){
 
 	LT_Set_Loading_Interrupt(); 
-	
+	if(LT_MUSIC_MODE) LT_Load_Music("music/ADLIB/music.vgm");
+	if(!LT_MUSIC_MODE) LT_Load_Music("music/TANDY/platform.vgm");
 	LT_Load_Map("GFX/Topdown.tmx");
 	if (LT_VIDEO_MODE == 0){
-		LT_Load_Tiles("gfx/top_EGA.bmp");
 		LT_Load_Sprite("GFX/playere.bmp",8,Player_Animation);
 		LT_Load_Sprite("GFX/enemy2e.bmp",9,Enemy0_Animation);
 		LT_Load_Sprite("GFX/enemy3e.bmp",12,Enemy1_Animation);
+		LT_Load_Tiles("gfx/top_EGA.bmp");
 	}
 	if (LT_VIDEO_MODE == 1){
-		LT_Load_Tiles("gfx/top_VGA.bmp");
 		LT_Load_Sprite("GFX/player.bmp",8,Player_Animation);
 		LT_Load_Sprite("GFX/enemy2.bmp",9,Enemy0_Animation);
 		LT_Load_Sprite("GFX/enemy3.bmp",12,Enemy1_Animation);
+		LT_Load_Tiles("gfx/top_VGA.bmp");
+		
 	}
-	LT_Load_Music("music/adlib/game.imf",1);
-
+	if (LT_VIDEO_MODE == 4){
+		LT_Load_Sprite("GFX/playert.bmp",8,Player_Animation);
+		LT_Load_Sprite("GFX/tilet2.bmp",9,Enemy0_Animation);
+		LT_Load_Sprite("GFX/tilet2.bmp",12,Enemy1_Animation);
+		LT_Load_Tiles("gfx/top_EGA.bmp");
+	}
 	LT_Delete_Loading_Interrupt();
 	
 	LT_MODE = 0;
@@ -331,7 +363,7 @@ void Run_TopDown(){
 	int n;
 	int dying = 0;
 	LT_Reset_Sprite_Stack();
-	LT_Init_Sprite(8,8*16,4*16);
+	LT_Init_Sprite(8,9*16,2*16);
 	LT_Set_AI_Sprites(9,12,0,1);
 	LT_Set_Sprite_Animation_Speed(8,1);
 	LT_Set_Map(0);//unused y parameter
@@ -386,21 +418,35 @@ void Run_TopDown(){
 byte Level_cards = 0;
 void Load_Platform(){
 	LT_Set_Loading_Interrupt(); 
-	LT_Load_Map("GFX/Platform.tmx");
+	if(LT_MUSIC_MODE) LT_Load_Music("music/ADLIB/platform.vgm");
+	if(!LT_MUSIC_MODE) LT_Load_Music("music/TANDY/platform.vgm");
+
 	if (LT_VIDEO_MODE == 0){
-		LT_Load_Tiles("GFX/Pla_EGA.bmp");
 		LT_Load_Sprite("GFX/playerE.bmp",8,Player_Animation);
 		LT_Load_Sprite("GFX/enemyE.bmp",9,Enemy2_Animation);
+		LT_Load_Tiles("GFX/Pla_EGA.bmp");
+		LT_Load_Map("GFX/Platform.tmx");
 	}
 	if (LT_VIDEO_MODE == 1){
-		LT_Load_Tiles("GFX/Pla_VGA.bmp");
 		LT_Load_Sprite("GFX/player.bmp",8,Player_Animation);
 		LT_Load_Sprite("GFX/enemy.bmp",9,Enemy2_Animation);
+		LT_Load_Tiles("GFX/Pla_VGA.bmp");
+		LT_Load_Map("GFX/Platform.tmx");
 	}
-	LT_Set_Sprite_Animation_Speed(8,1);
-	LT_Load_Music("music/ADLIB/faces.imf",0);
+	if (LT_VIDEO_MODE == 2){
+		LT_Load_Tiles("GFX/Pla_txt.png");
+		LT_Load_Map("GFX/platform.map");
+	}
+	if (LT_VIDEO_MODE == 4){
+		LT_Load_Sprite("GFX/playert.bmp",8,Player_Animation);
+		LT_Load_Sprite("GFX/tilet2.bmp",9,Enemy0_Animation);
+		LT_Load_Tiles("GFX/Pla_EGA.bmp");
+		LT_Load_Map("GFX/Platform.tmx");
+	}
+	
 	LT_Delete_Loading_Interrupt();
 	
+	LT_Set_Sprite_Animation_Speed(8,1);
 	Scene = 2;
 	Level_cards = 0;
 }
@@ -515,18 +561,24 @@ void Load_Platform1(){
 	
 	Scene = 2;
 	LT_Load_Map("GFX/pre2.tmx");
-	if (LT_VIDEO_MODE){
+	if (LT_VIDEO_MODE == 1){
 		LT_Load_Tiles("GFX/pre2.bmp");
 		LT_Load_Sprite("GFX/pre2s.bmp",16,Player_Animation_2);
 		LT_Load_Sprite("GFX/pre2e.bmp",17,Player_Animation_2);
-	} else {
+	}
+	if (LT_VIDEO_MODE == 0){
 		LT_Load_Tiles("GFX/pre2ega.bmp");
 		LT_Load_Sprite("GFX/pre2sega.bmp",16,Player_Animation_2);
-		LT_Load_Sprite("GFX/pre2e.bmp",17,Player_Animation_2);
+		LT_Load_Sprite("GFX/pre2eEGA.bmp",17,Player_Animation_2);
+	}
+	if (LT_VIDEO_MODE == 4){
+		LT_Load_Tiles("gfx/pre2ega.bmp");
+		LT_Load_Sprite("GFX/playert.bmp",8,Player_Animation);
+		LT_Load_Sprite("GFX/tilet2.bmp",9,Enemy0_Animation);
 	}
 	LT_Set_Sprite_Animation_Speed(16,4);
 	LT_Set_Sprite_Animation_Speed(17,8);
-	LT_Load_Music("music/ADLIB/faces.imf",0);
+	LT_Load_Music("music/ADLIB/music.vgm");
 	LT_Delete_Loading_Interrupt();
 }
 
@@ -601,7 +653,7 @@ void Load_Puzzle(){
 		LT_Load_Sprite("GFX/balle.bmp",8,Ball_Animation);
 		LT_Load_Sprite("GFX/ball1e.bmp",9,Enemy0_Animation);
 	}
-	LT_Load_Music("music/ADLIB/puzzle.imf",0);
+	LT_Load_Music("music/ADLIB/music.vgm");
 	
 	LT_Delete_Loading_Interrupt();
 
@@ -692,7 +744,7 @@ void Load_Shooter(){
 			LT_Load_Sprite("GFX/ship.bmp",16,Ship_Animation);
 			LT_Load_Sprite("GFX/rocketb.bmp",17,Rocket_Animation);
 		}
-		LT_Load_Music("music/ADLIB/shooter.imf",0);
+		LT_Load_Music("music/ADLIB/music.vgm");
 	
 	LT_Delete_Loading_Interrupt();
 }
