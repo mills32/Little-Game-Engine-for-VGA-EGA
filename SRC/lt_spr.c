@@ -319,6 +319,126 @@ _Exit:
 	return code_size;
 }
 
+
+byte *TGA=(byte *)0xB8000000L;
+
+byte TGA_Sprite1[] = {
+	//First scanline
+	//calculate things
+	0x81,0xE7,0xFF,0x1F,//and di,8191	//screen_offset0&=8191;
+	0x89,0xD8,			//mov ax,bx
+	0x25,0x03,0x00,		//and ax,3		//ax = (YPos&3)
+	0xB1,0x0D,			//mov cl,13
+	0xD3,0xE0,			//shl ax,cl		//ax = (YPos&3)*8192;
+	0x01,0xC7,			//add di,ax		//screen_offset0+=(8192*(YPos&3));
+
+	//Put pixels
+	0x81,0xC7,0x02,0x00,//add di,2
+	0xB8,0x80,0x00,		//mov ax,0x0080
+	0x26,0x89,0x05,		//mov es:[di],ax
+	0x81,0xC7,0x02,0x00, 
+	0xB8,0x00,0x08,	
+	0x26,0x89,0x05,
+	0x81,0xC7,0x04,0x00,
+	
+	//Calculate next scanline address
+	0x43,				//inc bx		//YPos++;
+	0x81,0xC7,0xF8,0x1F,//add di,8192-8	//screen_offset0+=8192;
+	0x89,0xD8,			//mov ax,bx
+	0x25,0x03,0x00,		//and ax,3		//YPos&3
+	0x75,0x04,			//jnz 4			//if (YPos&3) !=0, then jump 4 bytes
+	0x81,0xC7,0xA0,0x00,//add di,160	//else, screen_offset0+=160;
+
+	0xCB//far return
+	
+};
+
+word compile_tga_sprite(int width, unsigned char* source_data, word sprite_data_offset){
+	int x,y;
+	unsigned char start_line_code[] = {0x81,0xE7,0xFF,0x1F,0x89,0xD8,0x25,0x03,0x00,0xB1,0x0D,0xD3,0xE0,0x01,0xC7};
+	unsigned char end_line_code[] = {0x43,0x81,0xC7,0xF8,0x1F,0x89,0xD8,0x25,0x03,0x00,0x75,0x04,0x81,0xC7,0xA0,0x00};
+	word offset = 0;
+	//word of_debug = sprite_data_offset;
+	word offset1 = sprite_data_offset;
+	word code_size = 0;
+	byte pbyte0 = 0;
+	byte pbyte1 = 0;
+	word line_jump = 8192-(width/2);
+	end_line_code[3] = line_jump&0x00FF;
+	end_line_code[4] = line_jump>>8;
+	for (y = 0; y<width;y++){
+		byte skipped_bytes = 0;
+		byte color_bytes = 0;
+		//Write start line code
+		memcpy(&LT_sprite_data[offset1],start_line_code,15);
+		offset1+=15;code_size+=15;
+		for (x = 0; x<width/2;x++){
+			byte skip = 0;
+			byte b0 = source_data[offset++];
+			byte b1 = source_data[offset++];
+			if (b0 > 15) skip = 1;
+			if (b1 > 15) skip = 1;
+			
+			//write byte code
+			if (!skip) {
+				if (skipped_bytes){
+					//write: add di,skipped_bytes
+					LT_sprite_data[offset1++] = 0x81;
+					LT_sprite_data[offset1++] = 0xC7;
+					LT_sprite_data[offset1++] = skipped_bytes&0x0F;
+					LT_sprite_data[offset1++] = skipped_bytes>>4;
+					code_size+=4;
+					skipped_bytes = 0;
+				}
+				if (color_bytes==0) pbyte0 = (b0<<4)+b1;
+				if (color_bytes==1) {
+					pbyte1 = (b0<<4)+b1;
+					//writel: mov ax,word
+					LT_sprite_data[offset1++] = 0xB8;
+					LT_sprite_data[offset1++] = pbyte0;
+					LT_sprite_data[offset1++] = pbyte1;
+					//write: mov es:[di],ax
+					LT_sprite_data[offset1++] = 0x26;
+					LT_sprite_data[offset1++] = 0x89;
+					LT_sprite_data[offset1++] = 0x05;
+					//write: add di,2
+					LT_sprite_data[offset1++] = 0x81;
+					LT_sprite_data[offset1++] = 0xC7;
+					LT_sprite_data[offset1++] = 0x02;
+					LT_sprite_data[offset1++] = 0x00;
+					
+					code_size+=10;
+				}
+				color_bytes++;
+				if (color_bytes == 2) color_bytes = 0;
+			} else skipped_bytes++;
+		}
+		if (skipped_bytes){
+			//write: add di,skipped_bytes
+			LT_sprite_data[offset1++] = 0x81;
+			LT_sprite_data[offset1++] = 0xC7;
+			LT_sprite_data[offset1++] = skipped_bytes&0x0F;
+			LT_sprite_data[offset1++] = skipped_bytes>>4;
+			code_size+=4;
+		}
+		//Write end line code
+		if (y<(width-1)){
+			memcpy(&LT_sprite_data[offset1],end_line_code,15);
+			offset1+=16;
+			code_size+=16;
+		}
+	}
+	//write far ret
+	LT_sprite_data[offset1++] = 0xCB;
+	code_size++;
+	
+	//memcpy(&LT_sprite_data[offset1++],&code_size,2);
+	
+	return code_size;
+}
+
+
+
 //load sprites with transparency (size = 8,16,32,64!)
 void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 	SPRITE *s = &sprite[sprite_number];
@@ -343,7 +463,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 	for(index=(s->height-1)*s->width;index>=0;index-=s->width){
 		for(x=0;x<s->width;x++){
 			unsigned char c = (byte)fgetc(fp);
-			if (LT_VIDEO_MODE){
+			if (LT_VIDEO_MODE==1){
 				//Sprite palette starts at 208 in VGA,
 				//if 0 do not add 208, it is color 0 (transparent)
 				if (c) c+=208;
@@ -365,7 +485,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 	for (tileY=0;tileY<s->height;tileY+=size){
 		for (tileX=0;tileX<s->width;tileX+=size){
 			offset = (tileY*s->width)+tileX;
-			if (LT_VIDEO_MODE){
+			if (LT_VIDEO_MODE==1){//VGA
 				LT_tile_tempdata2[index] = size;
 				LT_tile_tempdata2[index+1] = size;
 				index+=2;
@@ -383,7 +503,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 	//fsize = (size * size * 7) / 2 + 25;
 	s->code_size = 0;
 	for (frame = 0; frame < s->nframes; frame++){
-		if (LT_VIDEO_MODE){
+		if (LT_VIDEO_MODE == 1){
 			/*if ((s->frames[frame].compiled_code = farcalloc(fsize,sizeof(unsigned char))) == NULL){
 				LT_Error("Not enough RAM to allocate frames ",file);
 			}*/
@@ -397,7 +517,8 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 			//if (code_size == NULL) LT_Error("Not enough RAM to allocate frames ",file);
 			//s->frames[frame].compiled_code = farrealloc(s->frames[frame].compiled_code, code_size);
 			//Store the compiled data at it's final destination
-		} else {
+		} 
+		if (LT_VIDEO_MODE == 0){
 			byte line[8+64+8] = {0};
 			byte linepos = 0;
 			byte *pixels = &LT_tile_tempdata2[frame*size*size];
@@ -431,8 +552,16 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 				if (LT_sprite_data_offset > 65536-8192) LT_Error("Not enough RAM to allocate frames ",file);
 			}			
 		}
+		if (LT_VIDEO_MODE == 4){
+			code_size = compile_tga_sprite(size,&LT_tile_tempdata2[(frame*2)+(frame*(size*size))],LT_sprite_data_offset);
+			//s->frames[frame].compiled_code = &LT_sprite_data[LT_sprite_data_offset];
+			s->tga_sprite_data_offset[frame] = LT_sprite_data_offset;
+			LT_sprite_data_offset += code_size;
+			s->code_size += code_size;
+			if (LT_sprite_data_offset > 65536-8192) LT_Error("Not enough RAM to allocate frames ",file);
+		}
 	}
-
+	
 	//IINIT SPRITE
 	//Load animations
 	memcpy(s->animations,animations,64);
@@ -440,7 +569,6 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 	for (frame = 0; frame < 64;frame++){
 		if (s->animations[frame] > s->nframes-1) s->animations[frame] = 0;
 	}
-	
 	//s->bkg_data set in init function (sys.c)
 	s->width = size;
 	s->height = size;
@@ -573,10 +701,10 @@ void LT_Delete_Sprite_VGA(int sprite_number){
 	word siz = s->siz;
 	word next_scanline = s->next_scanline;
 	if (!LT_VIDEO_MODE) {
-		screen_offset0 = (s->last_y<<5)+(s->last_y<<3)+(s->last_y<<2)+(s->last_x>>3);
+		screen_offset0 = (s->pos_y<<5)+(s->pos_y<<3)+(s->pos_y<<2)+(s->pos_x>>3);
 		screen_offset1 = screen_offset0 + (304*44);
 	} else {
-		screen_offset0 = (s->last_y<<6)+(s->last_y<<4)+(s->last_y<<3)+(s->last_x>>2);
+		screen_offset0 = (s->pos_y<<6)+(s->pos_y<<4)+(s->pos_y<<3)+(s->pos_x>>2);
 		screen_offset1 = screen_offset0 + (304*88);
 	}
 	s->s_delete = 0;
@@ -715,6 +843,7 @@ void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset)
 	//draw EGA sprite and destroy bkg
 	char *bitmap = Sprite;
 	word screen_offset = (YPos<<5)+(YPos<<3)+(YPos<<2)+(XPos>>3);
+	offset+=0;
 	asm{
 		push ds
 		push di
@@ -940,6 +1069,31 @@ void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size){
 	}
 }
 
+void run_compiled_tga_sprite(word XPos, word YPos, char *Sprite){
+	word y = (YPos>>2);
+	word screen_offset = (y<<7)+(y<<5)+(XPos>>1);
+	asm{
+		push ds
+		push di
+		push si
+
+		mov 	ax,0B800h
+		mov 	es,ax						
+		mov		di,screen_offset	//es:di destination vram				
+	
+		//mov bx, 0a000h
+		//mov ds, bx          // We do this so the compiled shape won't need  segment overrides.
+	
+		mov		bx,YPos
+		call dword ptr [Sprite] //the business end of the routine
+		
+		pop si
+		pop di
+		pop ds
+	}
+
+}
+
 int LT_Sprite_Stack_Table_Pos0 = 0;
 extern word pageflip[];
 extern word gfx_draw_page;
@@ -959,7 +1113,7 @@ void LT_Draw_Sprites(){
 		int lx = s->last_last_x;
 		int ly = s->last_last_y+pageflip[gfx_draw_page&1];
 		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((x > SCR_X)&&(x < (SCR_X+304))&&(y > (SCR_Y-8))&&(y < (SCR_Y+200))){
+		if ((x > SCR_X)&&(x < (SCR_X+304))){
 		if (s->init == 2){
 		word bkg_data = s->bkg_data;
 		word screen_offset0;
@@ -971,7 +1125,6 @@ void LT_Draw_Sprites(){
 		else screen_offset0 = (ly<<6)+(ly<<4)+(ly<<3)+(lx>>sprite_size); 
 		///Clean pos 0 bkg
 		asm{
-		
 			push ds
 			push di
 			push si
@@ -1032,6 +1185,7 @@ void LT_Draw_Sprites(){
 		asm pop ds
 		}
 		}
+		if (s->s_delete == 2)s->init = 0;
 	}
 	
 	LT_VGA_Return_4Planes();
@@ -1049,7 +1203,7 @@ void LT_Draw_Sprites(){
 			s->get_item = 0;
 		}
 		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((x > SCR_X)&&(x < (SCR_X+304))&&(y > (SCR_Y-8))&&(y < (SCR_Y+200))){
+		if ((x > SCR_X+4)&&(x < (SCR_X+304-4))){
 			word bkg_data = s->bkg_data;
 			word screen_offset1;
 			word size = s->size;
@@ -1135,19 +1289,24 @@ void LT_Draw_Sprites(){
 			s->last_last_y = s->last_y;
 			}
 			//draw sprite and destroy bkg
-			if (!LT_VIDEO_MODE){
-				word panning = s->ega_size[x&7];
-				draw_ega_sprite(x,y+pageflip[gfx_draw_page&1],s->frames[s->frame].compiled_code+panning,s->width,screen_offset1);
-			} else {
-				run_compiled_sprite(x,y+pageflip[gfx_draw_page&1],s->frames[s->frame].compiled_code);
-			}
+			if (s->s_delete != 2){
+				if (LT_VIDEO_MODE == 0){
+					word panning = s->ega_size[x&7];
+					draw_ega_sprite(x,y+pageflip[gfx_draw_page&1],s->frames[s->frame].compiled_code+panning,s->width,screen_offset1);
+				} 
+				if (LT_VIDEO_MODE == 1){
+					run_compiled_sprite(x,y+pageflip[gfx_draw_page&1],s->frames[s->frame].compiled_code);
+				}
+			} else s->s_delete = 0;
 			s->last_x = x;
 			s->last_y = y;
 			s->s_delete = 1;
 			if (s->init != 2) s->init++;
-		}
-		else if (s->s_delete == 1) {
-			LT_Delete_Sprite(LT_Sprite_Stack_Table[sprite_number]);
+		} else {
+			if (s->s_delete == 1) {
+				//LT_Delete_Sprite(LT_Sprite_Stack_Table[sprite_number]);
+				s->s_delete = 2;
+			}
 		}
 		if (sprite_number){//remove from stack
 			if ((x < (SCR_X-40))||(x > SCR_X+360)){
@@ -1188,11 +1347,13 @@ void LT_Draw_Sprites_Fast(){
 			}
 			
 			//draw sprite and destroy bkg
-			if (!LT_VIDEO_MODE){
+			if (LT_VIDEO_MODE == 0){
 				word panning = s->ega_size[x&7];
 				draw_ega_sprite_fast(x,y,s->frames[s->frame].compiled_code+panning,s->width);
-			}else
+			}
+			if (LT_VIDEO_MODE == 1){
 				run_compiled_sprite(x,y,s->frames[s->frame].compiled_code);
+			}
 			//run_compiled_sprite2(x,y);
 			s->last_x = x;
 			s->last_y = y;
@@ -1214,6 +1375,16 @@ void LT_Draw_Sprites_Fast(){
 		}
 		s->last_x = x;
 		s->last_y = y;
+	}
+}
+
+void LT_Draw_Sprites_TGA(){
+	int sprite_number;
+	for (sprite_number = LT_Sprite_Stack; sprite_number > -1; sprite_number--){	
+		SPRITE *s = &sprite[LT_Sprite_Stack_Table[sprite_number]];
+		int x = s->pos_x;
+		int y = s->pos_y;
+		run_compiled_tga_sprite(x,y,&LT_sprite_data[s->tga_sprite_data_offset[s->frame]]);
 	}
 }
 
@@ -1262,6 +1433,8 @@ LT_Sprite_State LT_move_player(int sprite_number){
 	byte slope_speed = 16; //A dirty way of making big slopes or long conveyor belts impossible to cross
 	int tsize = 4;//16
 	byte tilememsize = 0;
+	byte mapwidth_tga = 0;
+	byte mapheight_tga = 0;
 	LT_Sprite_State LT_Collision;
 	byte col_x = 0;
 	byte col_y = 0;
@@ -1269,13 +1442,15 @@ LT_Sprite_State LT_move_player(int sprite_number){
 	byte size = s->width;
 	byte siz = s->width -1;
 	byte si = s->width>>1;
+	
 	int last_dir;
 	//GET TILE POS
-	if (!LT_VIDEO_MODE) tilememsize = 5;
-	else tilememsize = 6;
+	if (LT_VIDEO_MODE == 0) tilememsize = 5;
+	if (LT_VIDEO_MODE == 1) tilememsize = 6;
+	if (LT_VIDEO_MODE == 4) {tilememsize = 0;mapheight_tga = 2;mapwidth_tga = 1;}
 	s->tile_x = (s->pos_x+si)>>tsize;
 	s->tile_y = (s->pos_y+si)>>tsize;
-	tile_number = (LT_map_data[( s->tile_y <<8) + s->tile_x]-TILE_VRAM)>>tilememsize;
+	tile_number = (LT_map_data[(s->tile_y << (8+mapheight_tga)) + (s->tile_x<<mapwidth_tga)]-TILE_VRAM)>>tilememsize;
 	tilecol_number = LT_map_collision[(((s->pos_y+si)>>tsize) <<8) + ((s->pos_x+si)>>tsize)];
 	tilecol_number_down = LT_map_collision[(((s->pos_y+siz)>>tsize) <<8) + ((s->pos_x+si)>>tsize)];
 	
@@ -1627,7 +1802,7 @@ void LT_Update_AI_Sprites(){
 		int px = s->pos_x;
 		int py = s->pos_y;
 		//CALCULATE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((px > SCR_X-24)&&(px < (SCR_X+336))&&(py)&&(py < 308)){	
+		if ((px > SCR_X)&&(px < (SCR_X+304))&&(py)&&(py < 308)){	
 			byte col_x = 0;
 			byte col_y = 0;
 			int x,y;
@@ -1760,8 +1935,12 @@ void LT_Unload_Sprites(){
 		s->code_size = 0;
 	}
 	LT_AI_Enabled = 0;
-	if (LT_VIDEO_MODE)LT_sprite_data_offset = 16*1024; //just after loading animation
-	else LT_sprite_data_offset = 512;
+	if (LT_VIDEO_MODE==1)LT_sprite_data_offset = 16*1024; //just after loading animation
+	if (LT_VIDEO_MODE==0)LT_sprite_data_offset = 512;
+	if (LT_VIDEO_MODE==4){
+		LT_sprite_data_offset = 2048;
+		memset(&LT_sprite_data[2048],0,62*1024);
+	}
 	//LT_Delete_Sprite(sprite_number);
 	/*for (i=0;i<s->nframes;i++){
 		farfree(s->frames[i].compiled_code);

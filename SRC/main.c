@@ -318,7 +318,6 @@ void Display_Intro(){
 			if (LT_SFX_MODE == 0) LT_Play_PC_Speaker_SFX(Speaker_Select);
 			if (LT_SFX_MODE == 1) /*adlib*/;
 		}
-		if (LT_Keys[LT_JUMP]) {Scene = 0;game = 11;}
 		if (LT_Keys[LT_ESC]) {Scene = 3;game = 255; running = 0;}
 
 		LT_Play_Music();
@@ -466,7 +465,7 @@ void Run_Platform(){
 	
 	//Init_Player
 	LT_Reset_Sprite_Stack();
-	LT_Init_Sprite(8,5*16,0);
+	LT_Init_Sprite(8,5*16,4*16);
 	LT_Set_AI_Sprites(9,9,1,1);
 	
 	LT_Set_Map(0);
@@ -532,7 +531,7 @@ void Run_Platform(){
 		//if water or enemy, reset level
 		if (sprite[8].pos_y > (18*16)){
 			if (LT_SFX_MODE == 0){LT_Play_PC_Speaker_SFX(Speaker_Crash);}
-			if (LT_SFX_MODE == 1)/*adlib*/;
+			if (LT_SFX_MODE == 1)LT_Play_AdLib_SFX(Speaker_Get_Item_Adlib,8,4,0);
 			Scene = 1;
 			game = 4;
 			sleep(1);
