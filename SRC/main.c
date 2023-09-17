@@ -130,7 +130,6 @@ void main(){
 	if (LT_VIDEO_MODE == 4) LT_Logo("logo_EGA.bmp");
 	if (LT_VIDEO_MODE == 0) LT_Logo("logo_EGA.bmp");	//If you want a logo
 	if (LT_VIDEO_MODE == 1) LT_Logo("logo_VGA.bmp");
-	if (LT_VIDEO_MODE == 2) LT_Logo("logo_txt.map");
 	//Load this or the engine will crash
 	LT_Load_Font("GFX/0_fontV.bmp"); //Load a font
 	//Load a custom loading animation for Loading process
@@ -212,10 +211,6 @@ void Display_Intro(){
 			LT_Load_Sprite("GFX/cursorb.bmp",8, Menu_Cursor_Animation); //Load sprites to one of the fixed structs
 			LT_Load_Sprite("GFX/Rocketc.bmp",20,0);
 		}
-		if (LT_VIDEO_MODE == 2){
-			LT_Load_Tiles("gfx/intrtxt.png");
-			LT_Load_Map("gfx/intrtxt.map");
-		}
 		if (LT_VIDEO_MODE == 4){
 			LT_Load_Image("GFX/INTREGA.bmp"); //Load a 320x200 bkg image
 			LT_Load_Sprite("GFX/orbt.bmp",0,0);
@@ -233,7 +228,7 @@ void Display_Intro(){
 		
 		//Some music
 		if(LT_MUSIC_MODE) LT_Load_Music("music/ADLIB/menu.vgm");
-		if(!LT_MUSIC_MODE) LT_Load_Music("music/TANDY/menu.vgm");
+		if(!LT_MUSIC_MODE) LT_Load_Music("music/TANDY/tandyani.vgm");
 	LT_Delete_Loading_Interrupt(); //End loading
 	if (LT_VIDEO_MODE == 2)LT_Set_Map(0);
 	
@@ -249,8 +244,6 @@ void Display_Intro(){
 	
 	//This box won't talk
 	LT_Text_Speak_End = 0;
-	LT_Text_Mode_BG = 6;
-	LT_Text_Mode_FG = 15;
 	LT_Draw_Text_Box(13,10,12,7,0,"SELECT  DEMO             TOP DOWN    PLATFORM    PLATFORM 1  PUZZLE      SHOOTER   ");
 	
 	
@@ -361,11 +354,16 @@ void Load_TopDown(){
 void Run_TopDown(){
 	int n;
 	int dying = 0;
+	byte sea_pal_offsets[4] = {1,5,12,13};
+	byte sea_pal_cycle[4] = {15,11,11,11};
 	LT_Reset_Sprite_Stack();
 	LT_Init_Sprite(8,9*16,2*16);
 	LT_Set_AI_Sprites(9,12,0,1);
 	LT_Set_Sprite_Animation_Speed(8,1);
+	
 	LT_Set_Map(0);//unused y parameter
+	if (LT_VIDEO_MODE)LT_Cycle_palette(1,4);
+	else LT_Cycle_Palette_EGA(sea_pal_offsets,sea_pal_cycle,32);
 	
 	Scene = 2;
 	LT_MODE = 0;
@@ -379,7 +377,9 @@ void Run_TopDown(){
 		
 		//LT_Print LT_Sprite_Stack/*cards>>1*/);
 		
-		LT_Cycle_palette(1,4);
+		//water palette animation
+		if (LT_VIDEO_MODE)LT_Cycle_palette(1,4);
+		else LT_Cycle_Palette_EGA(sea_pal_offsets,sea_pal_cycle,32);
 		
 		if (!dying){
 			//In this mode sprite is controlled using U D L R
@@ -431,10 +431,6 @@ void Load_Platform(){
 		LT_Load_Sprite("GFX/enemy.bmp",9,Enemy2_Animation);
 		LT_Load_Tiles("GFX/Pla_VGA.bmp");
 		LT_Load_Map("GFX/Platform.tmx");
-	}
-	if (LT_VIDEO_MODE == 2){
-		LT_Load_Tiles("GFX/Pla_txt.png");
-		LT_Load_Map("GFX/platform.map");
 	}
 	if (LT_VIDEO_MODE == 4){
 		LT_Load_Sprite("GFX/playert.bmp",8,Player_Animation);
@@ -505,7 +501,7 @@ void Run_Platform(){
 		
 		//If collision with breakable tile (door in this case)
 		if ((LT_Player_State.col_x == 5)){
-			if (Level_cards < 10) Print_Info_Wait_ENTER(4,10,31,2,"YOU NEED 10 CARDS TO OPEN DOOR. PRESS ENTER.");
+			if (Level_cards < 8) Print_Info_Wait_ENTER(4,10,31,2,"YOU NEED 10 CARDS TO OPEN DOOR. PRESS ENTER.");
 			else { //Open door
 				if (LT_SFX_MODE == 0)LT_Play_PC_Speaker_SFX(Speaker_Get_Item);
 				if (LT_SFX_MODE == 1)/*adlib*/;

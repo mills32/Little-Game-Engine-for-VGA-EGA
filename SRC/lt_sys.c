@@ -9,12 +9,12 @@ long time_ctr;
 
 // this points to the 18.2hz system clock for debug in dosbox (does not work on PCEM). 
 word *my_clock=(word *)0x0000046C; 
-byte *XGA_TEXT_MAP=(byte *)0xB8000000L;
    		
 word start;
 int Free_RAM;
 byte LT_VIDEO_MODE = 0;
 byte LT_DETECTED_CARD = 0;
+byte LT_MUSIC_MODE = 1;//1 ADLIB; 0 TANDY
 byte LT_SFX_MODE = 1;
 byte LT_LANGUAGE = 0;
 
@@ -36,14 +36,35 @@ void LT_vsync();
 
 void LT_Fade_in_VGA();
 void LT_Fade_in_EGA();
+void LT_Fade_in_TGA();
 void LT_Fade_out_VGA();
 void LT_Fade_out_EGA();
+void LT_Fade_out_TGA();
+extern void (*LT_Load_Tiles)(char*);
+void LT_Load_Tiles_EGA_VGA();
+void LT_WaitVsync_VGA();
+void LT_WaitVsync_TGA();
+void LT_Scroll_Map_GFX();
+void LT_Scroll_Map_TGA();
+extern void (*LT_Draw_Sprites)(void);
+extern void (*LT_Draw_Sprites_Fast)(void);
+void LT_Draw_Sprites_EGA_VGA();
+void LT_Draw_Sprites_Fast_EGA_VGA();
+void LT_Draw_Sprites_Tandy();
+void LT_Draw_Sprites_Fast_Tandy();
+extern void (*LT_Load_Music)(char*);
+extern void (*LT_Play_Music)(void);
+void Load_Music_Adlib(char *fname);
+void Play_Music_Adlib();
+void Load_Music_Tandy(char *fname);
+void Play_Music_Tandy();
 
 //Physical width in bytes of screen
 extern word LT_VRAM_Logical_Width;	
 extern byte sprite_size;
 extern LT_sprite_data_offset;
 extern unsigned char *LT_sprite_data; 
+extern unsigned char *tandy_bkg_data; 
 extern word *sprite_id_table;
 //Variable functions
 void LT_Print_VGA(word x, word y, word w, char *string);
@@ -56,6 +77,7 @@ extern void (*LT_Print_Variable)(byte,byte,word);
 
 void draw_map_column_vga(word x, word y, word map_offset, word ntiles);
 void draw_map_column_ega(word x, word y, word map_offset, word ntiles);
+void draw_map_column_tga(word x, word y, word map_offset, word ntiles);
 extern void (*draw_map_column)(word, word, word, word);
 
 //70614
@@ -71,6 +93,12 @@ void LT_Text_Mode(){
 		outportb(0x3D5, (inportb(0x3D5) & 0xC0) | 14);
 		outportb(0x3D4, 0x0B);
 		outportb(0x3D5, (inportb(0x3D5) & 0xE0) | 15);
+	}
+	if (LT_VIDEO_MODE == 4){
+		LT_WaitVsync_TGA();//If you don't do this, there is weird behaviour on dos
+		asm mov dx,03DFh
+		asm mov al,0x00
+		asm out dx,al
 	}
 	regs.h.ah = 0x00;
 	regs.h.al = TEXT_MODE;
@@ -118,10 +146,16 @@ void Check_Graphics_Card(){
 			printf("\nCard detected: EGA");
 			LT_DETECTED_CARD = 0;
 		} else {
-			printf("Yo need an EGA or VGA card to run this / Necesitas una tarjeta EGA o VGA");
-			exit(1);
+			regs.h.ah=0x0F;
+			regs.h.bl=0x00;
+			int86(0x10, &regs, &regs);
+			if (regs.h.al == 0x07) {
+				printf("You need at least a CGA card to run this\n");
+				exit(1);
+			} else {printf("\nCard detected: CGA or TANDY\n");LT_DETECTED_CARD = 2;}
 		}
-	}	
+	}
+	
 	sleep(1);
 	Clearkb();
 }
@@ -142,15 +176,30 @@ void LT_Setup(){
 	}
 	
 	Read_Setup();
-	if (LT_DETECTED_CARD){
+	if (LT_DETECTED_CARD == 1){
 		printf("Select video card / Selecciona tarjeta de video\n\n0 = EGA, 16 col\n1 = VGA, 256 col");
 		while (!kbhit());
 		character = getch() - 48;
 		if ( character > 1 )character = 1;
 		LT_VIDEO_MODE = character;
 		Clearkb();
-	} else LT_VIDEO_MODE = 0; //EGA
-
+	}
+	if (LT_DETECTED_CARD == 0) LT_VIDEO_MODE = 0; //EGA
+	if (LT_DETECTED_CARD == 2) {
+		printf("Select video card / Selecciona tarjeta de video\n\n3 = CGA, 4 col\n4 = TANDY, 16 col");
+		while (!kbhit());
+		character = getch() - 48;
+		if ( character != 4 ) character = 4;
+		LT_VIDEO_MODE = character;
+		Clearkb();
+	}
+	system("cls");
+	printf("Select sound card / Selecciona tarjeta de sonido\n\n0 = TANDY 3 voice\n1 = ADLIB");
+	while (!kbhit());
+	character = getch() - 48;
+	if ( character > 1 ) character = 1;
+	LT_MUSIC_MODE = character;
+	Clearkb();
 	
 	//SAVE SETTINGS
 	Save_Setup();
@@ -194,8 +243,11 @@ void LT_Init(){
 	};
 	
 	if (LT_VIDEO_MODE == 0){
+		LT_WaitVsync = &LT_WaitVsync_VGA;
 		LT_Fade_in = &LT_Fade_in_EGA;
 		LT_Fade_out = &LT_Fade_out_EGA;
+		LT_Draw_Sprites = &LT_Draw_Sprites_EGA_VGA;
+		LT_Draw_Sprites_Fast = &LT_Draw_Sprites_Fast_EGA_VGA;
 		
 		LT_sprite_data_offset = 512;
 		
@@ -239,8 +291,9 @@ void LT_Init(){
 		LT_Print = &LT_Print_EGA;
 		LT_Print_Variable = &LT_Null;
 		draw_map_column = &draw_map_column_ega;
-		LT_Delete_Sprite = &LT_Delete_Sprite_VGA;
 		LT_Edit_MapTile = &LT_Edit_MapTile_EGA;
+		LT_Load_Tiles = &LT_Load_Tiles_EGA_VGA;
+		LT_Scroll_Map = &LT_Scroll_Map_GFX;
 		sprite_bkg = &spr_EGA[0];
 		
 		FONT_VRAM = 0x6F00;
@@ -249,8 +302,11 @@ void LT_Init(){
 	}
 	
 	if (LT_VIDEO_MODE == 1){//VGA 320 x 200 x 256 MODE X
+		LT_WaitVsync = &LT_WaitVsync_VGA;
 		LT_Fade_in = &LT_Fade_in_VGA;
 		LT_Fade_out = &LT_Fade_out_VGA;
+		LT_Draw_Sprites = &LT_Draw_Sprites_EGA_VGA;
+		LT_Draw_Sprites_Fast = &LT_Draw_Sprites_Fast_EGA_VGA;
 		LT_sprite_data_offset = 16*1024;
 		LT_Fade_out();
 		VGA_ClearPalette();
@@ -302,18 +358,53 @@ void LT_Init(){
 		// set vertical retrace back to normal
 		word_out(0x03d4, V_RETRACE_END, 0x8e);
 		
+		
+		outport(0x03CE,0x0106);	// Select VRAM B8000h-BFFFFh; Chain O/E OFF; Text mode OFF 
+		
+		LT_Load_Tiles = &LT_Load_Tiles_EGA_VGA;
 		LT_Print = &LT_Print_VGA;
 		LT_Print_Variable = &LT_Print_Variable_VGA;
 		draw_map_column = &draw_map_column_vga;
-		LT_Delete_Sprite = &LT_Delete_Sprite_VGA;
 		LT_Edit_MapTile = &LT_Edit_MapTile_VGA;
+		LT_Scroll_Map = &LT_Scroll_Map_GFX;
 		sprite_bkg = &spr_VGA[0];
 		
 		FONT_VRAM = 0xDCC0;
 		TILE_VRAM = 0xE0C0;
 		sprite_size = 2;
 	}
-
+	if (LT_VIDEO_MODE == 4){//Tandy
+		LT_WaitVsync = &LT_WaitVsync_TGA;
+		LT_Fade_in = &LT_Fade_in_TGA;
+		LT_Fade_out = &LT_Fade_out_TGA;
+		LT_Draw_Sprites = &LT_Draw_Sprites_Tandy;
+		LT_Draw_Sprites_Fast = &LT_Draw_Sprites_Fast_Tandy;
+		LT_sprite_data_offset = 2048;
+		LT_Fade_out();
+		
+		regs.h.ah = 0x00;
+		regs.h.al = 0x09;		// =>320x200 (08 = 160x200)
+		int86(0x10, &regs, &regs);
+		
+		LT_Load_Tiles = &LT_Load_Tiles_EGA_VGA;
+		LT_Print = &LT_Null;
+		LT_Print_Variable = &LT_Null;
+		draw_map_column = &draw_map_column_tga;
+		LT_Edit_MapTile = &LT_Null;
+		LT_Scroll_Map = &LT_Scroll_Map_TGA;
+		
+		FONT_VRAM = 0x00;
+		TILE_VRAM = 0x00;
+		sprite_size = 2;
+	}
+	if (LT_MUSIC_MODE == 0){
+		LT_Load_Music = &Load_Music_Tandy;
+		LT_Play_Music = &Play_Music_Tandy;
+	}
+	if (LT_MUSIC_MODE == 1){
+		LT_Load_Music = &Load_Music_Adlib;
+		LT_Play_Music = &Play_Music_Adlib;
+	}
 	LT_old_time_handler = getvect(0x1C);
 	LT_old_key_handler = getvect(9);    
 	LT_install_key_handler();
@@ -323,9 +414,12 @@ void LT_Init(){
 	// 8kb Map + 8kb collision map
 	// 64kb Music 
 	// 64Kb for sprites
+	// 16 kb for Tandy sprites BKG
 	// Asume EXE file around 96KB 
 	// Add 16 Kb of used defined data (palette tables...)
-	// Then we need around 384 Kb of Free Ram
+	// Then we need around 400 Kb of Free Ram
+	//
+	// If you use tandy, you need 64kb more for video ram
 	
 	//Allocate 64KB block for temp data
 	LT_tile_tempdata = farcalloc(32768,sizeof(byte));
@@ -336,8 +430,8 @@ void LT_Init(){
 	//if ((LT_map_collision = farcalloc(32767,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 32 Kb of collision map data",0);
 	if ((LT_music.sdata = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate 64 Kb of music data",0);
 	
-	if ((LT_map_data = farcalloc(256*19*2,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate map data",0);
-	if ((LT_map_collision = farcalloc(8192,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate collision data",0);
+	if ((LT_map_data = farcalloc(65535,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate map data",0);
+	if ((LT_map_collision = farcalloc(8192*2,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate collision data",0);
 	
 	//14 fixed sprites:
 	//	8x8   ( 8 sprites: 0 - 7) 200 bytes/frame
@@ -351,6 +445,7 @@ void LT_Init(){
 	for (sprite_number = 0; sprite_number != 20; sprite_number++){
 		sprite[sprite_number].bkg_data = sprite_bkg[sprite_number];
 	}
+	if (LT_VIDEO_MODE == 4) if ((tandy_bkg_data = farcalloc(16*32*22,1))==NULL) LT_Error("Not enough RAM to allocate tandy sprite structs",0);
 	if ((sprite_id_table = farcalloc(256*19*2,sizeof(byte))) == NULL) LT_Error("Not enough RAM to allocate sprite id table",0);
 }
 
@@ -584,9 +679,10 @@ void LT_Logo(char *file){
 	byte Game_Boy_Adlib[11] = {0xC4,0x1A,0x06,0x8E,0xA6,0xE8,0xF0,0xA0,0x00,0x00,0x02};
 	int GameBoy_Sound[24] = {72,72,72,72,72,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84};
 	int logotimer = 0;
+	byte ext = strlen(file);
 	LT_Load_Logo = 1;
 	LT_PC_Speaker_Size = 24;
-	LT_Load_Image(file);
+	if (LT_VIDEO_MODE != 2)LT_Load_Image(file);
 	if (LT_VIDEO_MODE == 0){
 		word_out(0x03d4,OFFSET,20);
 		LT_Fade_in();
@@ -633,6 +729,41 @@ void LT_Logo(char *file){
 		LT_Fade_out();
 		word_out(0x03d4,OFFSET,44);
 	}
+	if (LT_VIDEO_MODE == 2){
+		file[ext-3] = 'p';
+		file[ext-2] = 'n';
+		file[ext-1] = 'g';
+		LT_Load_Tiles(file);
+		file[ext-3] = 'm';
+		file[ext-2] = 'a';
+		file[ext-1] = 'p';
+		LT_Load_Map(file);
+		LT_Set_Map(0);
+		sleep(4);
+	}
+	if (LT_VIDEO_MODE == 4){
+		LT_Fade_in();
+		if (!LT_SFX_MODE) LT_Play_PC_Speaker_SFX(GameBoy_Sound);
+		if (LT_SFX_MODE) LT_Play_AdLib_SFX(Game_Boy_Adlib,0,3,7);//first note
+
+		while (logotimer < 120){
+			if ((logotimer == 8) && LT_SFX_MODE) LT_Play_AdLib_SFX(Game_Boy_Adlib,0,4,7);//second note
+			logotimer++;
+			//wait for the vertical retrace end
+			//Wait Vsync
+			asm mov		dx,03DAh
+			WaitNotVsync2:
+			asm in      al,dx
+			asm test    al,08h
+			asm jnz		WaitNotVsync2
+			WaitVsync2:
+			asm in      al,dx
+			asm test    al,08h
+			asm jz		WaitVsync2
+		}
+		LT_Fade_out();
+	}
+	
 	LT_Load_Logo = 0;
 	LT_PC_Speaker_Size = 16;
 	Clearkb();

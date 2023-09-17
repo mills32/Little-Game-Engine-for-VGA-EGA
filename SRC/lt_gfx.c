@@ -52,8 +52,6 @@ byte LT_PAL_TIMER = 0;
 byte LT_EGA_FADE_STATE = 0;
 word LT_FrameSkip = 0;
 byte *LT_Filename; //Contains name of the images oppened, for LT_Header_BMP function 
-byte LT_Text_Mode_BG = 0;
-byte LT_Text_Mode_FG = 15;
 
 void LT_Error(char *error, char *file);
 void LT_Reset_Sprite_Stack();
@@ -127,46 +125,6 @@ void LT_VGA_Return_4Planes(){
 	asm out dx,ax
 }
 
-//TEXT MODE
-
-//lane 0100 (2; glyphs)
-//Sequential memory access
-//Read plane (2 - glyphs)
-//
-//Select VRAM A0000h-AFFFFh, Chain O/E OFF; keep text mode
-//Converted to macro (by carlos12)
-#define Enable_TileData_Write()\
-	asm mov dx,0x03C4;\
-	asm mov ax,0x0402;\
-	asm out dx,ax;\
-	asm mov ax,0x0404;\
-	asm out dx,ax;\
-	asm mov dx,0x03CE;\
-	asm mov ax,0x0204;\
-	asm out dx,ax;\
-	asm mov ax,0x0005;\
-	asm out dx,ax;\
-	asm mov ax,0x0406;\
-	asm out dx,ax;
-
-//Enable planes 0011 (1 and 0 - attribute and ascii)
-//Odd-Even memory access (Odd = plane 0 = ascii; even = plane 1 = attribute)
-//Read plane none
-//Select VRAM B8000h-BFFFFh; Chain O/E ON; Text mode ON
-//Converted to macro (by carlos12)
-#define Disable_TileData_Write()\
-	asm mov dx,0x03C4;\
-	asm mov ax,0x0302;\
-	asm out dx,ax;\
-	asm mov ax,0x0004;\
-	asm out dx,ax;\
-	asm mov dx,0x03CE;\
-	asm mov ax,0x0004;\
-	asm out dx,ax;\
-	asm mov ax,0x1005;\
-	asm out dx,ax;\
-	asm mov ax,0x0E06;\
-	asm out dx,ax;;
 
 void LT_vsync(){
 	asm mov		dx,INPUT_STATUS_0
@@ -670,66 +628,33 @@ void LT_WaitVsync_VGA(){
 	asm sti
 }
 
-unsigned char text_mode_panning[] = {8, 0, 1, 2, 3, 4, 5, 6, 7};//Avoid 8 when scrolling on real VGA
 byte panning = 0;
 byte static_screen = 0;
-void LT_WaitVsync_Text(){
-	word vram_offset = 0;
-	byte pixel = SCR_Y & 7;
-	int line = SCR_Y >> 3;
-	LT_offset_vram_TXT = (line<<5)+(line<<3)+(line<<1)+(SCR_X>>3); //line*80 + x/16
-	vram_offset = (line<<5)+(line<<3)+(line<<1)+(SCR_X>>3);
-	
-	//Set address
-	asm mov dx,003d4h //VGA PORT
-	asm mov	cl,8
-	asm mov ax,vram_offset
-	asm	shl ax,cl
-	asm	or	ax,00Dh	
-	asm out dx,ax	//(y << 8) | 0x0D to VGA port
-	asm mov ax,vram_offset
-	asm	and ax,0FF00h
-	asm	or	ax,00Ch
-	asm out dx,ax	//(y & 0xFF00) | 0x0C to VGA port
-	
-	//Wait Vsync
-	asm mov		dx,INPUT_STATUS_0
-	WaitNotVsync:
-	asm in      al,dx
-	asm test    al,08h
-	asm jnz		WaitNotVsync
-	WaitVsync:
-	asm in      al,dx
-	asm test    al,08h
-	asm jz		WaitVsync
-	
-	asm CLI
-	//The smooth panning magic happens here
-	if (static_screen) panning = 8;
-	else panning = text_mode_panning[(SCR_X&7)+1]; //avoid value "8" when scrolling, it causes choppy scroll on real VGA
-	asm mov dx,003c0h
-	asm mov al,033h
+
+//CRT Page
+//Bits 0-2 select the 16K page used by the video. In 32K modes, bit 0 is ignored.
+//Processor Page
+//bits 3-5 combined with the CPU address to select the
+//32K segment of memory accessed at B8000. If an odd page number is selected
+//(1,3,5, etc.) the window is reduced to 16K.
+//Bits 6-7 mode 320x240 = 11
+byte page_show[] = {0xC0,0xC2};//show Page 0 / show page 2  (+ mode 320x200)
+byte page_write[] = {0xC0,0xD0};//write Page 0 / write page 2  (+ mode 320x200)
+byte tga_page = 0;
+
+void LT_TGA_MapPage(byte wpage){
+	byte val = page_write[wpage&1];
+	asm mov dx,03DFh
+	asm mov al,val		//Select write page
 	asm out dx,al
-	asm mov al,panning
-	asm out dx,al
-	
-	// set the preset row scan while IN the vretrace, else flicker
-	// Also this seems to fix the animate tiles function, 
-	// some register needs to be reset in vsync or something
-	asm mov dx,0x03d4
-	asm mov al,0x08
-	asm out dx,al
-	asm inc dx
-	asm mov al,pixel
-	asm out dx,al
-	
-	asm STI
 }
 
 void LT_WaitVsync_TGA(){
 	word x = SCR_X;
 	word y = SCR_Y;
-
+	byte val = page_show[tga_page&1];
+	tga_page++;
+	
 	y = y>>2;//even
 	y = (y<<6)+(y<<4)+(x>>2); //(y*64)+(y*16) = y*80; + x/4
 
@@ -747,16 +672,20 @@ void LT_WaitVsync_TGA(){
 	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
 	//outport(0x03d4, 0x0D | (y << 8));
 	//outport(0x03d4, 0x0C | (y & 0xff00));
-	asm mov dx,003d4h //VGA PORT
+	asm mov dx,003d4h //TGA PORT
 	asm mov	cl,8
 	asm mov ax,y
 	asm	shl ax,cl
 	asm	or	ax,00Dh	
-	asm out dx,ax	//(y << 8) | 0x0D to VGA port
+	asm out dx,ax	//(y << 8) | 0x0D to TGA port
 	asm mov ax,y
 	asm	and ax,0FF00h
 	asm	or	ax,00Ch
-	asm out dx,ax	//(y & 0xFF00) | 0x0C to VGA port
+	asm out dx,ax	//(y & 0xFF00) | 0x0C to TGA port
+	
+	asm mov dx,03DFh
+	asm mov al,val		//Select show page
+	asm out dx,al
 }
 
 //Works on all compatible VGA cards from SVGA to 2020 GPUS.
@@ -812,14 +741,9 @@ void LT_Update(int sprite_follow, int sprite){
 		LT_Scroll_Map();
 	}
 
-	if (LT_VIDEO_MODE < 2){
-		if (LT_SPRITE_MODE)LT_Draw_Sprites();
-		else LT_Draw_Sprites_Fast();
-	}
-	if (LT_VIDEO_MODE == 4){
-		LT_Draw_Sprites_TGA();
-	}
-
+	if (LT_SPRITE_MODE)LT_Draw_Sprites();
+	else LT_Draw_Sprites_Fast();
+	
 	LT_WaitVsync();
 }
 
@@ -1268,25 +1192,6 @@ void LT_Print_TGA(word x, word y, word w, char *string){
 	}
 
 	outport(GC_INDEX + 1, 0x0ff);
-}
-
-
-void LT_Print_TXT(word x, word y, word w, char *string){
-	word screen_offset;
-	byte datastring;
-	word size = strlen(string);
-	word i = 0;
-	word line = 0;
-	word color = ((LT_Text_Mode_BG<<4) | (LT_Text_Mode_FG))<<8;
-	screen_offset = (y<<5)+(y<<3)+(y<<1);	//(y*32)+(y*8)+(y*2) = y*42;;
-	for (i = 0; i != size;i++){
-		datastring = string[i];
-		if (datastring > 96) datastring -=32;
-		VRAM_MAP[screen_offset+x] = color | datastring-32;
-		x++;
-		line++;
-		if (line == w) {line = 0; screen_offset+=42;x-=w;}
-	}
 }
 
 
@@ -1825,6 +1730,7 @@ void LT_Load_Image(char *file){
 	}
 	
 	if (LT_VIDEO_MODE == 4){
+		LT_TGA_MapPage(0);
 		i = 0;
 		for (y = 0; y < 200; y++){
 			offset = (200-y)*320;
@@ -1838,7 +1744,21 @@ void LT_Load_Image(char *file){
 			i++;
 			if (i < 4) VGA_index += 8192-160;
 			else {VGA_index += 8192;VGA_index &= (8192*4)-1; i = 0;}
-			
+		}
+		LT_TGA_MapPage(1);
+		i = 0;VGA_index = 0;
+		for (y = 0; y < 200; y++){
+			offset = (200-y)*320;
+			for(x = 0; x < 160; x++){
+				byte pl0 = LT_tile_tempdata[offset++];
+				byte pl1 = LT_tile_tempdata[offset++];
+				byte pixel = (pl0<<4) | pl1;
+				CGA[VGA_index] = pixel;
+				VGA_index++;
+			}
+			i++;
+			if (i < 4) VGA_index += 8192-160;
+			else {VGA_index += 8192;VGA_index &= (8192*4)-1; i = 0;}
 		}
 	}	
 	
@@ -2008,38 +1928,6 @@ void LT_Load_Tiles_EGA_VGA(char *file){
 	}
 }
 
-//1 bit png, data starts at 0x43
-void LT_Load_Tiles_Text(unsigned char *file){
-	word x,y,tileline,offset = 0,offset1 = 0;
-	unsigned char *data = calloc(1024*4,1);
-	unsigned char *data1 = calloc(1024*16,1);
-	FILE *f = fopen(file,"rb");
-	if (!f){free(data);free(data1); LT_Error("Can't find ",file);}
-	fseek(f, 0x43, SEEK_SET);
-	fread(data,1,1024*4,f);
-	fclose(f);
-	// 1 bit png, each line is stored in 16 bytes + 1 extra at the end
-	for (y = 0; y < 16*(8*17); y+=(8*17)){
-		for (x = 0; x < 16; x++){
-			offset = y + x;
-			for (tileline = 0; tileline < 8*17; tileline +=17){
-				data1[offset1] = data[offset+tileline];
-				offset1++;
-			}
-		}
-	}
-	//Write tiles
-	Enable_TileData_Write();
-	offset1 = 0;
-	//It looks like VGA and EGA have 8x32 character glyphs 
-	for (y = 0; y < 32*256; y+=32){
-		memcpy(&VGA[y],&data1[offset1],8);//we load the first 8x8 part of each gliph
-		offset1+=8;
-	}
-	Disable_TileData_Write();
-	free(data);free(data1);
-}
-
 void LT_unload_tileset(){
 	if (LT_tile_tempdata) {free(LT_tile_tempdata); LT_tile_tempdata = NULL;}
 	if (LT_tile_tempdata2) {free(LT_tile_tempdata2); LT_tile_tempdata2 = NULL;}
@@ -2051,7 +1939,7 @@ void LT_Load_Map(char *file){
 	FILE *f = fopen(file, "rb");
 	word start_bkg_data = 0;
 	word start_col_data = 0;
-	word tile,tile1,tile2,tile3,tile4,tile5,tile6,tile7;
+	word tile;
 	word index = 0;
 	word tindex = 0;
 	word tgawidth = 0;
@@ -2061,7 +1949,6 @@ void LT_Load_Map(char *file){
 
 	if(!f) LT_Error("Can't find ",file);
 	
-  if (LT_VIDEO_MODE != 2){
 	//read file
 	fseek(f, 0, SEEK_SET);			
 	while(start_bkg_data == 0){	//read lines 
@@ -2083,42 +1970,31 @@ void LT_Load_Map(char *file){
 			LT_Error("Error, map must be 256x19",0);
 		}
 	}
-	if (LT_VIDEO_MODE > 2){
-		//if (LT_map_ntiles > 40*1024)
-		//	LT_Error("Error, map too big",0);
-		//
-	}
 	fgets(line, 64, f); //skip line: <data encoding="csv">
 
 	//read tile array
-	for (index = 0; index < LT_map_ntiles; index+=4){
-		fscanf(f, "%i,%i,%i,%i,",&tile,&tile1,&tile2,&tile3);
-		if (LT_VIDEO_MODE == 0){
-			LT_map_data[index  ] = TILE_VRAM + ((tile -1)<<5); //Store actual tile addresses, to avoid calculations
-			LT_map_data[index+1] = TILE_VRAM + ((tile1-1)<<5);
-			LT_map_data[index+2] = TILE_VRAM + ((tile2-1)<<5);
-			LT_map_data[index+3] = TILE_VRAM + ((tile3-1)<<5);
+	if (LT_VIDEO_MODE == 0){//Store actual tile addresses, to avoid calculations
+		for (index = 0; index < LT_map_ntiles; index++){
+			fscanf(f, "%i,",&tile);
+			LT_map_data[index  ] = TILE_VRAM + ((tile -1)<<5); 
 		}
-		if (LT_VIDEO_MODE == 1){
-			LT_map_data[index  ] = TILE_VRAM + ((tile -1)<<6); //Store actual tile addresses, to avoid calculations
-			LT_map_data[index+1] = TILE_VRAM + ((tile1-1)<<6);
-			LT_map_data[index+2] = TILE_VRAM + ((tile2-1)<<6);
-			LT_map_data[index+3] = TILE_VRAM + ((tile3-1)<<6);
+	}
+	if (LT_VIDEO_MODE == 1){//Store actual tile addresses, to avoid calculations
+		for (index = 0; index < LT_map_ntiles; index++){
+			fscanf(f, "%i,",&tile);
+			LT_map_data[index  ] = TILE_VRAM + ((tile -1)<<6); 
 		}
-		if (LT_VIDEO_MODE == 4){
-			word a = (tile  -1)<<2, b = (tile1-1)<<2;
-			word c = (tile2 -1)<<2, d = (tile3-1)<<2;
-			word w = LT_map_width<<1;
+	}
+	if (LT_VIDEO_MODE == 4){
+		word a = 0;word w = 0;
+		for (index = 0; index < LT_map_ntiles; index++){
+			fscanf(f, "%i,",&tile);
+			a = (tile-1)<<2;
+			w = LT_map_width<<1;
 			LT_map_data[tindex  ] = a;LT_map_data[tindex+1] = a+2;
 			LT_map_data[tindex+w] = a+1;LT_map_data[tindex+w+1] = a+3;
-			LT_map_data[tindex+2] = b;LT_map_data[tindex+3] = b+2;
-			LT_map_data[tindex+2+w] = b+1;LT_map_data[tindex+3+w] = b+3;
-			LT_map_data[tindex+4] = c;LT_map_data[tindex+5] = c+2;
-			LT_map_data[tindex+4+w] = c+1;LT_map_data[tindex+5+w] = c+3;
-			LT_map_data[tindex+6] = d;LT_map_data[tindex+7] = d+2;
-			LT_map_data[tindex+6+w] = d+1;LT_map_data[tindex+7+w] = d+3;
-			tindex+=8;
-			tgawidth+=4;
+			tindex+=2;
+			tgawidth++;
 			if (tgawidth == LT_map_width) {tgawidth = 0;tindex += (LT_map_width<<1);}
 		}
 	}
@@ -2134,23 +2010,10 @@ void LT_Load_Map(char *file){
 	fgets(line, 64, f); //skip line: <data encoding="csv">
 	
 	//read collision array
-	for (index = 0; index < LT_map_ntiles; index+=4){
-		fscanf(f, "%d,%d,%d,%d,", &tile, &tile1, &tile2, &tile3);
+	for (index = 0; index < LT_map_ntiles; index++){
+		fscanf(f, "%d,", &tile);
 		LT_map_collision[index] = tile -tilecount;
-		LT_map_collision[index+1] = tile1 -tilecount;
-		LT_map_collision[index+2] = tile2 -tilecount;
-		LT_map_collision[index+3] = tile3 -tilecount;
 	}
-  } else {
-	//read
-	fread(&LT_map_width,2,1,f);
-	fread(&LT_map_height,2,1,f);
-	fread(&LT_tileset_palette[0   ],1,6*3,f);//Text Colors 0-5 are located at VGA 0-5
-	fread(&LT_tileset_palette[20*3],1,  3,f);//Text Color 6 is located at VGA color 20
-	fread(&LT_tileset_palette[ 7*3],1,  3,f);//Text Color 7 is located at VGA 7
-	fread(&LT_tileset_palette[56*3],1,8*3,f);//Text Colors 8-15 are located at VGA 56-63
-	fread(LT_map_data,2,LT_map_width*LT_map_height,f);
-  }
 	fclose(f);
 }
 
@@ -2200,25 +2063,16 @@ void LT_Set_Map(int x){
 		tiles = 25; 
 		LT_flipscroll = 0;
 		LT_Setting_Map = 1;
+		LT_TGA_MapPage(0);
 		for (i = 0;i<320;i+=8){draw_map_column(SCR_X+i,0,LT_map_offset+j,tiles);j++;}
 		j = 0;
-		//LT_flipscroll = 1;
-		//
-		//for (i = 0;i<320;i+=8) {draw_map_column(SCR_X+i,304,LT_map_offset+j,tiles);j++;}
+		LT_flipscroll = 1;
+		LT_Setting_Map = 1;
+		LT_TGA_MapPage(1);
+		for (i = 0;i<320;i+=8){draw_map_column(SCR_X+i,0,LT_map_offset+j,tiles);j++;}
 		LT_flipscroll = 0;
 		LT_Setting_Map = 0;	
 	} 
-	if (LT_VIDEO_MODE == 2) {
-		int i;
-		word offset = 0;
-		word offset1 = 0;
-		//set
-		for (i = 0; i < 31;i++){
-			memcpy(&VRAM_MAP[offset],&LT_map_data[offset1],84);
-			offset+=42;
-			offset1+=(LT_map_width);
-		}
-	}
 	LT_Fade_in();
 }
 
@@ -2958,7 +2812,6 @@ void draw_map_column_ega(word x, word y, word map_offset, word ntiles){
 void draw_map_column_tga(word x, word y, word map_offset, word ntiles){
 	word s_offset = 0;
 	word m_offset = x>>4;
-	word odd = x&15;
 	word *mapdata = LT_map_data;
 	word *tiles = (word*)&LT_tile_tempdata2[0];
 	x = x>>1;
@@ -3046,50 +2899,50 @@ void draw_map_column_tga(word x, word y, word map_offset, word ntiles){
 	}	
 	
 
-	if (!odd){
-	if (!LT_Setting_Map) m_offset -= 2560;
-	if (LT_Sprite_Stack < 8){
-		int i,j;
-		int nsprite;
-		for (i = 0; i <13;i++){
-			int sprite0 = LT_map_collision[m_offset]; //sprite0-16 for sprite type
-			switch (sprite0){
-				case 16:
-				for (j = 0; j < 3; j++){
-					if (LT_Active_AI_Sprites[j]){
-						word pos_id_table = (i<<8) + (x>>3);
-						if (sprite_id_table[pos_id_table] == 1) break;
-						nsprite = LT_Active_AI_Sprites[j];
-						LT_Active_AI_Sprites[j] = 0;
-						LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
-						if (sprite[nsprite].init == 0)
-							LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>3,i,LT_scroll_side,0,pos_id_table);//also increase sprite range
-						LT_Sprite_Stack++;
-						sprite_id_table[pos_id_table] = 1;
-						break;
+	if (LT_flipscroll==1){
+		if (!LT_Setting_Map) m_offset -= 2560;
+		if (LT_Sprite_Stack < 8){
+			int i,j;
+			int nsprite;
+			for (i = 0; i <13;i++){
+				int sprite0 = LT_map_collision[m_offset]; //sprite0-16 for sprite type
+				switch (sprite0){
+					case 16:
+					for (j = 0; j < 3; j++){
+						if (LT_Active_AI_Sprites[j]){
+							word pos_id_table = (i<<8) + (x>>3);
+							if (sprite_id_table[pos_id_table] == 1) break;
+							nsprite = LT_Active_AI_Sprites[j];
+							LT_Active_AI_Sprites[j] = 0;
+							LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
+							if (sprite[nsprite].init == 0)
+								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>3,i,LT_scroll_side,0,pos_id_table);//also increase sprite range
+							LT_Sprite_Stack++;
+							sprite_id_table[pos_id_table] = 1;
+							break;
+						}
 					}
-				}
-				break;
-				case 17:
-				for (j = 4; j < 7; j++){
-					if (LT_Active_AI_Sprites[j]){
-						word pos_id_table = (i<<8) + (x>>3);
-						if (sprite_id_table[pos_id_table] == 1) break;
-						nsprite = LT_Active_AI_Sprites[j];
-						LT_Active_AI_Sprites[j] = 0;
-						LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
-						if (sprite[nsprite].init == 0)
-							LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>3,i,LT_scroll_side,0,pos_id_table);
-						LT_Sprite_Stack++;
-						sprite_id_table[pos_id_table] = 1;
-						break;
+					break;
+					case 17:
+					for (j = 4; j < 7; j++){
+						if (LT_Active_AI_Sprites[j]){
+							word pos_id_table = (i<<8) + (x>>3);
+							if (sprite_id_table[pos_id_table] == 1) break;
+							nsprite = LT_Active_AI_Sprites[j];
+							LT_Active_AI_Sprites[j] = 0;
+							LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
+							if (sprite[nsprite].init == 0)
+								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>3,i,LT_scroll_side,0,pos_id_table);
+							LT_Sprite_Stack++;
+							sprite_id_table[pos_id_table] = 1;
+							break;
+						}
 					}
+					break;
 				}
-				break;
+				m_offset+= LT_map_width;
 			}
-			m_offset+= LT_map_width;
 		}
-	}
 	}
 }
 
@@ -3183,81 +3036,12 @@ void draw_map_row_tga(word x, word y, word map_offset, word ntiles){
 }
 
 
-//Update a character row / column for text mode
-void update_char_column(int offset_vram, int offset_map){
-	int i;
-	word *data = (word *) LT_map_data;
-	asm{
-		push ds
-		push di
-		push si
-		
-		shl		offset_vram,1
-		shl		offset_map,1
-		
-		lds		si,[data]
-		add		si,offset_map			//ds:si RAM map address
-		
-		mov 	ax,0B800h
-		mov 	es,ax
-		mov		di,offset_vram			//es:di screen address	
-		
-		mov		cx,8
-	}
-	_column_loop:
-	asm {
-		movsw							//ds:si -> es:di
-		add di,82
-		add si,1022
-		movsw							//ds:si -> es:di
-		add di,82
-		add si,1022
-		movsw							//ds:si -> es:di
-		add di,82
-		add si,1022
-		movsw							//ds:si -> es:di
-		add di,82
-		add si,1022
-		loop	_column_loop
-		
-		pop si
-		pop di
-		pop ds
-	}
-}
-
-void update_char_row(int offset_vram, int offset_map){
-	word *data = (word *) LT_map_data;
-	asm{
-		push ds
-		push di
-		push si
-		
-		shl		offset_vram,1
-		shl		offset_map,1
-		
-		lds		si,[data]
-		add		si,offset_map			//ds:si RAM map address
-		
-		mov 	ax,0B800h
-		mov 	es,ax
-		mov		di,offset_vram			//es:di screen address	
-		mov		cx,42
-		
-		rep movsw						//ds:si -> es:di
-	
-		pop si
-		pop di
-		pop ds
-	}
-}
-
-
 void (*LT_Scroll_Map)(void);
 
 //Only 19 tiles are updated if we hit a new column
 //we update the column at other page in the next frame
 byte LT_flipscroll = 0;
+byte LT_flipscrollv = 0;
 int LT_scroll_side = -1;
 int LT_scroll_top = -1;
 void LT_Scroll_Map_GFX(void){
@@ -3311,59 +3095,55 @@ void LT_Scroll_Map_GFX(void){
 void LT_Scroll_Map_TGA(void){
 	LT_current_x = ((SCR_X)>>3)<<3;
 	LT_current_y = ((SCR_Y)>>3)<<3;
+	if(LT_flipscroll == 1){
+		if (LT_scroll_side == 1) {
+			LT_TGA_MapPage(1);
+			draw_map_column(LT_last_x,LT_last_y,LT_map_offset,25);
+		}
+		if (LT_scroll_side == -1) {
+			LT_TGA_MapPage(1);
+			draw_map_column(LT_last_x+312,LT_last_y,LT_map_offset+39,25);
+		}
+		LT_flipscroll = 0;
+	}
 	//Init drawing: First frame
 	if (LT_current_x != LT_last_x){
 		LT_map_offset = (LT_current_y<<6)+(LT_current_x>>3);
 		if (LT_current_x < LT_last_x){
 			LT_scroll_side = 1;
-			if (LT_current_x) draw_map_column(LT_current_x,SCR_Y,LT_map_offset,25); 
+			if (LT_current_x>-4) {
+				LT_TGA_MapPage(0);
+				draw_map_column(LT_current_x,SCR_Y,LT_map_offset,25);
+			}
 		} else { 
 			LT_scroll_side = -1;
+			LT_TGA_MapPage(0);
 			draw_map_column(LT_current_x+312,SCR_Y,LT_map_offset+39,25);
 		}
+		LT_flipscroll = 1;
 	}
+
 	if (LT_current_y != LT_last_y){
 		LT_map_offset_y = (LT_current_y<<6)+(LT_current_x>>3);
 		if (LT_current_y < LT_last_y){
 			LT_scroll_top = 1;
-			if (LT_current_y) draw_map_row_tga(LT_current_x,SCR_Y,LT_map_offset_y,40); 
+			if (LT_current_y>-4){
+				LT_TGA_MapPage(0);
+				draw_map_row_tga(LT_current_x,SCR_Y,LT_map_offset_y,40);
+				LT_TGA_MapPage(1);
+				draw_map_row_tga(LT_current_x,SCR_Y,LT_map_offset_y,40);
+			}
 		} else { 
 			LT_scroll_top = -1;
+			LT_TGA_MapPage(0);
+			draw_map_row_tga(LT_current_x,SCR_Y+192,LT_map_offset_y+(512*24),40);
+			LT_TGA_MapPage(1);
 			draw_map_row_tga(LT_current_x,SCR_Y+192,LT_map_offset_y+(512*24),40);
 		}
 	}
 	
-	LT_last_x = LT_current_x;
 	LT_last_y = LT_current_y;
-}
-
-
-//Scroll map in text mode, it only updates rows and columns
-//of 1 byte characters, like a console
-void LT_Scroll_Map_TXT(void){
-	word offset_map_x = 0;
-	word offset_map_y = 0;
-	int LT_current_x = SCR_X>>4;
-	int LT_current_y = SCR_Y>>4;
-	if (LT_current_x != LT_last_x) {
-		offset_map_x = (LT_current_y<<9)+LT_current_x<<1;
-		if (LT_current_x < LT_last_x) {
-			update_char_column(LT_offset_vram_TXT-1,offset_map_x+1);
-			update_char_column(LT_offset_vram_TXT-2,offset_map_x); 
-		}
-		if (LT_current_x > LT_last_x){
-			update_char_column(LT_offset_vram_TXT+41,offset_map_x+40);
-			update_char_column(LT_offset_vram_TXT+42,offset_map_x+41);
-		}
-	}
-	if (LT_current_y != LT_last_y) {
-		offset_map_y = (LT_current_y<<9)+LT_current_x;
-		if (LT_current_y < LT_last_y) update_char_row(LT_offset_vram_TXT,offset_map_y);
-		if (LT_current_y > LT_last_y) update_char_row(LT_offset_vram_TXT+(30*42),offset_map_y+(30*512));
-	}
-	
 	LT_last_x = LT_current_x;
-	LT_last_y = LT_current_y;
 }
 
 //Endless Side Scrolling Map
@@ -3504,8 +3284,6 @@ void LT_Fade_out_VGA(){
 	//asm pop ds
 	//asm pop di
 	//asm pop si
-	//if (LT_Sprite_Stack)
-	//	for (i = 1; i != LT_Sprite_Stack; i++) LT_Delete_Sprite(LT_Sprite_Stack_Table[i]);
 }
 
 //Cycle palette 
@@ -3607,24 +3385,6 @@ byte LT_EGA_FADE[] = {
 	0,0,0,0,0,0,0,0,0,0, 0, 0, 0, 0, 0, 0,//0.00
 };
 
-//Nicer colors of EGA palette. Requires special EGA monitor.
-//It will work on any VGA card / monitor
-byte LT_EGA_64[] = {
-	0x00,0x08,0x18,0x11,0x24,0x28,0x14,0x07,0x38,0x19,0x12,0x2B,0x34,0x2D,0x2E,0x3F
-};
-
-void LT_64COL_EGA(){
-	byte j = 0;
-	byte col= 0;
-	for (j= 0; j<16;j++){
-		col = LT_EGA_64[j];
-		inportb(0x03DA);
-		outportb(0x03C0,j);	//Index (0-15)
-		outportb(0x03C0,col);//Color
-		outportb(0x03C0,0x20);
-	}
-}
-
 void LT_Fade_in_EGA(){
 	int i = 0;
 	int j = 0;
@@ -3669,8 +3429,6 @@ void LT_Fade_out_EGA(){
 		LT_vsync();LT_vsync();
 	}
 	LT_EGA_FADE_STATE = 0;
-	//if (LT_Sprite_Stack)
-	//	for (i = 1; i != LT_Sprite_Stack; i++) LT_Delete_Sprite(LT_Sprite_Stack_Table[i]);
 }
 
 void LT_Cycle_Palette_EGA(byte *p,byte *c,byte speed){

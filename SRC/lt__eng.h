@@ -132,6 +132,7 @@ void Clearkb();
 
 extern byte LT_MODE;
 extern byte LT_VIDEO_MODE;
+extern byte LT_MUSIC_MODE;
 extern byte LT_SCROLL_MODE;
 extern byte LT_SFX_MODE;
 extern byte LT_LANGUAGE;
@@ -225,6 +226,7 @@ typedef struct tagSPRITE{				// structure for a sprite
 	word next_scanline;
 	word s_delete;
 	word code_size;
+	word tga_sprite_data_offset[32];
 	SPRITEFRAME frames[32];	
 } SPRITE;
 
@@ -268,7 +270,7 @@ void LT_Delete_Scanline_Interrupt();
 //EGA/VGA Hardware scroll
 void LT_Update(int sprite_follow, int sprite);
 void VGA_Scroll(word x, word y);
-void LT_WaitVsync();
+extern void (*LT_WaitVsync)();
 void VGA_ClearScreen();
 
 void LT_Init();
@@ -282,13 +284,13 @@ void LT_Load_Font(char *file);
 extern void (*LT_Print_Variable)(byte,byte,word);
 void LT_Draw_Text_Box(word x, word y, byte w, byte h, byte mode, char *string);
 void LT_Delete_Text_Box(word x, word y, byte w, byte h);
-void LT_Load_Tiles(char *file);
+extern void (*LT_Load_Tiles)(char*);
 void LT_unload_tileset();
 void LT_Load_Map(char *file);
 void LT_Set_Map(int x);
 extern void (*LT_Edit_MapTile)(word,word,byte,byte);
 void LT_unload_map();
-void LT_Scroll_Map();
+extern void (*LT_Scroll_Map)(void);
 void LT_Endless_SideScroll_Map(int y);
 
 //palettes
@@ -307,8 +309,8 @@ void LT_Init_Sprite(int sprite_number,int x,int y);
 void LT_Set_Sprite_Animation(int sprite_number, byte anim);
 void LT_Set_Sprite_Animation_Speed(int sprite_number,byte speed);
 void LT_Sprite_Stop_Animation(int sprite_number);
-void LT_Draw_Sprites();
-void LT_Draw_Sprites_Fast();
+extern void (*LT_Draw_Sprites)(void);
+extern void (*LT_Draw_Sprites_Fast)(void);
 void LT_Sprite_Edit_Map(int sprite_number, byte ntile, byte col);
 
 void LT_Set_AI_Sprites(byte first_type, byte second_type, byte mode_0, byte mode_1);
@@ -316,14 +318,12 @@ LT_Sprite_State LT_move_player(int sprite_number);
 //LT_Sprite_State LT_Bounce_Ball(int sprite_number);
 int LT_Player_Col_Enemy();
 void LT_Reset_Sprite_Stack();
-extern void (*LT_Delete_Sprite)(int);
-void LT_Delete_Sprite_VGA(int sprite_number);
 void LT_Unload_Sprites();
 void LT_scroll_follow(int sprite_number);
 
-//ADLIB 
-void LT_Load_Music(char *filename, int enable_pcm);
-void LT_Play_Music();
+//ADLIB / Tandy
+extern void (*LT_Load_Music)(char*);
+extern void (*LT_Play_Music)(void);
 void LT_Stop_Music();
 void LT_Unload_Music();
 void LT_Play_AdLib_SFX(unsigned char *ins, byte chan, byte octave, byte note);
