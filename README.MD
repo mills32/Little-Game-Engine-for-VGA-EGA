@@ -59,9 +59,9 @@ SOUND
 -----
 
 To use the adlib music player, just enable adlib or soundblaster in the emulator, fpga... or connect an Adlib/SB card to your retro PC.
-Adlib IMF files must be 60/70 tics/second to work well on slow CPU's.
+Create Adlib VGM files with any tool you like, there is an awesome tracker called furnace tracker that will export VGM files and they 
+will work great. VGM files must be around 60 Hz and smaller than 64 KB.
 
-To use your own tunes, I recommend using Reality Adlib Tracker or Adlib Tracker II, and them record a .dro file using dosbox. Now you only have to convert this .DRO to .IMF with dro2imf (60 ticks/second)
 
 
 Install, Make and Run
@@ -154,7 +154,8 @@ SONIDO
 Para utilizar el reproductor de música IMF, símplemente activa la emulación de Adlib o Sound blaster en un emulador.
 Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y listo.
 
-Para utilizar tus propias melodías, recomiendo crear cualquier música con Reality Adlib Tracker o Adlib Tracker II, y luego capturar un archivo .DRO con dosbox. Después solamente debes convertir el archivo .DRO a .IMF (con dro2imf ) a 50 ticks/segundo.
+Para utilizar tus propias melodías, recomiendo crear cualquier música con Furnace Tracker, y exportarla a VGM (60 Hz).
+Otros VGM funcionarán bien siempre que tengan un tamaño menos de 64KB y 60Hz.
 
 
 Instalación, compilar y ejecutar
