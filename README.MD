@@ -9,6 +9,8 @@ This is a very simple engine to create MS-DOS games for slow PCs. To run fast on
 The engine is now using the more common VGA 320x200 mode, but it has been tweaked to run at 60 Hz.
 Also EGA 320x200@60Hz was added, and due to the complexity of EGA hardware, sprites are only 1 bit color (black and white).
 
+*Tandy mode is being added.
+
 The predefined keys are: 
 - Move player/menus = UP DOWN LEFT RIGHT arrows.
 - Jump in platform levels = D.
@@ -59,7 +61,7 @@ SOUND
 -----
 
 To use the adlib music player, just enable adlib or soundblaster in the emulator, fpga... or connect an Adlib/SB card to your retro PC.
-Create Adlib VGM files with any tool you like, there is an awesome tracker called furnace tracker that will export VGM files and they 
+Create Adlib VGM files with any tool you like, there is an awesome tracker called Furnace Tracker that will export VGM files and they 
 will work great. VGM files must be around 60 Hz and smaller than 64 KB.
 
 
@@ -101,7 +103,9 @@ NOTES
 
 Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA y EGA, y evita técnicas muy lentas utilizadas en su época (por falta de información sobre el funcionamiento de la tarjetas).
 
-Ahora usa el modo 320x200, modificado para funcionar a 60Hz en VGA. Además he añadido el modo EGA 320x200@60, pero los sprites en este modo, son en blanco y negro, debido a la complejidad del hardware EGA. 
+Ahora usa el modo 320x200, modificado para funcionar a 60Hz en VGA. Además he añadido el modo EGA 320x200@60, pero los sprites en este modo, son en blanco y negro, debido a la complejidad del hardware EGA.
+
+*Modo Tandy en pruebas.
 
 Las teclas predefinidas son: 
 - Mover jugador/menus = teclas direccionales.
@@ -151,7 +155,7 @@ Gracias a jojo, por enviarme un 286 real :).
 SONIDO
 ------
 
-Para utilizar el reproductor de música IMF, símplemente activa la emulación de Adlib o Sound blaster en un emulador.
+Para utilizar el reproductor de música, símplemente activa la emulación de Adlib o Sound blaster en un emulador.
 Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y listo.
 
 Para utilizar tus propias melodías, recomiendo crear cualquier música con Furnace Tracker, y exportarla a VGM (60 Hz).
