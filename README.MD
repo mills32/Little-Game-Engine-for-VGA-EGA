@@ -41,7 +41,7 @@ Requirements:
           GRAPHICS: TANDY (in progress)       EGA (128Kb), VGA (256Kb).
           PC Speaker                          Tandy / Adlib or OPL2 compatible
 
-From 286+ CPU, the engine just works ok, even on modern cpu's (2018) using freedos.
+          From 286+ CPU, the engine just works ok, even on modern cpu's x86 / x64 (2022) using freedos and any GPU.
 
 Little Engine functions:
 - 320x200 60 FPS MODE, compatible with all cards
@@ -130,13 +130,17 @@ Recuerda que hay que compilarlo usando el "LARGE memory model".
 
 He probado los requisitos en PCem y 86Box unos emuladores muy precisos. También lo he probado en un 286 real, y algunas personas me han informado de que el motor funciona en otras máquinas reales: 8088/NEC v20 a 9 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster parecen funcionar.
 
-Requisitos rmínimos:
-- CPU: 8088/NEC V20 4.77 MHz (Recomendado 7.16 MHz).
-- RAM: unos 380 Kb libres.
-- GRÁFICOS: EGA(128Kb),VGA.
-- SONIDO: PC Speaker (Recomendado Adlib).
+Requisitos:
 
-A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2022) con cualquier tarjeta gráfica.
+                  mínimo                             recomendado
+
+          CPU: 8088/NEC V20 4.77 MHz.         8088 7.16 MHz o CPUs más rápidas para VGA (8088 9MHz, 8086 8Mhz, NEC V30).
+          RAM: 512 Kb                         640 Kb
+          GRAPHICS: TANDY                     EGA (128Kb), VGA (256Kb).
+          PC Speaker                          Tandy / Adlib or OPL2 compatible
+
+          A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2022) con cualquier tarjeta gráfica.
+
 
 Funciones de Little Engine:
 - Modo 320x200 60 FPS, compatible con todas las tarjetas.
