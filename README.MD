@@ -136,7 +136,7 @@ Requisitos:
 
           CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz o CPUs más rápidas para VGA (8088 9MHz, 8086 8Mhz, NEC V30)
           RAM: 512 Kb                         640 Kb
-          GRAPHICS: TANDY                     EGA (128Kb), VGA (256Kb)
+          GRÁFICOS: TANDY                     EGA (128Kb), VGA (256Kb)
           PC Speaker                          Tandy / Adlib o cualquiera compatible con chip OPL2
 
           A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2022) con cualquier tarjeta gráfica.
