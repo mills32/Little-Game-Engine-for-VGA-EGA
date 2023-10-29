@@ -52,7 +52,7 @@ Little Engine functions:
 - Hardware scroll (60 fps).
 - Palette animation 64+8 colors on VGA, 4 colors on EGA (animations for water and similar things).
 - Fake Parallax on VGA (64 colors palette animations)
-- Load and play IMF music for Adlib OPL2 or compatible. 
+- Load and play VGM music for TANDY (SN76496 or compatible) and Adlib (YM3812 or compatible). 
 
 
 Please copy this source code, change it, do whatever you want. That's the point of github. Isn't it?
@@ -149,9 +149,9 @@ Funciones de Little Engine:
 - Cargar archivos bmp de 256 colores, (los graficos para EGA, solo usan los primeros 16 colores).
 - Funcuion print grafica, con fuentes de 8x8, 64 caracteres y caracteres latinos añadidos sobre los siguientes: "#$%&\()+-<=>
 - Scroll por hardware de los mapas a 60 fps.
-- Animaciones de paleta, (64 + 8 colores en VGA; 4 colores en EGA) puedes cambiar colores de la paleta para hacer animaciones.
+- Animaciones de paleta (64 + 8 colores en VGA; 8 colores en EGA). Puedes cambiar colores de la paleta para hacer animaciones.
 - Falso segundo plano de "parallax" en VGA, con las animaciones de paleta de 64 colores, puedes simular un falso plano detras del principal.
-- Cargar y reproducir música en formato IMF para el chip ym3812, OPL2, o Adlib, o cualquier Sound Blaster conpatible. 
+- Cargar y reproducir música en formato VGM para el chip TANDY (SN76496 o compatibles) y Adlib (YM3812 o cualquier conpatible). 
 
 
 Este código es complétamente libre,. Por favor, cópialo, modifícalo, haz lo que quieras con él, para eso lo he puesto en github, no?.
@@ -189,7 +189,7 @@ NOTAS
 - 	Usa solamente archivos bmp indexados con 256 colores, y guárdalos en modo compatible (No escribir los datos del espacio de color).
 - 	Little Engine usa tiles de 16x16, y corta los conjuntos de tiles en trozos de 16x16 (de izquierda a derecha y de arriba a abajo).
 - 	Los sprites serán divididos en trozos de 8x8, 16x16, 32x32 o 64x64. 
-- 	Los sprites para EGA son bmp de 16 colores (4 bits por pixel) y usan los 3 primeros colores: 0 = transparente, 1 = negr0; 2 = blanco.
+- 	Los sprites para EGA son bmp de 16 colores (4 bits por pixel) y usan los 3 primeros colores: 0 = transparente, 1 = negro; 2 = blanco.
 - 	Las fuentes son bmp de 16 colores tanto para EGA como para VGA, y usan solo los 4 primeros.
 - 	Los mapas TMX deben estar en formato CSV, ortogonal, tener un tamaño de 256x19 tiles y tener dos capas (fondo y colisión).
 - 	Todos los archivos (conjuntos de tiles, mapas, música y sprites) están limitados a 64 kb.
