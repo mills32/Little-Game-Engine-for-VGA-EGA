@@ -35,7 +35,8 @@ Also tested on a 286 at 6 MHz and 8088/NEC V20 from 4.77 to 10 MHz.
 Requirements:
 
           minimum                              recommended
-CPU: 8088/NEC V20 4.77 MHz.          8088 7.16 MHz or faster CPUS if VGA (8088 9MHz, 8086 8Mhz, NEC V30).
+
+          CPU: 8088/NEC V20 4.77 MHz.          8088 7.16 MHz or faster CPUS if VGA (8088 9MHz, 8086 8Mhz, NEC V30).
 - RAM: 512 Kb                         640 Kb
 - GRAPHICS: TANDY (in progress)       EGA (128Kb), VGA (256Kb).
 - SOUND: PC Speaker                   Tandy / Adlib or OPL2 compatible
