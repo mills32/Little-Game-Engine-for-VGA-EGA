@@ -27,12 +27,13 @@ typedef struct {
 } wad_FILE;
 static wad_file_t gamewad;
 static FILE *wadlog;
-static void upper(char *s, int n) {
+static int upper(char *s, int n) {
 	int i;
     for (i=0; s && s[i] && i<n; i++) {
         if (s[i]>='a' && s[i]<='z')
             s[i] -= ('a'-'A');
     }
+	return i;
 }
 static FILE *wad_fopen(const char *file, const char *mode) {
 	dword n;
@@ -42,9 +43,12 @@ static FILE *wad_fopen(const char *file, const char *mode) {
 	fprintf(wadlog,"wad_fopen(%s,%s)=", ufile, mode);
 	// Lazy load the WAD index
 	if (!gamewad.fp) {
-		gamewad.fp = fopen("GAME.WAD", "rb");
+		char *wad = getenv("WADFILE");
+		if (!wad)
+			wad = "GAME.WAD";
+		gamewad.fp = fopen(wad, "rb");
 		if (!gamewad.fp) {
-			fprintf(wadlog, "[unopenable GAME.WAD]");
+			fprintf(wadlog, "[unopenable %s]", wad);
 			goto errout;
 		}
 		if (fread(&gamewad.hdr, sizeof(gamewad.hdr), 1, gamewad.fp)!=1) {
@@ -283,7 +287,26 @@ static size_t wad_fread(void *ptr, size_t size, size_t count, FILE *stream) {
 	return n;
 }
 
+static long wad_ftell(FILE *stream) {
+	wad_FILE *fp = (wad_FILE*)stream;
+	fprintf(wadlog, "wad_ftell(%p)=%ld\n", fp, fp->pos);
+	return fp->pos;
+}
+
+FILE* (_Cdecl *LT_fopen)(const char *file, const char *mode) = fopen;
+int (_Cdecl *LT_fclose)(FILE *stream) = fclose;
+int (_Cdecl *LT_fseek)(FILE *stream, long offset, int whence) = fseek;
+int (_Cdecl *LT_fgetc)(FILE *stream) = fgetc;
+char *(_Cdecl *LT_fgets)(char *ptr, int size, FILE *stream) = fgets;
+int (_Cdecl *LT_fscanf)(FILE *stream, const char *format, ...) = fscanf;
+size_t (_Cdecl *LT_fread)(void *ptr, size_t size, size_t count, FILE *stream) = fread;
+long (_Cdecl *LT_ftell)(FILE *stream) = ftell;
+
 void LT_Use_WAD() {
+	// log wad file activity?
+	char *wadl = getenv("WADLOG");
+	if (wadl)
+		wadlog = fopen(wadl, "w");
 	//Use our WAD packed content
 	LT_fopen = wad_fopen;
 	LT_fclose = wad_fclose;
@@ -292,7 +315,5 @@ void LT_Use_WAD() {
 	LT_fgets = wad_fgets;
 	LT_fscanf = wad_fscanf;
 	LT_fread = wad_fread;
-#ifdef XWAD_LOG
-	wadlog = fopen("wad.log", "w");
-#endif
+	LT_ftell = wad_ftell;
 }

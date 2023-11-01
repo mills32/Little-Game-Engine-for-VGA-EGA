@@ -265,6 +265,7 @@ extern int (_Cdecl *LT_fgetc)(FILE *stream);
 extern char *(_Cdecl *LT_fgets)(char *ptr, int size, FILE *stream);
 extern int (_Cdecl *LT_fscanf)(FILE *stream, const char *format, ...);
 extern size_t (_Cdecl *LT_fread)(void *ptr, size_t size, size_t count, FILE *stream);
+extern long (_Cdecl *LT_ftell)(FILE *stream);
 
 // lt_wad.c redirector
 void LT_Use_WAD();

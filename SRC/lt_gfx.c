@@ -1635,7 +1635,6 @@ void LT_Load_Image(char *file){
 	word y = 0;
 	byte plane = 0;
 	dword offset = 0;
-	//dword offset_Image = 0;
 	FILE *fp;
 	
 	LT_Filename = file;
@@ -1645,11 +1644,8 @@ void LT_Load_Image(char *file){
 	if(!fp)LT_Error("Can't find ",file);
 	LT_Header_BMP(fp,0,0);
 
-	offset_Image = LT_ftell(fp);
-	
 	//COPY TO VGA VRAM
 	h = LT_tileset_height;
-	LT_fseek(fp,offset_Image,SEEK_SET);
 	LT_fread(&LT_tile_tempdata[0],sizeof(unsigned char),320*200, fp);
 	
 	if (LT_VIDEO_MODE == 0){

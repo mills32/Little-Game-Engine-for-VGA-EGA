@@ -17,12 +17,12 @@ bin:
 bin\play.exe: bin\lt_lib.lib bin\main.obj
 	tlink c0l.obj bin\main.obj bin\lt_lib.lib, bin\play.exe,,emu mathl cl -Lc:\tc\lib
 
-bin\lt_lib.lib: bin\lt_sys.obj bin\lt_key.obj bin\lt_gfx.obj bin\lt_spr.obj bin\lt_sprc.obj bin\lt_sound.obj
+bin\lt_lib.lib: bin\lt_sys.obj bin\lt_key.obj bin\lt_gfx.obj bin\lt_spr.obj bin\lt_sound.obj bin\lt_wad.obj
 	-@del $@
-	tlib bin\lt_lib.lib +bin\lt_sys.obj+bin\lt_key.obj+bin\lt_gfx.obj+bin\lt_spr.obj+bin\lt_sprc.obj+bin\lt_sound.obj
+	tlib bin\lt_lib.lib +bin\lt_sys.obj+bin\lt_key.obj+bin\lt_gfx.obj+bin\lt_spr.obj+bin\lt_sound.obj+bin\lt_wad.obj
 
 bin\GAME.WAD: bin\makewad.exe
-	bin\makewad.exe -w $@ GFX/* MUSIC/ADLIB/* MUSIC/samples/*
+	bin\makewad.exe -w $@ LOGO_VGA.BMP LOGO_EGA.BMP GFX/* MUSIC/ADLIB/* MUSIC/samples/*
 
 bin\makewad.exe: makewad.c
 	cd bin
