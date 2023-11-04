@@ -456,7 +456,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 
     int code_size;
 	
-	fp = fopen(file,"rb");
+	fp = LT_fopen(file,"rb");
 	
 	if(!fp) LT_Error("Can't find ",file);
 	LT_Filename = file;
@@ -464,7 +464,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 
 	for(index=(s->height-1)*s->width;index>=0;index-=s->width){
 		for(x=0;x<s->width;x++){
-			unsigned char c = (byte)fgetc(fp);
+			unsigned char c = (byte)LT_fgetc(fp);
 			if (LT_VIDEO_MODE==1){
 				//Sprite palette starts at 208 in VGA,
 				//if 0 do not add 208, it is color 0 (transparent)
@@ -473,7 +473,7 @@ void LT_Load_Sprite(char *file, int sprite_number, byte *animations){
 			LT_tile_tempdata[index+x]=c;
 		}
 	}
-	fclose(fp);
+	LT_fclose(fp);
 	
 	//Get size of sprite according to its number in the sprite array
 	size = LT_Sprite_Size_Table[sprite_number];

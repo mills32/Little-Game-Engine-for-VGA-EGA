@@ -108,7 +108,7 @@ void LT_Text_Mode(){
 void LT_Error(char *error, char *file){
 	asm STI; //enable interrupts
 	LT_Text_Mode();
-	printf("%s %s \n",error,file);
+	fprintf(stderr, "%s %s \n",error,file);
 	sleep(4);
 	LT_ExitDOS();
 }

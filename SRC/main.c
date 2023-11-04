@@ -28,6 +28,7 @@
 
 //Library functions
 #include "lt__eng.h"
+#include <stdarg.h>
 
 //Main program
 LT_Sprite_State LT_Player_State;
@@ -126,6 +127,10 @@ void Run_Shooter();
 
 //Main function
 void main(){
+	//Redirect stderr to a log file
+	freopen("stderr.log", "w", stderr);
+	// Use WAD file content
+	LT_Use_WAD();
 	LT_Setup();	//Allways the first, loads setup and initializes engine
 	if (LT_VIDEO_MODE == 4) LT_Logo("logo_EGA.bmp");
 	if (LT_VIDEO_MODE == 0) LT_Logo("logo_EGA.bmp");	//If you want a logo

@@ -21,3 +21,8 @@
 ######################
 ehthumbs.db
 Thumbs.db
+
+# Built things #
+################
+BIN/
+INST/

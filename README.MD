@@ -98,6 +98,42 @@ NOTES
 	Doing this, a lot of malloc trouble is fixed, the code is simplified and the engine works like a console.
 	So every time you load a map, tileset or music, the last one is overwritten.
 -	If a bmp is loaded as an image, map data will be erased.	
+	
+
+Build & Run Stuff
+-----------------
+
+You will need an MSDOS build environment (Dosbox is fine), with Borland TurboC++ 3.0 & TASM installed,
+a suitable archive is available [here](https://preterhuman.net/software/turbo-c-3-0-dos/) that can be
+used to install from (then copy TASM folder to target).
+
+Both `BUILD.BAT` and `MAKEFILE` assume TurboC++ is installed to `C:\TC`
+
+You may compile everything with BUILD.BAT (the original method), or run `make` to re-build only updated
+source, with all intermediate files and output binaries in `./BIN`, making cleanup easier.
+
+Run from the root folder, either `PLAY.EXE` or `BIN\PLAY.EXE`. However if using the WAD asset system
+(see below), ensure `GAME.WAD` is in the CWD.
+
+WAD Asset Packs
+---------------
+
+Phlash has adapted the engine to load all assets from a packed file (`GAME.WAD`), making distribution
+easier, and included a tool `makewad.c` to create the required packed file with:
+
+```bash
+% makewad -w BIN/GAME.WAD GFX/* MUSIC/ADLIB/* MUSIC/samples/*
+```
+
+NB: This is /almost/ the same WAD format as DOOM, but uses a longer name field (32 chars, not 8) so
+that longer 'path-like' names can be used to match the discrete path names.
+
+Further work (ongoing!) will enable command line option selection of WAD or discrete files, and to
+select a specific WAD to run. Patience little one :)
+
+
+"Little Game Engine" para VGA y 8088/8086/286
+---------------------------------------------
 
 "Little Game Engine" optimizado para VGA/EGA y ordenadores/computadoras muy muy lentos (8088/8086/286)
 --------------------------------------------------------------------------------------------------
