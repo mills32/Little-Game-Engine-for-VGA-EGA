@@ -176,8 +176,8 @@ Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y
 Para utilizar tus propias melodías, recomiendo crear cualquier música con Furnace Tracker, y exportarla a VGM (60 Hz).
 Otros VGM funcionarán bien siempre que tengan un tamaño menos de 64KB y 60Hz.
 
-ARCHIVOS DAT
--------------
+DAT FILES
+---------
 
 Los archivos DAT son un contenedor para agrupar muchos archivos pequeños dentro de uno más grande, y así hacer la 
 distribución del programa mucho más fácil. 
