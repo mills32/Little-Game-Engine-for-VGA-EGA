@@ -78,12 +78,15 @@ To generate a DAT file, use `makedat` program in `UTIL_DAT` folder (use command 
 
 Install, Make and Run
 ---------------
+
+Assuming you use DOSBOX to compile:
+
 * Install the required compiler in drive C:
 	```
 	Borland Turbo C++ 3.0
 	Borland Turbo Assembler 2.0 
 	```
-* Assuming you run DOSBOX, install TC++ and TASM on drive C: 
+* Install TC++ and TASM on drive C: 
 	```
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
@@ -188,12 +191,15 @@ línea de comandos).
 
 Instalación, compilar y ejecutar
 ---------------
+
+Suponiendo que utilizas DOSBOX para compilar:
+
 * Instala el compilador en el disco C:
 	```
 	Borland Turbo C++ 3.0
 	Borland Turbo Assembler 2.0 
 	```
-* Suponiendo que utilizas DOSBOX, instala TC++ y TASM en el disco C: 
+* Instala TC++ y TASM en el disco C: 
 	```
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
