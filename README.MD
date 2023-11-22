@@ -14,6 +14,7 @@ Also EGA 320x200@60Hz was added, and due to the complexity of EGA hardware, spri
 The predefined keys are: 
 - Move player/menus = UP DOWN LEFT RIGHT arrows.
 - Jump in platform levels = D.
+- Show info window in levels = S.
 - choose option in menu = ENTER.
 - Exit stage/game = ESC. 
 
@@ -120,6 +121,7 @@ Ahora usa el modo 320x200, modificado para funcionar a 60Hz en VGA. Además he a
 Las teclas predefinidas son: 
 - Mover jugador/menus = teclas direccionales.
 - Saltar en el nivel plataformas = D.
+- Mostrar ventana de información en juego = S.
 - Elegir opcion en menús = ENTER.
 - Salir de nivel/juego = ESC. 
 
