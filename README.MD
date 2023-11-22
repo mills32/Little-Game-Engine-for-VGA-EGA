@@ -67,8 +67,8 @@ To use the adlib music player, just enable adlib or soundblaster in the emulator
 Create Adlib VGM files with any tool you like, there is an awesome tracker called Furnace Tracker that will export VGM files and they 
 will work great. VGM files must be around 60 Hz and smaller than 64 KB.
 
-ARCHIVOS DAT
--------------
+DAT FILES
+---------
 
 DAT files are a container which stores multiple smaller files, so program distribution is easier.
 DAT files in BIN folder were generated from the files in ASSETS folder.
@@ -86,9 +86,8 @@ Install, Make and Run
 	```
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
-* F
 * Go to BIN folder, and run `makedemo.bat` to make the EXE file.
-* To generate the library, which contains all engine code, run 'makelib' from main folder.
+* To generate the library, which contains all engine code, run 'makelib.bat' from main folder.
 
 
 NOTES
@@ -176,8 +175,8 @@ Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y
 Para utilizar tus propias melodías, recomiendo crear cualquier música con Furnace Tracker, y exportarla a VGM (60 Hz).
 Otros VGM funcionarán bien siempre que tengan un tamaño menos de 64KB y 60Hz.
 
-DAT FILES
----------
+ARCHIVOS DAT
+-------------
 
 Los archivos DAT son un contenedor para agrupar muchos archivos pequeños dentro de uno más grande, y así hacer la 
 distribución del programa mucho más fácil. 
@@ -197,7 +196,7 @@ Instalación, compilar y ejecutar
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
 * Ve a la carpeta BIN, y ejecuta `makedemo.bat` para crear el ejecutable.
-* Para generar el archivo 'LIB' que contiene todo el código del motor, ejecuta 'makelib' desde la carpeta raiz.
+* Para generar el archivo 'LIB' que contiene todo el código del motor, ejecuta 'makelib.bat' desde la carpeta raiz.
 
 NOTAS
 -----
