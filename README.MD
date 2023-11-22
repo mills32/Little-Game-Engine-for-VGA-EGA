@@ -67,6 +67,12 @@ To use the adlib music player, just enable adlib or soundblaster in the emulator
 Create Adlib VGM files with any tool you like, there is an awesome tracker called Furnace Tracker that will export VGM files and they 
 will work great. VGM files must be around 60 Hz and smaller than 64 KB.
 
+ARCHIVOS DAT
+-------------
+
+DAT files are a container which stores multiple smaller files, so program distribution is easier.
+DAT files in BIN folder were generated from the files in ASSETS folder.
+To generate a DAT file, use makedat program in UTIL_DAT folder (use command line or drag and drop multiple files).
 
 
 Install, Make and Run
@@ -80,8 +86,10 @@ Install, Make and Run
 	```
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
-* Go to project dir then `make`
-* If nothing goes wrong, working `play.exe` should exist
+* F
+* Go to BIN folder, and run `makedemo.bat` to make the EXE file.
+* To generate the library, which contains all engine code, run 'makelib' from main folder.
+
 
 NOTES
 -----
@@ -168,6 +176,14 @@ Si tienes un retro PC, conecta una tarjeta Adlib o Sound Blaster o compatible, y
 Para utilizar tus propias melodías, recomiendo crear cualquier música con Furnace Tracker, y exportarla a VGM (60 Hz).
 Otros VGM funcionarán bien siempre que tengan un tamaño menos de 64KB y 60Hz.
 
+ARCHIVOS DAT
+-------------
+
+Los archivos DAT son un contenedor para agrupar muchos archivos pequeños dentro de uno más grande, y así hacer la 
+distribución del programa mucho más fácil. 
+Los archivos DAT de la carpeta BIN, han sido generados a partir de los contenidos de la carpoeta ASSETS.
+Para generar un DAT, utiliza el programa 'makedat' en la carpeta UTIL_DAT (arrastra varios archivos o utiliza la 
+línea de comandos).
 
 Instalación, compilar y ejecutar
 ---------------
@@ -180,8 +196,8 @@ Instalación, compilar y ejecutar
 	```
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
-* Ve al directorio del proyecto y escribe `make`
-* Si todo va bien, un archivo llamado `play.exe` aparecerá en el directorio.
+* Ve a la carpeta BIN, y ejecuta `makedemo.bat` para crear el ejecutable.
+* Para generar el archivo 'LIB' que contiene todo el código del motor, ejecuta 'makelib' desde la carpeta raiz.
 
 NOTAS
 -----
