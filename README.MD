@@ -99,7 +99,9 @@ Assuming you use DOSBOX to compile:
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
 * Go to BIN folder, and run `makedemo.bat` to make the EXE file.
-* To generate the library, which contains all engine code, run `makelib.bat` from main folder.
+
+To create your own game, you only need to modify 'main.c' and compile again, if you want to edit the engine code (LT_LIB.LIB) 
+run `makelib.bat` from main folder, to recompile  LT_LIB.LIB.
 
 
 NOTES
@@ -219,7 +221,9 @@ Suponiendo que utilizas DOSBOX para compilar:
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
 * Ve a la carpeta BIN, y ejecuta `makedemo.bat` para crear el ejecutable.
-* Para generar el archivo 'LIB' que contiene todo el código del motor, ejecuta `makelib.bat` desde la carpeta raiz.
+
+Para crear tus propios juegos, solamente tienes que modificar 'main.c' y compilar otra vez. Si quieres modificar el motor (LT_LIB.LIB)
+ejecuta `makelib.bat` desde la carpeta raiz para recompilar el archivo LT_LIB.LIB.
 
 NOTAS
 -----
