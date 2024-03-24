@@ -18,11 +18,13 @@ and more portable for other DOS compillers.
 
 
 The predefined keys are: 
-- Move player/menus = UP DOWN LEFT RIGHT arrows.
-- Jump in platform levels = D.
-- Show info window in levels = S.
-- choose option in menu = ENTER.
-- Exit stage/game = ESC. 
+- NEW: joystick support
+- Move player/menus = UP DOWN LEFT RIGHT arrows or joystick.
+- Jump in platform levels = D / button 2.
+- Show info window in levels = S / button 1.
+- choose option in menu = ENTER / button 1.
+- Exit stage/game = ESC.
+
 
 So. why does it run so fast?
 - Uses Hardware scrolling
@@ -43,9 +45,9 @@ Requirements:
 
                   minimum                              recommended
 
-          CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz or faster CPUS if VGA (8088 9MHz, 8086 8Mhz, NEC V30)
+          CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz or faster if VGA
           RAM: 512 Kb                         640 Kb
-          GRAPHICS: TANDY (in progress)       EGA (128Kb), VGA (256Kb)
+          GRAPHICS: TANDY 		      EGA (128Kb), VGA (256Kb)
           PC Speaker                          Tandy / Adlib or OPL2 compatible
 
           From 286+ CPU, the engine just works ok, even on modern cpu's x86 / x64 (2022) using freedos and any GPU
@@ -125,13 +127,20 @@ Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's mu
 
 Ahora usa el modo 320x200, modificado para funcionar a 60Hz en VGA. Además he añadido el modo EGA 320x200@60, pero los sprites en este modo, son en blanco y negro, debido a la complejidad del hardware EGA.
 
-*Modo Tandy en pruebas.
+NUEVO:
 
-Las teclas predefinidas son: 
-- Mover jugador/menus = teclas direccionales.
-- Saltar en el nivel plataformas = D.
-- Mostrar ventana de información en juego = S.
-- Elegir opcion en menús = ENTER.
+- Tandy funcionando con algunos problemas.
+- Todas las funciones de Turbo C reemplazadas por funciones de DOS/BIOS, esto hace el programa muy pequeño,
+y mas portable a otros compiladores de DOS.
+- Añadida función de scroll más compatible.
+
+
+Las teclas predefinidas son:
+-NUEVO: soporte para joystick
+- Mover jugador/menus = teclas direccionales / joystick.
+- Saltar en el nivel plataformas = D / boton 2.
+- Mostrar ventana de información en juego = S / boton 1.
+- Elegir opcion en menús = ENTER / boton 1.
 - Salir de nivel/juego = ESC. 
 
 Pero... ¿Por qué va tan rápido en PC's tan lentos?.
