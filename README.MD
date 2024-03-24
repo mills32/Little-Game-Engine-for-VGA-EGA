@@ -94,7 +94,7 @@ Assuming you use DOSBOX to compile:
 	Borland Turbo C++ 3.0
 	Borland Turbo Assembler 2.0 
 	```
-* Install TC++ and TASM on drive C: 
+* SET paths: 
 	```
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
@@ -214,7 +214,7 @@ Suponiendo que utilizas DOSBOX para compilar:
 	Borland Turbo C++ 3.0
 	Borland Turbo Assembler 2.0 
 	```
-* Instala TC++ y TASM en el disco C: 
+* Configura los path: 
 	```
 	set PATH=Z:\;C:\TC\BIN;C:\TASM
 	```
