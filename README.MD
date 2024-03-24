@@ -4,10 +4,10 @@ Little Game Engine optimized for VGA/EGA and very slow computers (8088/8086/286)
 
 <img src="play_011.png">
 
-This is a very simple engine to create MS-DOS games for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses VGA/EGA hardware capabilities, and gets rid of some slow techniques that were used at the time, such as redrawing the entire screen (due to lack of documentation about the VGA card).
+This is a very simple engine to create MS-DOS games for slow PCs. To run fast on the first PC's (8088/86 and 286), it uses CGA/Tandy/EGA/VGA hardware capabilities, and gets rid of some slow techniques that were used at the time, such as redrawing the entire screen (due to lack of documentation and time...
+I think).
 
-The engine is now using the more common VGA 320x200 mode, but it has been tweaked to run at 60 Hz.
-Also EGA 320x200@60Hz was added, and due to the complexity of EGA hardware, sprites are only 1 bit color (black and white).
+The engine is now using the more common 320x200 mode, but it has been tweaked to run at 60 Hz on VGA.
 
 NEW:
 
@@ -28,8 +28,8 @@ The predefined controls are:
 So. why does it run so fast?
 ----------------------------
 
-- Uses Hardware scrolling
-- With VRAM to VRAM transfers (4 pixels at a time on VGA, and 8 pixels on EGA), you can update things on screen much faster.
+- Uses Hardware scrolling (CGA, Tandy, EGA and VGA have this function, but only EGA and VGA can do 1 pixel smooth scrolling).
+- VRAM to VRAM transfers on EGA/VGA (4 pixels at a time on VGA, and 8 pixels on EGA).
 - Updates only one column of tiles, and the sprites.
 - Very simple "physics".
 
@@ -56,7 +56,7 @@ Little Engine functions:
 - Sprites 8x8, 16x16, 32x32, 64x64 sprites (64x64 sprites don't support transparencies).
 - TMX maps: Map sizes are fixed 256x19 tiles, created with tiled: https://www.mapeditor.org/
 - Graphic print function (8x8 Fonts, 64 characters). Includes latin characters by destroying these: "#$%&\()+-<=>
-- Hardware scroll (60 fps).
+- Hardware scroll (choppy on CGA/Tandy, smooth on EGA and VGA).
 - Palette animation 64+8 colors on VGA, 4 colors on EGA (animations for water and similar things).
 - Fake Parallax on VGA (64 colors palette animations)
 - VGM music for TANDY (SN76496 or compatible) and Adlib (YM3812 or compatible). 
@@ -128,7 +128,7 @@ NOTES
 
 Este es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien en los primeros PC (8088/86 y 286), el motor utiliza capacidades hardware de VGA y EGA, y evita técnicas muy lentas utilizadas en su época (por falta de información sobre el funcionamiento de la tarjetas).
 
-Ahora usa el modo 320x200, modificado para funcionar a 60Hz en VGA. Además he añadido el modo EGA 320x200@60, pero los sprites en este modo, son en blanco y negro, debido a la complejidad del hardware EGA.
+El motor usa el modo 320x200, (modificado para funcionar a 60Hz en VGA).
 
 NUEVO:
 
@@ -149,7 +149,8 @@ Los controles predefinidos son:
 Pero... ¿Por qué va tan rápido en PC's tan lentos?.
 ---------------------------------------------------
 
-- Utiliza la función "scrolling", o movimiento del fondo, incluída en el hardware de las tarjetas VGA y EGA.
+- Utiliza la función "scrolling", o movimiento del fondo, incluída en el hardware de las tarjetas CGA, Tandy, EGA y VGA. Aunque solamente EGA y VGA
+pueden hacer scrolling suave, pixel a pixel.
 - Gracias a la estructura de la Memoria de video (VRAM) del modo X de VGA y de EGA, puedes hacer transferencias de datos de 32 bits, de VRAM a VRAM.
 - Sólamente se actualiza una columna de tiles de 16x16 pixels, y los sprites (actualizar toda la pantalla es dolorosamente lento para estos primeros PC). 
 - Motor físico súper simple.
