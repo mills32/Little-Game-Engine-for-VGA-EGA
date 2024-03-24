@@ -223,9 +223,9 @@ Un montón de código copiado de David Brackeen
 http://www.brackeen.com/home/vga/                                     
 
 Este es un programa de 16-bit, funcionará en MS-DOS puro y FreeDos (tal vez en Windows 95/98. Fallará en windows 3.1/11.                     
-Puedese compilarlo usando los modelos de memoria "COMPACT" o "LARGE".                        
+Puede compilarlo usando los modelos de memoria "COMPACT" o "LARGE".                        
 
-Este código es complétamente libre,. Por favor, cópialo, modifícalo, haz lo que quieras con él, para eso lo he puesto en github, no?.
+Este código es complétamente libre, por favor, cópialo, modifícalo, haz lo que quieras con él, para eso lo he puesto en github.
 
 Gracias a todos los que ayudaron o cedieron código (reproductor de música, cargador de imágenes).
 Gracias a jojo, por enviarme un 286 real :).
