@@ -47,7 +47,7 @@ Requirements:
 
           CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz or faster if VGA
           RAM: 512 Kb                         640 Kb
-          GRAPHICS: TANDY 		      EGA (128Kb), VGA (256Kb)
+          GRAPHICS: TANDY                     EGA (128Kb), VGA (256Kb)
           PC Speaker                          Tandy / Adlib or OPL2 compatible
 
           From 286+ CPU, the engine just works ok, even on modern cpu's x86 / x64 (2022) using freedos and any GPU
@@ -161,7 +161,7 @@ Requisitos:
 
                   mínimo                             recomendado
 
-          CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz o CPUs más rápidas para VGA (8088 9MHz, 8086 8Mhz, NEC V30)
+          CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz o más rápidas para modo VGA
           RAM: 512 Kb                         640 Kb
           GRÁFICOS: TANDY                     EGA (128Kb), VGA (256Kb)
           PC Speaker                          Tandy / Adlib o cualquiera compatible con chip OPL2
