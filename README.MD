@@ -36,7 +36,7 @@ A lot of code from David Brackeen
 http://www.brackeen.com/home/vga/                                     
 
 This is a 16-bit MS-DOS program, it will only work on pure MS-DOS and FreeDos, (maybe on windows 95/98?). It will fail under windows 3.1/11                     
-Remember to compile in the LARGE memory model!                        
+You can compile it in the COMPACT and LARGE memory models.                        
 
 I tested the requirements on PCem, and 86Box emulator (they simulate very accurately 8088 CPU's).
 Also tested on a 286 at 6 MHz and 8088/NEC V20 from 4.77 to 10 MHz.
@@ -153,7 +153,7 @@ Un montón de código copiado de David Brackeen
 http://www.brackeen.com/home/vga/                                     
 
 Este es un programa de 16-bit, funcionará en MS-DOS puro y FreeDos (tal vez en Windows 95/98. Fallará en windows 3.1/11.                     
-Recuerda que hay que compilarlo usando el "LARGE memory model".                        
+Puedese compilarlo usando los modelos de memoria "COMPACT" o "LARGE".                        
 
 He probado los requisitos en PCem y 86Box unos emuladores muy precisos. También lo he probado en un 286 real, y algunas personas me han informado de que el motor funciona en otras máquinas reales: 8088/NEC v20 a 9 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster parecen funcionar.
 
