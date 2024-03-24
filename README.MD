@@ -25,23 +25,19 @@ The predefined controls are:
 - choose option in menu = ENTER / button 1.
 - Exit stage/game = ESC.
 
-
 So. why does it run so fast?
+----------------------------
+
 - Uses Hardware scrolling
 - With VRAM to VRAM transfers (4 pixels at a time on VGA, and 8 pixels on EGA), you can update things on screen much faster.
 - Updates only one column of tiles, and the sprites.
 - Very simple "physics".
 
-A lot of code from David Brackeen                                   
-http://www.brackeen.com/home/vga/                                     
-
-This is a 16-bit MS-DOS program, it will only work on pure MS-DOS and FreeDos, (maybe on windows 95/98?). It will fail under windows 3.1/11                     
-You can compile it in the COMPACT and LARGE memory models.                        
+REQUIREMENTS
+------------
 
 I tested the requirements on PCem, and 86Box emulator (they simulate very accurately 8088 CPU's).
 Also tested on a 286 at 6 MHz and 8088/NEC V20 from 4.77 to 10 MHz.
-
-Requirements:
 
                   minimum                              recommended
 
@@ -63,12 +59,6 @@ Little Engine functions:
 - Fake Parallax on VGA (64 colors palette animations)
 - VGM music for TANDY (SN76496 or compatible) and Adlib (YM3812 or compatible). 
 
-
-Please copy this source code, change it, do whatever you want. That's the point of github. Isn't it?
-
-Thanks to everyone who helped and released code (music player, image loader).
-Thanks to "jojo" for sending me a real 286 :).
-
 SOUND
 -----
 
@@ -82,7 +72,6 @@ DAT FILES
 DAT files are a container which stores multiple smaller files, so program distribution is easier.
 DAT files in BIN folder were generated from the files in `ASSETS` folder.
 To generate a DAT file, use `makedat` program in `UTIL_DAT` folder (use command line or drag and drop multiple files or a folder).
-
 
 Install, Make and Run
 ---------------
@@ -103,6 +92,17 @@ Assuming you use DOSBOX to compile:
 To create your own game, you only need to modify 'main.c' and compile again, if you want to edit the engine code (LT_LIB.LIB) 
 run `makelib.bat` from main folder, to recompile  LT_LIB.LIB.
 
+
+A lot of code from David Brackeen                                   
+http://www.brackeen.com/home/vga/                                     
+
+This is a 16-bit MS-DOS program, it will only work on pure MS-DOS and FreeDos, (maybe on windows 95/98?). It will fail under windows 3.1/11                     
+You can compile it in the COMPACT and LARGE memory models. 
+
+Please copy this source code, change it, do whatever you want. That's the point of github. Isn't it?
+
+Thanks to everyone who helped and released code (music player, image loader).
+Thanks to "jojo" for sending me a real 286 :).
 
 NOTES
 -----
@@ -144,20 +144,17 @@ Los controles predefinidos son:
 - Salir de nivel/juego = ESC. 
 
 Pero... ¿Por qué va tan rápido en PC's tan lentos?.
+---------------------------------------------------
+
 - Utiliza la función "scrolling", o movimiento del fondo, incluída en el hardware de las tarjetas VGA y EGA.
 - Gracias a la estructura de la Memoria de video (VRAM) del modo X de VGA y de EGA, puedes hacer transferencias de datos de 32 bits, de VRAM a VRAM.
 - Sólamente se actualiza una columna de tiles de 16x16 pixels, y los sprites (actualizar toda la pantalla es dolorosamente lento para estos primeros PC). 
 - Motor físico súper simple.
 
-Un montón de código copiado de David Brackeen                                   
-http://www.brackeen.com/home/vga/                                     
-
-Este es un programa de 16-bit, funcionará en MS-DOS puro y FreeDos (tal vez en Windows 95/98. Fallará en windows 3.1/11.                     
-Puedese compilarlo usando los modelos de memoria "COMPACT" o "LARGE".                        
+REQUISITOS
+----------
 
 He probado los requisitos en PCem y 86Box unos emuladores muy precisos. También lo he probado en un 286 real, y algunas personas me han informado de que el motor funciona en otras máquinas reales: 8088/NEC v20 a 9 Mhz; Varias tarjetas VGA y varias Adlib/Sound Blaster parecen funcionar.
-
-Requisitos:
 
                   mínimo                             recomendado
 
@@ -179,12 +176,6 @@ Funciones de Little Engine:
 - Animaciones de paleta (64 + 8 colores en VGA; 8 colores en EGA). Puedes cambiar colores de la paleta para hacer animaciones.
 - Falso segundo plano de "parallax" en VGA, con las animaciones de paleta de 64 colores, puedes simular un falso plano detras del principal.
 - Música VGM para el chip TANDY (SN76496 o compatibles) y Adlib (YM3812 o cualquier conpatible). 
-
-
-Este código es complétamente libre,. Por favor, cópialo, modifícalo, haz lo que quieras con él, para eso lo he puesto en github, no?.
-
-Gracias a todos los que ayudaron o cedieron código (reproductor de música, cargador de imágenes).
-Gracias a jojo, por enviarme un 286 real :).
 	
 SONIDO
 ------
@@ -222,6 +213,17 @@ Suponiendo que utilizas DOSBOX para compilar:
 
 Para crear tus propios juegos, solamente tienes que modificar 'main.c' y compilar otra vez. Si quieres modificar el motor (LT_LIB.LIB)
 ejecuta `makelib.bat` desde la carpeta raiz para recompilar el archivo LT_LIB.LIB.
+
+Un montón de código copiado de David Brackeen                                   
+http://www.brackeen.com/home/vga/                                     
+
+Este es un programa de 16-bit, funcionará en MS-DOS puro y FreeDos (tal vez en Windows 95/98. Fallará en windows 3.1/11.                     
+Puedese compilarlo usando los modelos de memoria "COMPACT" o "LARGE".                        
+
+Este código es complétamente libre,. Por favor, cópialo, modifícalo, haz lo que quieras con él, para eso lo he puesto en github, no?.
+
+Gracias a todos los que ayudaron o cedieron código (reproductor de música, cargador de imágenes).
+Gracias a jojo, por enviarme un 286 real :).
 
 NOTAS
 -----
