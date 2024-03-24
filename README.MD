@@ -15,10 +15,10 @@ NEW:
 - Replaced all turbo C functions with DOS/BIOS functions, this makes the code very small,
 and more portable for other DOS compillers.
 - Added more compatible scrolling function.
+- joystick support
 
 
-The predefined keys are: 
-- NEW: joystick support
+The predefined controls are:
 - Move player/menus = UP DOWN LEFT RIGHT arrows or joystick.
 - Jump in platform levels = D / button 2.
 - Show info window in levels = S / button 1.
@@ -133,10 +133,10 @@ NUEVO:
 - Todas las funciones de Turbo C reemplazadas por funciones de DOS/BIOS, esto hace el programa muy pequeño,
 y mas portable a otros compiladores de DOS.
 - Añadida función de scroll más compatible.
+- Soporte para joystick
 
 
-Las teclas predefinidas son:
--NUEVO: soporte para joystick
+Los controles predefinidos son:
 - Mover jugador/menus = teclas direccionales / joystick.
 - Saltar en el nivel plataformas = D / boton 2.
 - Mostrar ventana de información en juego = S / boton 1.
