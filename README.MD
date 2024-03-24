@@ -9,7 +9,13 @@ This is a very simple engine to create MS-DOS games for slow PCs. To run fast on
 The engine is now using the more common VGA 320x200 mode, but it has been tweaked to run at 60 Hz.
 Also EGA 320x200@60Hz was added, and due to the complexity of EGA hardware, sprites are only 1 bit color (black and white).
 
-*Tandy mode is being added.
+NEW:
+
+- Tandy mode working with some bugs.
+- Replaced all turbo C functions with DOS/BIOS functions, this makes the code very small,
+and more portable for other DOS compillers.
+- Added more compatible scrolling function.
+
 
 The predefined keys are: 
 - Move player/menus = UP DOWN LEFT RIGHT arrows.
