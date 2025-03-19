@@ -1,5 +1,5 @@
 # Little-Game-Engine-for-VGA/EGA
-Little Game Engine optimized for VGA/EGA and very slow computers (8088/8086/286)
+Little Game Engine optimized for CGA/TANDY/EGA/VGA and very slow computers (8088/8086/286)
 ----------------------------------------------------------------------------
 
 <img src="play_011.png">
@@ -122,7 +122,7 @@ NOTES
 
 
 
-"Little Game Engine" optimizado para VGA/EGA y ordenadores/computadoras muy muy lentos (8088/8086/286)
+"Little Game Engine" optimizado para CGA/TANDY/EGA/VGA y ordenadores/computadoras muy muy lentos (8088/8086/286)
 --------------------------------------------------------------------------------------------------
 
 <img src="play_011.png">
