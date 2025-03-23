@@ -58,7 +58,7 @@ Little Engine functions:
 - TMX maps: Map sizes are fixed 256x19 tiles, created with tiled: https://www.mapeditor.org/
 - Graphic print function (8x8 Fonts, 64 characters). Includes latin characters by destroying these: "#$%&\()+-<=>
 - Hardware scroll (choppy on CGA/Tandy, smooth on EGA and VGA).
-- Palette animation 64+8 colors on VGA, 4 colors on EGA (animations for water and similar things).
+- Palette animation 64+8 colors on VGA, 4 colors on EGA/TANDY (animations for water and similar things).
 - Fake Parallax on VGA (64 colors palette animations)
 - VGM music for TANDY (SN76496 or compatible) and Adlib (YM3812 or compatible). 
 
@@ -183,7 +183,7 @@ Funciones de Little Engine
 - Mapas TMX: Creados con el programa tiled: https://www.mapeditor.org/
 - Funcuion print grafica, con fuentes de 8x8, 64 caracteres y caracteres latinos añadidos sobre los siguientes: "#$%&\()+-<=>
 - Scroll por hardware de los mapas a 60 fps.
-- Animaciones de paleta (64 + 8 colores en VGA; 8 colores en EGA). Puedes cambiar colores de la paleta para hacer animaciones.
+- Animaciones de paleta (64 + 8 colores en VGA; 4 colores en EGA/TANDY). Puedes cambiar colores de la paleta para hacer animaciones.
 - Falso segundo plano de "parallax" en VGA, con las animaciones de paleta de 64 colores, puedes simular un falso plano detras del principal.
 - Música VGM para el chip TANDY (SN76496 o compatibles) y Adlib (YM3812 o cualquier conpatible). 
 	
