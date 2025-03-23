@@ -130,7 +130,6 @@ NOTES
 Estamos en 1989, o 1991... (o tal vez en 1993), y mucha gente puede por fin experimentar un ordenador/computadora personal de tipo x86 a un precio mas o menos "razonable". Pero tu PC no es el último modelo, seguramente es de segunda mano, o es un ya obsoleto 8088/86/286, con CGA (con mucha suerte una VGA muy cutre y lenta). Tampoco tienes tarjeta de sonido (a no ser que el PC sea un tandy), o acabas de conseguir una impresionante adlib que alguien ya no quería... Ésto es lo que me ocurrió a mi, y a mucha gente de mi entorno, por eso quise hacer este pequeño sofware enfocado a este tipo de PC. No hay ningun descubrimiento ni ninguna funcion super mágica en este sofware, lo bonito que tiene, es que funcione tan bien en estos primeros PC de gama super baja.
 
 Little game engine es un motor muy simple para crear juegos de MS-DOS que funcionan en PC's muy lentos. Para que funcionase bien, el motor utiliza capacidades hardware de CGA, TANDY, EGA y VGA, y evita técnicas muy lentas utilizadas en su época (por falta de información sobre el funcionamiento de la tarjetas, y falta de tiempo).
-El motor no tiene nada especial, simplemente esta pensado para la gama mas baja de PC que alguien podia tener a rincipios de los 90. 
 
 El motor usa el modo 320x200, (modificado para funcionar a 60Hz en VGA).
 
