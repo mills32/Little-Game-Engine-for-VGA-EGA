@@ -133,7 +133,6 @@ Little game engine es un motor muy simple para crear juegos de MS-DOS que funcio
 
 El motor usa el modo 320x200, (modificado para funcionar a 60Hz en VGA).
 
-Correr este motor en cosas mas alla del 286, es un poco pero hay motores mucho mas capaces y que aprovechan esas máquinas. 
 
 NUEVO:
 
