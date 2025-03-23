@@ -4,7 +4,7 @@ Little Game Engine optimized for CGA/TANDY/EGA/VGA and very slow computers (8088
 
 <img src="play_011.png">
 
-It's 1989, or 1991... (or maybe 1993), and mmany people can finally experience x86 Personal Computers at a more or less reasonable price... But only second-hand ones, or really low end systems (8088/86, and 286) with (probably) a CGA card, or with some luck an EGA/slow VGA. You also don't have any sound card, (unless the PC is a tandy) or you just got a crappy adlib... This is what happened to me, and many others around me, so this engine is made to work well on those old slow x86 PC's. You won't find mind blowing or undiscovered magical features of old hardware, the only special thing here, is it works well on these first obsolete computers.
+It's 1989, or 1991... (or maybe 1993), and many people can finally experience x86 Personal Computers at a more or less reasonable price... But only second-hand ones, or really low end systems (8088/86, and 286) with (probably) a CGA card, or with some luck an EGA/slow VGA. You also don't have any sound card, (unless the PC is a tandy) or you just got a crappy adlib... This is what happened to me, and many others around me, so this engine is made to work well on those old slow x86 PC's. You won't find mind blowing or undiscovered magical features of old hardware, the only special thing here, is it works well on these first obsolete computers.
 
 Little Game Engine is a very simple "game engine" to create MS-DOS games for slow PCs. It uses CGA/Tandy/EGA/VGA hardware capabilities to run fast, and gets rid of some slow techniques that were used at the time, such as redrawing the entire screen (due to lack of documentation and time... I think).
 
