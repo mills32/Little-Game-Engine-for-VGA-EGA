@@ -12,7 +12,7 @@ The engine is now using the more common 320x200 mode, but it has been tweaked to
 
 NEW:
 
-- Tandy mode working with some bugs.
+- Tandy mode working, CGA mode is being added.
 - Replaced all turbo C functions with DOS/BIOS functions, this makes the code very small,
 and more portable for other DOS compillers.
 - Added more compatible scrolling function.
@@ -51,7 +51,7 @@ Also tested on a 286 at 6 MHz and 8088/NEC V20 from 4.77 to 10 MHz.
 Notes about minimum CPU (8088 4.77Mhz):
 
           Tandy/EGA mode: Engine can only handle 2 sprites (16x16), more sprites make it laggy.
-          CGA mode: broken sprites, a sprite double buffer on CGA is not practical in this engine, so you need 7.16 Mhz.
+          CGA mode: broken sprites, a sprite double buffer on CGA is not practical in this engine, needs 7.16 Mhz.
   
 From 286+ CPU, the engine just works ok, even on modern cpu's x86 / x64 (2022) using freedos and any GPU
 
@@ -142,7 +142,7 @@ El motor usa el modo 320x200, (modificado para funcionar a 60Hz en VGA).
 
 NUEVO:
 
-- Tandy funcionando con algunos problemas.
+- Tandy funcionando, CGA en proceso.
 - Todas las funciones de Turbo C reemplazadas por funciones de DOS/BIOS, esto hace el programa muy pequeño,
 y mas portable a otros compiladores de DOS.
 - Añadida función de scroll más compatible.
@@ -175,9 +175,15 @@ He probado los requisitos en PCem y 86Box unos emuladores muy precisos. También
           CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz o más rápidas para modo VGA
           RAM: 512 Kb                         640 Kb
           GRÁFICOS: TANDY                     EGA (128Kb), VGA (256Kb)
-          PC Speaker                          Tandy / Adlib o cualquiera compatible con chip OPL2
+          SONIDO: PC Speaker                  Tandy / Adlib o cualquiera compatible con chip OPL2
 
-          A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2022) con cualquier tarjeta gráfica.
+Notas sobre los requisitos mínimos CPU (8088 4.77Mhz):
+
+          Tandy/EGA: El motor mueve como mucho 2 sprites en pantalla (16x16). Más sprites hacen el juego muy lento.
+          CGA: Los sprites parpadean y a veces desaparecen. Programar un doble búfer para CGA en este motor no es práctico, así que necesitas 7.16 Mhz.
+  
+
+A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2022) con cualquier tarjeta gráfica.
 
 
 Funciones de Little Engine
