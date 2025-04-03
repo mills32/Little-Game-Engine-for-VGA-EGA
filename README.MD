@@ -12,7 +12,7 @@ The engine is now using the more common 320x200 mode, but it has been tweaked to
 
 NEW:
 
-- Tandy mode working, CGA mode is being added.
+- Tandy mode working, CGA mode working.
 - Replaced all turbo C functions with DOS/BIOS functions, this makes the code very small,
 and more portable for other DOS compillers.
 - Added more compatible scrolling function.
@@ -147,7 +147,7 @@ El motor usa el modo 320x200, (modificado para funcionar a 60Hz en VGA).
 
 NUEVO:
 
-- Tandy funcionando, CGA en proceso.
+- Modo tandy funcionando, y modo CGA funcionando!.
 - Todas las funciones de Turbo C reemplazadas por funciones de DOS/BIOS, esto hace el programa muy pequeño,
 y mas portable a otros compiladores de DOS.
 - Añadida función de scroll más compatible.
