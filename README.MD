@@ -42,16 +42,18 @@ Also tested on a 286 at 6 MHz and 8088/NEC V20 from 4.77 to 10 MHz.
 
                   minimum                              recommended
 
-          CPU: 8088/NEC V20 4.77 MHz          8088 7.16 MHz or faster if VGA
-          RAM: 512 Kb                         640 Kb
+          CPU: 8088/NEC V20 4.77 MHz          8088/NEC V20 7.16 MHz
+          RAM: around 400 Kb                  512 Kb (640 for Tandy Graphics)
           GRAPHICS: CGA                       EGA (128Kb), VGA (256Kb)
           SOUND: PC Speaker                   Tandy / Adlib or OPL2 compatible
 
 
-Notes about minimum CPU (8088 4.77Mhz):
+Notes about 8088 CPU at 4.77Mhz:
 
-          Tandy/EGA mode: Engine can only handle 2 sprites (16x16), more sprites make it laggy.
-          CGA mode: broken sprites, a sprite double buffer on CGA is not practical in this engine, needs 7.16 Mhz.
+          CGA: Runs slow, sprites will flicker a lot, but engine is playable if music is not enabled.
+          Tandy: Runs slow, you should disable music.
+          EGA: Can handle only 2 sprites at full speed (16x16).
+          VGA: Runs slow.
   
 From 286+ CPU, the engine just works ok, even on modern cpu's x86 / x64 (2022) using freedos and any GPU
 
