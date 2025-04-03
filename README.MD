@@ -184,8 +184,8 @@ He probado los requisitos en PCem, 86Box y martyPC (unos emuladores muy precisos
 
 Notas sobre los requisitos mínimos CPU (8088 4.77Mhz):
 
-          CGA: Muy lento, y los sprites parpadean. Si desactivas la música, funciona mas o menos bien.d.
-          Tandy: Lento, desactiva la música..
+          CGA: Muy lento, y los sprites parpadean. Si desactivas la música, funciona mas o menos bien.
+          Tandy: Lento, desactiva la música.
           EGA: Solamente puede mover 2 sprites de 16x16 sin ralentizaciones.
           VGA: Muy lento.
   
