@@ -130,6 +130,8 @@ NOTES
 
 
 -----
+-----
+-----
 
 "Little Game Engine" optimizado para CGA/TANDY/EGA/VGA y ordenadores/computadoras muy muy lentos (8088/8086/286)
 --------------------------------------------------------------------------------------------------
