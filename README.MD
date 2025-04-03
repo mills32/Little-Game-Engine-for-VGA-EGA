@@ -184,8 +184,10 @@ He probado los requisitos en PCem, 86Box y martyPC (unos emuladores muy precisos
 
 Notas sobre los requisitos mínimos CPU (8088 4.77Mhz):
 
-          Tandy/EGA: El motor mueve como mucho 2 sprites en pantalla (16x16). Más sprites hacen el juego muy lento.
-          CGA: Los sprites parpadean y a veces desaparecen. Programar un doble búfer para CGA en este motor no es práctico, así que necesitas 7.16 Mhz.
+          CGA: Muy lento, y los sprites parpadean. Si desactivas la música, funciona mas o menos bien.d.
+          Tandy: Lento, desactiva la música..
+          EGA: Solamente puede mover 2 sprites de 16x16 sin ralentizaciones.
+          VGA: Muy lento.
   
 
 A partir de un modelo 286, funciona en cualquier cpu moderna x86 o x64 (2022) con cualquier tarjeta gráfica.
