@@ -10,7 +10,7 @@ Little Game Engine is a very simple "game engine" to create MS-DOS games for slo
 
 The engine is now using the more common 320x200 mode, but it has been tweaked to run at 60 Hz on VGA.
 
-NEW:  
+NOTE:  
 
 This was created for the absolute low end computer, and the engine runs at 60 fps (which is insane for the poor 8088's), so a lot of things have been simplified or removed from the engine, sometimes a game can look like a spectrum or NES, (or even worst):
 - Blocky CGA sprites: choppy, using 4x1 pixel chunks... but the games look playable enough for me.
