@@ -10,9 +10,10 @@ Little Game Engine is a very simple "game engine" to create MS-DOS games for slo
 
 The engine is now using the more common 320x200 mode, but it has been tweaked to run at 60 Hz on VGA.
 
-[b]NOTE[/b]
-As this was created for the absolute low end computer, and the engine runs at 60 fps (which is insane for the poor 8088's), there are a lot of things have been simplified or removed from the engine, sometimes a game can look like a spectrum or NES, (or even worst):
-- Blocky CGA sprites: choppy, only compossed from 4x1 pixel chunks... but the games look playable enough for me.
+NOTES
+-----
+As this was created for the absolute low end computer, and the engine runs at 60 fps (which is insane for the poor 8088's), a lot of things have been simplified or removed from the engine, sometimes a game can look like a spectrum or NES, (or even worst):
+- Blocky CGA sprites: choppy, using 4x1 pixel chunks... but the games look playable enough for me.
 - EGA sprite colors: EGA is so slow for sprite drawing, I use a simple colouring method, which changes the sprite colour every 2 scanlines. Sprites can use only a black colour, and other colour on top. This method works well for NES style 16x16 sprites.
 
 
@@ -125,7 +126,8 @@ NOTES
 - 	Read source to see how the functions are used in the samples, I tried to leave it as simple as possible.
 - 	Little Engine uses 16x16 pixels tiles, and it will split the tilesets in chunks of 16x16 pixels (from left to right / top to bottom).
 - 	Sprites are split in chunks of 8x8, 16x16, 32x32, 64x64.
-- 	EGA sprites are 16 colour bmp (4 bits per pixel) but they only use 3 colors: 0 = transparent, 1 = black; 2 = white.
+- 	EGA sprites are 256 colour bmp (8 bits per pixel) but they only use these colors: 16 = transparent, 1 = black; 2-15 = any EGA color.  
+ 	Every line on the sprite can only use 2 colors (black + other color).
 - 	Font is a 16 colour bmp (4 bits per pixel) but it only uses 4 colors.
 - 	TMX maps must be in CSV format 256x19, orthogonal and must have two layers (background and collision).
 - 	All files (tilesets, maps, music and sprites) are limited to 64 kb. 
