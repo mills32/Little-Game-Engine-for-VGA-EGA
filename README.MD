@@ -15,7 +15,7 @@ NOTE:
 This was created for the absolute low end computer, and the engine runs at 60 fps (which is insane for the poor 8088's), so a lot of things have been simplified or removed from the engine:
 - Blocky CGA sprites: choppy, using 4x1 pixel chunks... but they look good enough for me.
 - EGA sprite colors: EGA is so slow for sprite drawing, I use a simple colouring method, which changes the sprite colour every 2 scanlines. 
-- 32x32 sprites: these are only useful if the CPU is fast.
+- 32x32 sprites: these are only fast in EGA mode, but they lack a lot of details in this mode.
 
 
 NEW:
@@ -56,11 +56,11 @@ Also tested on a 286 at 6 MHz and 8088/NEC V20 from 4.77 to 10 MHz.
           SOUND: PC Speaker                   Tandy / Adlib or OPL2 compatible
 
 
-Notes about 8088 CPU at 4.77Mhz:
+Notes about minimum requirements:
 
           CGA: Runs slow, sprites will flicker a lot, but engine is playable if music is not enabled.
           Tandy: Runs slow, you should disable music.
-          EGA: Can handle only 2 sprites at full speed (16x16).
+          EGA: Can only handle 3 (16x16) or 2 (32x32) sprites at full speed.
           VGA: Runs slow.
   
 From 286+ CPU, the engine just works ok, even on modern cpu's x86 / x64 (2022) using freedos and any GPU
@@ -198,11 +198,11 @@ He probado los requisitos en PCem, 86Box y martyPC (unos emuladores muy precisos
           GRÁFICOS: TANDY                     EGA (128Kb), VGA (256Kb)
           SONIDO: PC Speaker                  Tandy / Adlib o cualquiera compatible con chip OPL2
 
-Notas sobre los requisitos mínimos CPU (8088 4.77Mhz):
+Notas sobre los requisitos mínimos:
 
           CGA: Muy lento, y los sprites parpadean. Si desactivas la música, funciona mas o menos bien.
           Tandy: Lento, desactiva la música.
-          EGA: Solamente puede mover 2 sprites de 16x16 sin ralentizaciones.
+          EGA: Solamente puede mover 3 (16x16) o 2 (32x32) sprites sin ralentizaciones.
           VGA: Muy lento.
   
 
