@@ -1,5 +1,5 @@
 rem requires Turbo C installed at C:\TC
-tcc -G -O2 -Ic:\tc\include -mc -c lt_sys.c lt_key.c lt_gfx.c lt_spr.c lt_sound.c
+tcc -G -O2 -Ic:\tc\include -ml -c lt_sys.c lt_key.c lt_gfx.c lt_spr.c lt_sound.c
 @echo off
 del *.LIB
 @echo on
