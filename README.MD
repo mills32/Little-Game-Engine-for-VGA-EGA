@@ -115,7 +115,7 @@ A lot of code from David Brackeen
 http://www.brackeen.com/home/vga/                                     
 
 This is a 16-bit MS-DOS program, it will only work on pure MS-DOS and FreeDos, (maybe on windows 95/98?). It will fail under windows 3.1/11                     
-You can compile it in the COMPACT and LARGE memory models. 
+You have to compile using the LARGE memory model. 
 
 Please copy this source code, change it, do whatever you want. That's the point of github. Isn't it?
 
@@ -263,7 +263,7 @@ Un montón de código copiado de David Brackeen
 http://www.brackeen.com/home/vga/                                     
 
 Este es un programa de 16-bit, funcionará en MS-DOS puro y FreeDos (tal vez en Windows 95/98. Fallará en windows 3.1/11.                     
-Puede compilarlo usando los modelos de memoria "COMPACT" o "LARGE".                        
+Debes compilarlo usando el modelo de memoria "LARGE".                        
 
 Este código es complétamente libre, por favor, cópialo, modifícalo, haz lo que quieras con él, para eso lo he puesto en github.
 
