@@ -1,11 +1,14 @@
-#SETUP---------
-VIDEO=0        
-SCROLL=0       
-MUSIC=1        
-SFX=1          
-JOYX=AÑB      
-JOYY=AÑB0     
-LANG=0         
-#SAVE----------
-LEV_A=0LIV_A=0 
-LEV_B=0LIV_B=0 $
+#SETUP
+------
+VIDEO=0
+SCROLL=1
+MUSIC=1
+SFX=1
+BLASP=220
+BLASI=5
+BLASD=1
+LANG=0
+#SAVE
+-----
+LEVEL_A=0 ENERGY_A=0
+LEVEL_B=0 ENERGY_B=0

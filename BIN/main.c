@@ -3,7 +3,9 @@
 ************************
 *  LITTLE GAME ENGINE  *
 ************************
-
+BUG: not found folders may crash the program
+BUG: sprites may not delete bkg when being cloned and are drawn for the first time
+	if the sprite spawms facing a solid or end of platform and flips just as spawms
 ##########################################################################
 	
 	A lot of code from David Brackeen                                   
@@ -61,7 +63,7 @@
 			-write the file name in the second argument
 	
 ##########################################################################*/
-
+//BASIC: 10 goto 10
 //Library functions
 #include "lt__eng.h"
 
@@ -89,6 +91,8 @@ byte Player_Animation[] = {	//Animations for player are fixed at these offsets
 	26,27,28,29,29,28,27,26,	// 7 custom 
 	
 };
+
+
 byte Menu_Cursor_Animation[] = {0,1,2,3,3,3,3,3};
 byte Ship_Animation[] = {//
 	0,1,0,1,0,1,0,1,
@@ -169,7 +173,7 @@ void Run_Puzzle();
 void Load_Shooter();
 void Run_Shooter();
 
-
+extern int LT_Sprite_Stack;
 unsigned char L_ANIMATION[4][16] = {
 	"loadinge.bmp","loading.bmp","loadingc.bmp","loadingt.bmp"
 };
@@ -183,15 +187,17 @@ void main(){
 	//Allways the first, loads setup and initializes engine
 	LT_Setup();	
 	//Load a font to show text boxes with data, variables and menus
-	LT_Load_Font("IMAGES.DAT","font.bmp");
+	LT_Load_Font("IMAGES.DAT","font.bmp",0,9,7,15);//these 4 values are used in 16 color modes
 	//If you want a logo
 	LT_Logo("IMAGES.DAT",&L_LOGO[LT_GET_VIDEO()][0]);
+	//LT_Load_Sprite("SRC/ASSETS/sprites/playerc.bmp",0,8,Player_Animation);
 	//Load a custom loading animation for Loading process
 	LT_Load_Animation("IMAGES.DAT",&L_ANIMATION[LT_GET_VIDEO()][0]);
 	LT_Set_Animation(4); //Loading animation speed
 	//That's it, let's play
 	LT_MODE = 0;
 	game = 0;
+	//LT_EGA_SPRITES_TRANSLUCENT = 1;
 	//MENU
 	while (running){
 		switch (game){
@@ -212,7 +218,7 @@ void main(){
 	
 }
 
-//Game functions 
+//custom function
 void Sprite_Bounce_Left(byte spr){
 	//Bounce away the sprite
 	sprite[spr].pos_x-=2;LT_Update(0,0);
@@ -221,6 +227,7 @@ void Sprite_Bounce_Left(byte spr){
 	sprite[spr].pos_x-=2;sprite[spr].pos_y+=3;LT_Update(0,0);
 }
 
+//Scenes/levels
 void Display_Intro(){
 	int key_timmer = 0;
 	int change = 0; //wait between key press
@@ -235,9 +242,8 @@ void Display_Intro(){
 	LT_ENDLESS_SIDESCROLL = 0;
 	
 	//Enable this to load stuff, it will fade out automatically
-	//and show a cute animation
+	//also stops the music and shows a cute animation
 	LT_Start_Loading();
-		
 		if (LT_GET_VIDEO() == 0){
 			LT_Load_Image("IMAGES.DAT","INTREGA.BMP"); //Load a 320x200 bkg image
 			LT_Load_Sprite("SPRITES.DAT","orbE.bmp",0,0);
@@ -246,25 +252,22 @@ void Display_Intro(){
 		}
 		if (LT_GET_VIDEO() == 1){
 			LT_Load_Image("IMAGES.DAT","INTRVGA.BMP"); //Load a 320x240 bkg image
+			LT_Load_Sprite("SPRITES.DAT","Rocketc.bmp",20,0);
 			LT_Load_Sprite("SPRITES.DAT","orb.bmp",0,0);
 			LT_Load_Sprite("SPRITES.DAT","cursorb.bmp",8, Menu_Cursor_Animation); //Load sprites to one of the fixed structs
-			LT_Load_Sprite("SPRITES.DAT","Rocketc.bmp",20,0);
 		}
 		if (LT_GET_VIDEO() == 3){
-			
 			LT_Load_Image("IMAGES.DAT","INTREGA.bmp"); //Load a 320x200 bkg image
 			LT_Load_Sprite("SPRITES.DAT","orbt.bmp",0,0);
 			LT_Load_Sprite("SPRITES.DAT","cursorbt.bmp",8, Menu_Cursor_Animation); //Load sprites to one of the fixed structs
 			LT_Load_Sprite("SPRITES.DAT","rockett.bmp",20,0);
-			
-			
-			//FILE *test = fopen("test2.bin","wb");
-			//fwrite(&sprite[0].tga_sprite_data_offset[0],2,1,test);
-			//fwrite(&sprite[9].tga_sprite_data_offset[0],2,1,test);
-			//fwrite(&sprite[10].tga_sprite_data_offset[0],2,1,test);
-			//fclose(test);
 		}
-		
+		if (LT_GET_VIDEO() == 2){
+			LT_Load_Image("IMAGES.DAT","INTRCGA.bmp"); //Load a 320x200 bkg image
+			LT_Load_Sprite("SPRITES.DAT","orbc.bmp",0,0);
+			LT_Load_Sprite("SPRITES.DAT","cursorbc.bmp",8, Menu_Cursor_Animation); //Load sprites to one of the fixed structs
+			LT_Load_Sprite("SPRITES.DAT","rocketcc.bmp",20,0);
+		}		
 		//Some music
 		if(LT_GET_MUSIC() == 1) LT_Load_Music("MUSIC.DAT","menu_ADL.vgm");
 		if(LT_GET_MUSIC() == 0) LT_Load_Music("MUSIC.DAT","menu_TND.vgm");
@@ -282,6 +285,8 @@ void Display_Intro(){
 	//This box won't talk
 	LT_Draw_Text_Box(13,10,12,8,0,0,0,"SELECT  DEMO             TOP DOWN    PLATFORM    PLATFORM 1  PUZZLE      SHOOTER     EXIT       ");
 	//LT_Easter_Egg();
+	
+	LT_Start_Music();
 	while (Scene == 1) {
 		
 		//sprite[0].pos_x++;
@@ -357,6 +362,7 @@ void Display_Intro(){
 }
 
 void Load_TopDown(){
+	LT_SPRITE_MODE = 1;
 	LT_Start_Loading(); 
 	if(LT_GET_MUSIC() == 1) LT_Load_Music("MUSIC.DAT","musi_ADL.vgm");
 	if(LT_GET_MUSIC() == 0) LT_Load_Music("MUSIC.DAT","musi_TND.vgm");
@@ -374,6 +380,12 @@ void Load_TopDown(){
 		LT_Load_Tiles("TILESETS.DAT","top_VGA.bmp");
 		
 	}
+	if (LT_GET_VIDEO() == 2){
+		LT_Load_Sprite("SPRITES.DAT","playerc.bmp",8,Player_Animation);
+		LT_Load_Sprite("SPRITES.DAT","enemy2c.bmp",9,Enemy0_Animation);
+		LT_Load_Sprite("SPRITES.DAT","enemy3c.bmp",12,Enemy1_Animation);
+		LT_Load_Tiles("TILESETS.DAT","top_CGA.bmp");
+	}
 	if (LT_GET_VIDEO() == 3){
 		LT_Load_Sprite("SPRITES.DAT","playert.bmp",8,Player_Animation);
 		LT_Load_Sprite("SPRITES.DAT","enemy2t.bmp",9,Enemy0_Animation);
@@ -383,10 +395,9 @@ void Load_TopDown(){
 	LT_End_Loading();
 	
 	LT_MODE = 0;
-	
+	//LT_CGA_TANDY_SCROLLMODE = 0;
 	Scene = 2;
 }
-
 
 void Run_TopDown(){
 	int n;
@@ -405,13 +416,12 @@ void Run_TopDown(){
 	
 	Scene = 2;
 	LT_MODE = 0;
-	LT_SPRITE_MODE = 1;
 	LT_IMAGE_MODE = 0;
 	LT_ENEMY_DIST_X = 13;
 	LT_ENEMY_DIST_Y = 13;
 	LT_ENDLESS_SIDESCROLL = 0;
-	
 	LT_Draw_Text_Box(1,2,36,3, 3,LT_ACTION,0,"A Top down style level, You can use it to create very symple adventure  games. PRESS ACTION.");
+	LT_Start_Music();
 	while(Scene == 2){
 		
 		//LT_Print LT_Sprite_Stack);//cards>>1
@@ -455,6 +465,7 @@ void Run_TopDown(){
 
 byte Level_cards = 0;
 void Load_Platform(){
+	LT_SPRITE_MODE = 1;
 	LT_Start_Loading(); 
 	if(LT_GET_MUSIC() == 1) LT_Load_Music("MUSIC.DAT","plat_ADL.vgm");
 	if(LT_GET_MUSIC() == 0) LT_Load_Music("MUSIC.DAT","plat_TND.vgm");
@@ -475,9 +486,17 @@ void Load_Platform(){
 		LT_Load_Sprite("SPRITES.DAT","enemyt.bmp",9,Enemy2_Animation);
 		LT_Load_Tiles("TILESETS.DAT","Pla_EGA.bmp");
 	}
+	if (LT_GET_VIDEO() == 2){
+		LT_Load_Sprite("SPRITES.DAT","playerc.bmp",8,Player_Animation);
+		LT_Load_Sprite("SPRITES.DAT","enemyc.bmp",9,Enemy2_Animation);
+		LT_Load_Tiles("TILESETS.DAT","Pla_CGA.bmp");
+	}
+	
 	LT_End_Loading();
 	
-	LT_Set_Sprite_Animation_Speed(8,1);
+	LT_Set_Sprite_Animation_Speed(8,3);
+	LT_Set_Sprite_Animation_Speed(9,9);
+	
 	Scene = 2;
 	Level_cards = 0;
 }
@@ -493,7 +512,7 @@ void Run_Platform(){
 	
 	//Init_Player
 	LT_Reset_Sprite_Stack();
-	LT_Init_Sprite(8,2*16,8*16);
+	LT_Init_Sprite(8,2*16,4*16);
 	
 	LT_Set_AI_Sprites(9,9,1,1);
 	
@@ -504,17 +523,16 @@ void Run_Platform(){
 	else LT_Cycle_Palette_TGA_EGA(waterfall_pal_offsets,waterfall_pal_cycle,3);
 
 	LT_MODE = 1;
-	LT_SPRITE_MODE = 1;
 	LT_IMAGE_MODE = 0;
 	LT_ENDLESS_SIDESCROLL = 0;
 	LT_ENEMY_DIST_X = 13;
 	LT_ENEMY_DIST_Y = 12;
-	LT_MUSIC_ENABLE = 0;
+	LT_Stop_Music();
 	LT_Draw_Text_Box(1,1,36,4,3,LT_ACTION,0,"Just A Platform game test, I createdthe engine for this kind of game.   Collect items and reach the end.    PRESS ACTION.");
-	LT_MUSIC_ENABLE = 1;
+	LT_Start_Music();
 	while (Scene == 2){
 		if (!dying){
-			//In this mode sprite is controlled using L R and Jump
+			//In this mode, sprite is controlled using L R and Jump
 			LT_move_player(8);
 			//set player animations
 		}
@@ -543,7 +561,7 @@ void Run_Platform(){
 				if (LT_SFX_MODE == 1)LT_Play_AdLib_SFX(Adlib_Metal,8,4,0);
 				Sprite_Bounce_Left(8);
 				//and update/open Door tile
-				LT_Edit_MapTile(sprite[8].tile_x+1,sprite[8].tile_y,8,0);
+				LT_Edit_MapTile(sprite[8].tile_x+1,sprite[8].tile_y,86,0);
 				LT_Wait(1);
 			}
 		}
@@ -590,6 +608,7 @@ void Run_Platform(){
 }
 
 void Load_Platform1(){
+	LT_SPRITE_MODE = 1;
 	LT_Start_Loading(); 
 	Scene = 2;
 	if(LT_GET_MUSIC() == 1) LT_Load_Music("MUSIC.DAT","musi_ADL.vgm");
@@ -605,13 +624,18 @@ void Load_Platform1(){
 		LT_Load_Sprite("SPRITES.DAT","pre2eEGA.bmp",17,Player_Animation_2);
 		LT_Load_Tiles("TILESETS.DAT","pre2ega.bmp");
 	}
+	if (LT_GET_VIDEO() == 2){
+		LT_Load_Sprite("SPRITES.DAT","pre2scga.bmp",16,Player_Animation_2);
+		LT_Load_Sprite("SPRITES.DAT","pre2ecga.bmp",17,Player_Animation_2);
+		LT_Load_Tiles("TILESETS.DAT","pre2cga.bmp");
+	}
 	if (LT_GET_VIDEO() == 3){
 		LT_Load_Sprite("SPRITES.DAT","pre2stga.bmp",16,Player_Animation_2);
 		LT_Load_Sprite("SPRITES.DAT","pre2etga.bmp",17,Player_Animation_2);
 		LT_Load_Tiles("TILESETS.DAT","pre2ega.bmp");
 	}
-	LT_Set_Sprite_Animation_Speed(16,4);
-	LT_Set_Sprite_Animation_Speed(17,8);
+	LT_Set_Sprite_Animation_Speed(16,1);
+	LT_Set_Sprite_Animation_Speed(17,2);
 	
 	LT_End_Loading();
 }
@@ -630,16 +654,15 @@ void Run_Platform1(){
 	LT_Set_Map(0);
 
 	LT_MODE = 1;
-	LT_SPRITE_MODE = 1;
 	LT_IMAGE_MODE = 0;
 	LT_ENDLESS_SIDESCROLL = 0;
 	LT_ENEMY_DIST_X = 20;
 	LT_ENEMY_DIST_Y = 20;
-	LT_MUSIC_ENABLE = 0;
+	LT_Stop_Music();
 	LT_EGA_TEXT_TRANSLUCENT = 1;
 	LT_Draw_Text_Box(1,1,36,6,0,0,0,"Another platform test. 32x32 spritesmight be too much for the 8086, but it can draw two sprites at 60 fps.  Fake parallax using palette cycles  is very fast because it only uses 64colors. PRESS ACTION.");
 	LT_EGA_TEXT_TRANSLUCENT = 0;
-	LT_MUSIC_ENABLE = 1;
+	LT_Start_Music();
 	while (Scene == 2){
 		if (!dying){	
 		//In this mode sprite is controlled using L R and Jump
@@ -673,6 +696,7 @@ void Run_Platform1(){
 }
 
 void Load_Puzzle(){
+	LT_SPRITE_MODE = 1;
 	LT_Start_Loading(); 
 	Scene = 2;
 	if(LT_GET_MUSIC() == 1) LT_Load_Music("MUSIC.DAT","musi_ADL.vgm");
@@ -693,6 +717,11 @@ void Load_Puzzle(){
 		LT_Load_Sprite("SPRITES.DAT","ball1t.bmp",9,Enemy0_Animation);
 		LT_Load_Tiles("TILESETS.DAT","puz_EGA.bmp");
 	}
+	if (LT_GET_VIDEO() == 2){
+		LT_Load_Sprite("SPRITES.DAT","ballc.bmp",8,Ball_Animation);
+		LT_Load_Sprite("SPRITES.DAT","ball1c.bmp",9,Enemy0_Animation);
+		LT_Load_Tiles("TILESETS.DAT","puz_CGA.bmp");
+	}
 	
 	LT_End_Loading();
 
@@ -711,14 +740,13 @@ void Run_Puzzle(){
 	LT_Set_AI_Sprites(9,9,0,0);
 	LT_Set_Map(0);
 	
-	LT_SPRITE_MODE = 1;
 	LT_IMAGE_MODE = 0;
 	LT_ENDLESS_SIDESCROLL = 0;
-	LT_ENEMY_DIST_X = 13;
-	LT_ENEMY_DIST_Y = 12;
+	LT_ENEMY_DIST_X = 12;
+	LT_ENEMY_DIST_Y = 13;
 	
-	LT_Draw_Text_Box(1,1,36,3,0,0,0,"This is a puzzle game, the ball has symple physics, like bouncing and   falling slopes. PRESS ENTER");
-	
+	LT_Draw_Text_Box(1,1,36,3,3,LT_ACTION,0,"This is a puzzle game, the ball has symple physics, like bouncing and   falling slopes. PRESS ACTION");
+	LT_Start_Music();
 	while(Scene == 2){
 		//In mode 2, sprite is controlled using the speed.
 		//Also there are physics using the collision tiles
@@ -772,6 +800,7 @@ void Run_Puzzle(){
 }
 
 void Load_Shooter(){
+	LT_SPRITE_MODE = 1;
 	LT_Start_Loading(); 
 		Scene = 2;
 		if(LT_GET_MUSIC() == 1) LT_Load_Music("MUSIC.DAT","musi_ADL.vgm");
@@ -786,6 +815,11 @@ void Load_Shooter(){
 			LT_Load_Sprite("SPRITES.DAT","ship.bmp",16,Ship_Animation);
 			LT_Load_Sprite("SPRITES.DAT","rocketb.bmp",17,Rocket_Animation);
 			LT_Load_Tiles("TILESETS.DAT","spa_VGA.bmp");
+		}
+		if (LT_GET_VIDEO() == 2) {
+			LT_Load_Sprite("SPRITES.DAT","shipc.bmp",16,Ship_Animation);
+			LT_Load_Sprite("SPRITES.DAT","rocketbc.bmp",17,Rocket_Animation);
+			LT_Load_Tiles("TILESETS.DAT","spa_CGA.bmp");
 		}
 		if (LT_GET_VIDEO() == 3) {
 			LT_Load_Sprite("SPRITES.DAT","shipt.bmp",16,Ship_Animation);
@@ -814,7 +848,6 @@ void Run_Shooter(){
 	LT_Set_Sprite_Animation_Speed(19,8);
 	LT_Set_Map(0);
 	
-	LT_SPRITE_MODE = 1;
 	LT_IMAGE_MODE = 0;
 	LT_ENEMY_DIST_X = 20;
 	LT_ENEMY_DIST_Y = 20;
@@ -825,6 +858,8 @@ void Run_Shooter(){
 	
 	LT_Draw_Text_Box(1,1,36,5,0,0,0,"Maybe this engine is not the best   for a side scroller shooter, becausesprites spawn very far from the     screen edge, to avoid the update    column. PRESS ENTER");
 	
+	LT_EGA_TEXT_TRANSLUCENT = 0;
+	LT_Start_Music();
 	while(Scene == 2){
 		if (!dying){
 			SCR_X++;
