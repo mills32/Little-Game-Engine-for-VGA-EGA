@@ -50,7 +50,6 @@ word LT_tileset_height;
 word LT_tileset_ntiles;
 byte LT_tileset_palette[256*3];
 byte far *LT_tileset_data;
-byte LT_EGA_Font_Palette[4] = {0,9,7,15};
 unsigned char far *LT_tile_tempdata; //Temp storage of non tiled data. and also sound samples
 unsigned char far *LT_tile_tempdata2; //Second half 
 unsigned char far *LT_CGA_TGA_FONT;
@@ -62,6 +61,7 @@ byte LT_Loaded_Image = 0; //If you load a 320x240 image (to the second page), th
 byte LT_PAL_TIMER = 0;
 byte LT_EGA_FADE_STATE = 0;
 byte LT_EGA_TEXT_TRANSLUCENT = 0;
+byte LT_CGA_TANDY_SCROLLMODE = 1;
 word LT_FrameSkip = 0;
 byte *LT_Filename; //Contains name of the images oppened, for LT_Load_BMP function 
 
@@ -130,6 +130,8 @@ byte tga_page = 0;
 void DAT_Seek2(word fp,char *dat_string); 
 void LT_fread(word file_handle,word bytes,void *buffer);
 unsigned long LT_fseek(word file_handle,unsigned long bytes,byte origin);
+extern int LT_SPRITE_PLAYER;
+void /*interrupt*/ PC_Speaker_SFX_Player(void);
 
 word _strlen(char *str){
 	word len = 0;
@@ -169,7 +171,21 @@ void Check_Graphics_Card(){
 			if (reg == 0x07) {
 				_printf("Card detected: Hercules\n\r$");
 				LT_Exit();
-			} else {_printf("Card detected: CGA or TANDY\n\r$");LT_DETECTED_CARD = 2;}
+			} else {
+				byte mode = 0;
+				//CARD is a CGA or TANDY, set TANDY mode 9 to check it it is a tandy
+				asm mov ax,0x0009;asm int 0x10; //MODE 9 (TANDY 320x200 16 color)
+				asm mov ax,0x0F00;asm int 0x10; //Check mode: AL = video mode
+				asm mov mode,al
+				if (mode == 9) {
+					asm mov ax,0x0003;asm int 0x10; //GO BACK TO TEXT MODE
+					_printf("Card detected: TANDY\n\r$");
+					LT_DETECTED_CARD = 2;
+				} else {
+					_printf("Card detected: CGA\n\r$");
+					LT_DETECTED_CARD = 3;
+				}
+			}
 		}
 	}
 	
@@ -181,6 +197,26 @@ unsigned char LT_Loading_Palette[] = {
 	0x00,0x00,0x00,	//colour 0
 	0xff,0xff,0xff	//colour 1
 };
+
+void LT_Draw_CGA_Image(){
+	//This is how most CGA games do things, (I think)
+	//they update a 320x200 image in ram, and then copy it to vram
+	//Here I just use it to copy static images (stored at LT_sprite_data[(16*3*1024)-1])
+	asm push ds; asm push di; asm push si;
+	asm lds	si,[LT_sprite_data]; asm add si,(16*3*1024)-1; //ds:si image data in ram
+	asm mov ax,0B800h; asm mov es,ax; asm mov di,0; //es:di screen address			
+	
+	asm mov ax,50
+	_Image_loop:
+		asm and	di,8191; asm mov cx,40; asm rep movsw;
+		asm add	di,8192-80; asm mov cx,40; asm rep movsw; asm sub di,8192;
+		asm and	di,8191; asm mov cx,40; asm rep movsw;
+		asm add	di,8192-80; asm mov cx,40; asm rep movsw; asm sub di,8192;
+		asm dec ax
+		asm jnz _Image_loop
+		
+	asm pop si; asm pop di; asm pop ds;
+}
 
 void LT_VGA_Enable_4Planes(){
 	if (LT_VIDEO_MODE <2){
@@ -237,12 +273,11 @@ void LT_ClearScreen(){
 		asm out dx,ax
 		LT_memset(VGA,0x00,(352>>2)*240);
 	}
-	if (LT_VIDEO_MODE == 2);
 	if (LT_VIDEO_MODE == 3){
 		LT_TGA_MapPage(1);LT_memset(CGA,0x00,32*1024);
 		LT_TGA_MapPage(0);LT_memset(CGA,0x00,32*1024);
 	}
-	
+	if (LT_VIDEO_MODE == 2) LT_memset(CGA,0x00,16*1024);
 }
 
 
@@ -255,11 +290,10 @@ void decompress_RLE_BMP(word fp, unsigned char bpp, int width, int height,byte p
 	byte i_max = 0;
 	byte _bpp = 0;
 	byte count_val[2] = {0,0};//Get mode Get data
-	
+	int y_offset = 0;
 	if (bpp == 8) _bpp = 3;
 	if (bpp == 4) _bpp = 2;
     while (ypos < height && xpos <= width){
-		int y_offset = ypos * width;
 		LT_fread(fp,2,count_val);
 		// Count + Color - record 
 		if (count_val[0] != 0){                 
@@ -295,7 +329,7 @@ void decompress_RLE_BMP(word fp, unsigned char bpp, int width, int height,byte p
             if (total_bytes_read & 1) LT_fseek(fp,1,1);
         }
 		// Line end
-		if ((count_val[0] == 0) && (count_val[1] == 0)){ypos++;xpos = 0;}
+		if ((count_val[0] == 0) && (count_val[1] == 0)){ypos++;xpos = 0;y_offset += width;}
 		// Bitmap end
 		if ((count_val[0] == 0) && (count_val[1] == 1)) break;
 		// Deltarecord. I did not find any BMP using this
@@ -377,8 +411,8 @@ void LT_Load_BMP(char *file, char *dat_string, int mode, int sprite_number){
 			pal_colors = 208;first_color = 0;
 		break;
 		case 2://If reading sprites
-			if (s->width & 1) LT_Error("Sprite width not even: $",LT_Filename);
-			if (s->height & 1) LT_Error("Sprite height not even: $",LT_Filename);
+			if (s->width & 1 || s->width > 256) LT_Error("Sprite width must be even and smaller than 256: $",LT_Filename);
+			if (s->height & 1 || s->height > 256) LT_Error("Sprite height must be even and smaller than 256: $",LT_Filename);
 			pal_colors = 32; first_color = 208;
 			LT_tileset_width = s->width; LT_tileset_height = s->height;
 			LT_mode_sprite = 1;
@@ -398,8 +432,8 @@ void LT_Load_BMP(char *file, char *dat_string, int mode, int sprite_number){
 	if (mode == 5) LT_mode_sprite=3;
 
 	if (LT_mode_sprite == 1){
-		if ((LT_pixel_format !=4)&&(LT_VIDEO_MODE == 3))LT_Error("TANDY sprite must be 4 bit per pixel: $",LT_Filename);
-		if ((LT_pixel_format !=4)&&(LT_VIDEO_MODE == 0))LT_Error("EGA sprite must be 4 bit per pixel: $",LT_Filename);
+		if ((LT_pixel_format !=4)&&(LT_VIDEO_MODE > 1))LT_Error("CGA/TANDY sprite must be 4 bit per pixel: $",LT_Filename);
+		if ((LT_pixel_format !=8)&&(LT_VIDEO_MODE == 0))LT_Error("EGA sprite must be 8 bit per pixel: $",LT_Filename);
 		if ((LT_pixel_format !=8)&&(LT_VIDEO_MODE == 1))LT_Error("VGA sprite must be 8 bit per pixel: $",LT_Filename);
 	}
 
@@ -425,7 +459,7 @@ void LT_Load_BMP(char *file, char *dat_string, int mode, int sprite_number){
 	//EGA INDEX NUMBERS:
 	// 0-7/15-23
 	if ((LT_VIDEO_MODE == 0) && (LT_DETECTED_CARD == 1)){
-		_memcpy(&LT_tileset_palette[16*3],&LT_tileset_palette[8*3],8*3);;
+		_memcpy(&LT_tileset_palette[16*3],&LT_tileset_palette[8*3],8*3);
 	}
 
 	//PROCESS IMAGE
@@ -453,7 +487,8 @@ void LT_Load_BMP(char *file, char *dat_string, int mode, int sprite_number){
 			word w = width[0];word h = height[0];
 			decompress_RLE_BMP(fp,LT_pixel_format,w,h,b);
 		} else {
-			for (x = 0; x < LT_tileset_width*LT_tileset_height; x ++){
+			int pixels = LT_tileset_width*LT_tileset_height;
+			for (x = 0; x < pixels; x ++){
 				unsigned char c = 0;
 				LT_fread(fp,1,&c);
 				if (c) d = b; else d = 0;
@@ -484,6 +519,7 @@ void interrupt LT_Frame_Counter(void){
 
 //32x32 animation for loading scene
 extern unsigned char *LT_sprite_data;
+byte LT_EGA_LoadAnim_Col = 15;
 void LT_Load_Animation(char *file, char *dat_string){
 	long index,offset;
 	word data_offset = 0;
@@ -516,7 +552,7 @@ void LT_Load_Animation(char *file, char *dat_string){
 	LT_Loading_Animation.code_size = 0;
 	LT_Loading_Animation.ega_size = &LT_Sprite_Size_Table_EGA_32[0];
 
-	if (LT_VIDEO_MODE <2){
+	if (LT_VIDEO_MODE < 2){
 		for (frame = 0; frame < LT_Loading_Animation.nframes; frame++){		//
 			if (LT_VIDEO_MODE == 1){
 				code_size = Compile_Bitmap(LT_VRAM_Logical_Width, &LT_tile_tempdata2[(frame*2)+(frame*(size*size))],&LT_sprite_data[data_offset]);
@@ -532,11 +568,12 @@ void LT_Load_Animation(char *file, char *dat_string){
 					for (j = 0; j < 4; j++){
 						byte cmask = 0x80;
 						byte color = 0;
-						byte mask = 0;
 						for (x = 0; x < 8; x++){
-							byte bit = pixels[offset++];//colors 1,2
-							if (bit     ) mask += cmask;
-							if (bit == 2) color += cmask;
+							byte bit = pixels[offset++];
+							if (bit) {
+								color += cmask;
+								if(!frame)LT_EGA_LoadAnim_Col = bit;
+							}
 							cmask = cmask >> 1;
 						}
 						LT_sprite_data[data_offset++] = color;
@@ -544,6 +581,14 @@ void LT_Load_Animation(char *file, char *dat_string){
 				}
 			}
 		}	
+	}
+	if (LT_VIDEO_MODE == 2){
+		offset = 0;index = 0;
+		for (offset = 0; offset < 4096; offset+=4){
+			LT_sprite_data[index++] = 
+			(LT_tile_tempdata2[offset]<<6)+(LT_tile_tempdata2[offset+1]<<4)
+			+(LT_tile_tempdata2[offset+2]<<2)+LT_tile_tempdata2[offset+3];
+		}
 	}
 	if (LT_VIDEO_MODE == 3){
 		offset = 0;index = 0;
@@ -569,9 +614,24 @@ void LT_Set_Animation(byte speed){
 	LT_Loading_Animation.speed = speed;
 }
 
+void interrupt LT_IDRAW_SPRITES(){
+	//asm CLI
+	if (LT_Sprite_Stack){
+		if (LT_SPRITE_MODE)LT_Draw_Sprites();
+		else LT_Draw_Sprites_Fast();
+	}
+	//asm STI
+	asm mov al,020h
+	asm mov dx,020h
+	asm out dx, al	//PIC, EOI
+}
+
 void run_compiled_sprite(word XPos, word YPos, char *Sprite);
 void run_compiled_tga_sprite(word XPos, word YPos, char *Sprite);
+void run_compiled_cga_sprite(word XPos, word YPos, char *Sprite);
+byte LT_Interrupt_Sound[16] = {30,31,32,33,34,35,30,20,0,30,0,4,20,0,0,0};
 void interrupt LT_Loading(void){
+	byte color = LT_EGA_LoadAnim_Col;
 	asm CLI
 	{	
 		int i;
@@ -599,13 +659,19 @@ void interrupt LT_Loading(void){
 				mov	ax,0A000h
 				mov	es,ax						
 				mov	di,screen_offset	//ES:DI destination vram
-	
+				
 				mov dx,0x03CE
 				mov ax,0x0005		//write mode 0
 				out dx,ax
-				mov	dx,0x03CE	  //Set mask register
 				mov ax,0xFF08
 				out	dx,ax
+				
+				//Set/reset register
+				mov ah,color
+				mov al,0x00
+				out dx,ax		//color + 00: set reset reg
+				inc al; not ah
+				out dx,ax		//color inv + 01: enable set reset
 				
 				mov	ax,8			//scanlines
 			}
@@ -654,6 +720,15 @@ void interrupt LT_Loading(void){
 			}
 			LT_TGA_MapPage(1);
 		}
+		if (LT_VIDEO_MODE == 2) {
+			int i;
+			word offset = s->frame<<8;
+			word offset1 = (80*52)+36;
+			for(i = 0; i < 16;i++){
+				_memcpy(&CGA[offset1],&LT_sprite_data[offset],8);offset1+=8192;	offset+=8;
+				_memcpy(&CGA[offset1],&LT_sprite_data[offset],8);offset1-=8192-80;	offset1&=8191; offset+=8;
+			}
+		}
 	}
 	asm STI
 	
@@ -662,7 +737,34 @@ void interrupt LT_Loading(void){
 	asm out dx, al	//PIC, EOI
 }
 
+void LT_Reset_TimeINT(){
+	asm CLI
+	//reset time handler
+	asm mov al,0x36
+	asm out 0x43,al
+	asm mov al,0xFF
+	asm out 0x40,al
+	asm out 0x40,al
+	LT_setvect(0x1C, LT_old_time_handler);
+	asm STI
+}
+
+void LT_Set_CGASPR_TimeINT(){
+	asm CLI
+	//dword 1193182 / 34 fps;
+	//set sprite interrupt
+	asm mov al,0x36
+	asm out 0x43,al
+	asm mov al,0x15
+	asm out 0x40,al	//lo-byte
+	asm mov al,0x89
+	asm out 0x40,al	//hi-byte
+	LT_setvect(0x1C, LT_IDRAW_SPRITES);	//interrupt 1C not available on NEC 9800-series PCs.
+	asm STI
+}
+
 void LT_Start_Loading(){//77.144
+	if(LT_VIDEO_MODE == 2)LT_Reset_TimeINT();
 	LT_Cycle_palcounter = 0;
 	LT_Stop_Music();
 	LT_Fade_out();
@@ -696,8 +798,9 @@ void LT_Start_Loading(){//77.144
 	LT_Loading_Animation.pos_x = 144;
 	LT_Loading_Animation.pos_y = 104;
 	
-	asm CLI
+
 	//set timer
+	asm CLI
 	asm mov al,0x36
 	asm out 0x43,al
 	asm mov al,92
@@ -706,7 +809,6 @@ void LT_Start_Loading(){//77.144
 	asm out 0x40,al	//hi-byte
 	//set interrupt
 	LT_setvect(0x1C, LT_Loading);		//interrupt 1C not available on NEC 9800-series PCs.
-	
 	asm STI
 	
 	//Wait Vsync
@@ -719,15 +821,8 @@ void LT_End_Loading(){
 	//unsigned long spd = 1193182/60;
 	LT_Fade_out();
 	LT_Keys[LT_ESC] = 0;LT_Keys[LT_ENTER] = 0;LT_Keys[LT_ACTION] = 0; LT_Keys[LT_JUMP] = 0;
-	asm CLI
-	//set frame counter
-	asm mov al,0x36
-	asm out 0x43,al
-	asm mov al,0xFF
-	asm out 0x40,al
-	asm out 0x40,al
-	LT_setvect(0x1C, LT_old_time_handler);
-	asm STI
+	
+	LT_Reset_TimeINT();
 	
 	if (LT_Loaded_Image){
 		int i;
@@ -746,6 +841,11 @@ void LT_End_Loading(){
 				offset+=4096;
 			}
 			LT_Loaded_Image = 0;
+		}
+		if(LT_VIDEO_MODE == 2) {
+			LT_Draw_CGA_Image();
+			LT_Loaded_Image = 0;
+			LT_Set_CGASPR_TimeINT();
 		}
 		LT_Fade_in();
 	}
@@ -1075,6 +1175,53 @@ void LT_Update_Scroll_TGA(){
 	asm out dx,ax	//(y & 0xFF00) | 0x0C to TGA port
 }
 
+void LT_WaitVsync_CGA(){
+	word x = TGA_SCR_X;
+	word y = TGA_SCR_Y;
+
+	y = y>>1;//even
+	y = (y<<5)+(y<<3) + (x>>3);	//(y*32)+(y*8) = y*40; + x/8
+
+	//Wait Vsync
+	asm mov		dx,03DAh
+	WaitNotVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jnz		WaitNotVsync
+	WaitVsync:
+	asm in      al,dx
+	asm test    al,08h
+	asm jz		WaitVsync
+
+	//change scroll registers: HIGH_ADDRESS 0x0C; LOW_ADDRESS 0x0D
+	//outport(0x03d4, 0x0D | (y << 8));
+	//outport(0x03d4, 0x0C | (y & 0xff00));
+	asm mov dx,003d4h //TGA PORT
+	asm mov	cl,8
+	asm mov ax,y
+	asm	shl ax,cl
+	asm	or	ax,00Dh	
+	asm out dx,ax	//(y << 8) | 0x0D to TGA port
+	asm mov ax,y
+	asm	and ax,0FF00h
+	asm	or	ax,00Ch
+	asm out dx,ax	//(y & 0xFF00) | 0x0C to TGA port
+}
+
+void Set_VESA_Page(word pos){
+	asm mov ax,pos
+	asm mov dx,ax
+	asm mov ax,0x4F05
+	asm mov bx,0x0000
+	asm int 0x10
+	
+	asm mov ax,pos
+	asm mov dx,ax
+	asm mov ax,0x4F05
+	asm mov bx,0x0001
+	asm int 0x10
+}
+
 
 //Updates the graphics and sprites
 void LT_Update(int sprite_follow, int sprite){
@@ -1086,12 +1233,15 @@ void LT_Update(int sprite_follow, int sprite){
 		//else LT_Scroll_Map();
 		LT_Scroll_Map();
 	}
-
-	if (LT_SPRITE_MODE)LT_Draw_Sprites();
-	else LT_Draw_Sprites_Fast();
+	if (LT_VIDEO_MODE !=2){
+		if (LT_SPRITE_MODE)LT_Draw_Sprites();
+		else LT_Draw_Sprites_Fast();
+	}
+	PC_Speaker_SFX_Player();
 	LT_WaitVsync();
 	LT_Read_Joystick();
 }
+
 
 void LT_Wait(byte seconds){
 	seconds*=60;
@@ -1099,9 +1249,9 @@ void LT_Wait(byte seconds){
 }
 
 // load_8x8 fonts to VRAM (64 characters)
-void LT_Load_Font(char *file, char *dat_string){
+void LT_Load_Font(char *file, char *dat_string, int c0, int c1, int c2, int c3){
 	word VGA_index = 0;
-	byte TGA_CONVERT[] = {0,9,7,15};
+	byte EGA_Font_Palette[4] = {0,9,7,15};
 	word w = 0;
 	int h = 0;
 	word ty = 0;
@@ -1112,6 +1262,11 @@ void LT_Load_Font(char *file, char *dat_string){
 	word tileY = 0;
 	byte plane = 0;
 	dword offset = 0;
+	
+	EGA_Font_Palette[0] = c0;
+	EGA_Font_Palette[1] = c1;
+	EGA_Font_Palette[2] = c2;
+	EGA_Font_Palette[3] = c3;
 	
 	LT_Filename = file;
 	//LT_Load_BMP2("IMAGES.DAT","LOGO_EGA.bmp",0,0);
@@ -1143,7 +1298,8 @@ void LT_Load_Font(char *file, char *dat_string){
 						asm mov ah, mask
 						asm out dx, ax
 						asm shr mask,1
-						VGA[VGA_index] = LT_EGA_Font_Palette[pixel];
+						//Font uses ega colors defined in LT_EGA_Font_Palette;
+						VGA[VGA_index] = EGA_Font_Palette[pixel];
 						offset++;
 					}
 					offset -= jx;
@@ -1191,7 +1347,6 @@ void LT_Load_Font(char *file, char *dat_string){
 			asm STI //Re enable interrupts so that loading animation is played again
 		}
 	}
-	
 	if (LT_VIDEO_MODE == 3){
 		VGA_index = 0;
 		for (tileY = h; tileY > 0 ; tileY--){
@@ -1203,8 +1358,8 @@ void LT_Load_Font(char *file, char *dat_string){
 				for(y = 0; y < 8; y++){
 					int j;
 					for (j = 0; j < 4; j++){
-						byte pl0 = TGA_CONVERT[LT_tile_tempdata[offset++]];
-						byte pl1 = TGA_CONVERT[LT_tile_tempdata[offset++]];
+						byte pl0 = EGA_Font_Palette[LT_tile_tempdata[offset++]];
+						byte pl1 = EGA_Font_Palette[LT_tile_tempdata[offset++]];
 						byte pixel = (pl0<<4) | pl1;
 						LT_CGA_TGA_FONT[VGA_index] = pixel;
 						VGA_index++;
@@ -1215,6 +1370,32 @@ void LT_Load_Font(char *file, char *dat_string){
 			asm STI //Re enable interrupts so that loading animation is played again
 		}
 	}
+	if (LT_VIDEO_MODE == 2){//CGA
+		VGA_index = 0;
+		for (tileY = h; tileY > 0 ; tileY--){
+			asm CLI //disable interrupts so that loading animation does not interfere
+			ty = (tileY<<3)-1;
+			for (tileX = 0; tileX < w; tileX++){
+				offset = (ty*128) + (tileX<<3);
+				//LOAD TILE
+				for(y = 0; y < 8; y++){
+					int j;
+					for (j = 0; j < 2; j++){
+						byte pl0 = LT_tile_tempdata[offset++];
+						byte pl1 = LT_tile_tempdata[offset++];
+						byte pl2 = LT_tile_tempdata[offset++];
+						byte pl3 = LT_tile_tempdata[offset++];
+						byte pixel = (pl0<<6) | (pl1<<4) | (pl2<<2) | pl3;
+						LT_CGA_TGA_FONT[VGA_index] = pixel;
+						VGA_index++;
+					}
+					offset -= jx;
+				}
+			}
+			asm STI //Re enable interrupts so that loading animation is played again
+		}
+	}
+
 }
 
 //Print 8x8 tiles, it is a bit slow on 8086, but it works for text boxes
@@ -1236,6 +1417,7 @@ void LT_Print_VGA(word x, word y, word w, char *string){
 	word lwidth = LT_VRAM_Logical_Width-2;
 	word lwidth2 = LT_VRAM_Logical_Width*7;
 	word line_jump = (LT_VRAM_Logical_Width*8) - (w<<1);
+	Set_VESA_Page(1);
 	y = (y<<3);
 	screen_offset = (y<<6)+(y<<4)+(y<<3);	//(y*64)+(y*16)+(y*8) = y*88;
 
@@ -1527,6 +1709,98 @@ void LT_Print_TGA(word x, word y, word w, char *string){
 	
 }
 
+void LT_Print_CGA(word x, word y, word w, char *string){
+	byte *tiles = LT_CGA_TGA_FONT;
+	byte datastring;
+	word size = _strlen(string);
+	byte i = 0;
+	word line = 0;
+	word screen_offset;
+	word lwidth = 8192-2;
+	word lwidth2 = (8192*3)+(80*3);
+	word line_jump = (320) -(w<<1);
+	y = 160*2*y;
+	screen_offset = y+x;
+	//if (size > 40) size = 40;
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov	di,screen_offset
+		mov ax,x
+		add di,ax
+		mov bx,size
+	}
+	printloop3:
+	asm push bx
+	datastring = string[i];
+	if (datastring > 96) datastring -=32;
+	asm{
+		mov		ah,0
+		mov		al,datastring
+		sub		al,32
+		
+		lds		si,tiles;			//ds:si FONT TILE ADDRESS
+		
+		//go to desired tile
+		mov		cl,4						//dx*32
+		shl		ax,cl
+		add		si,ax
+		
+		mov 	ax,0B800h
+		mov 	es,ax						//es:di destination address	
+		mov 	ax,8191
+		mov	bx,lwidth
+		//UNWRAPPED COPY 8x8 TILE LOOP
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		//END LOOP
+		sub		di,lwidth2
+
+
+		//mov		di,screen_offset
+		//add		di,2
+		//mov		screen_offset,di
+		
+		inc		line
+	    mov		ax,line
+	    cmp		ax,w
+	    jne		no_jump_line
+		
+		add		di,line_jump
+		mov 	line,0
+	}
+	no_jump_line:
+	i++;
+	asm{
+		pop 	bx
+		dec		bx
+		jnz		printloop3
+		
+		pop si
+		pop di
+		pop ds
+	}
+	
+}
 
 //Print a three digit variable on the window
 void (*LT_Print_Variable)(byte,byte,word);
@@ -1864,7 +2138,7 @@ unsigned char up[40]; unsigned char mid[40]; unsigned char down[40];
 void draw_text_box(word x, word y, byte w, byte h, byte mode, char *string){
 	int i;
 	int y1;
-	if (LT_VIDEO_MODE == 3){
+	if (LT_VIDEO_MODE > 1){
 		x += (TGA_SCR_X>>3);
 		y += (TGA_SCR_Y>>3);
 	} 
@@ -1891,10 +2165,12 @@ void draw_text_box(word x, word y, byte w, byte h, byte mode, char *string){
 		for (i = 0; i<h; i++) {LT_Print(x,y,w+2,mid);y++;}
 		LT_Print(x,y,w+2,down);
 		if (LT_VIDEO_MODE == 3) LT_TGA_MapPage(1);
-		if (!LT_Loaded_Image){//Page 1
-			LT_Print(x,y1,w+2,up);y1++;
-			for (i = 0; i<h; i++) {LT_Print(x,y1,w+2,mid);y1++;}
-			LT_Print(x,y1,w+2,down);
+		if (LT_VIDEO_MODE != 2){	
+			if (!LT_Loaded_Image){//Page 1
+				LT_Print(x,y1,w+2,up);y1++;
+				for (i = 0; i<h; i++) {LT_Print(x,y1,w+2,mid);y1++;}
+				LT_Print(x,y1,w+2,down);
+			}
 		}
 		LT_Text_Speak_Pos = 0;
 		LT_Text_i = 0; LT_Text_j = 0;
@@ -1903,8 +2179,10 @@ void draw_text_box(word x, word y, byte w, byte h, byte mode, char *string){
 	if (!mode){
 		if (LT_VIDEO_MODE == 3) LT_TGA_MapPage(0);
 		LT_Print(x+1,LT_Text_y2,w,string);
-		if (LT_VIDEO_MODE == 3) LT_TGA_MapPage(1);
-		if (!LT_Loaded_Image) LT_Print(x+1,LT_Text_y3,w,string);
+		if (LT_VIDEO_MODE != 2){
+			if (LT_VIDEO_MODE == 3) LT_TGA_MapPage(1);
+			if (!LT_Loaded_Image) LT_Print(x+1,LT_Text_y3,w,string);
+		}
 	} else { //Speaking mode, draw characters one by one
 		LT_Text_Speak = 1;
 		up[0] = string[LT_Text_Speak_Pos];
@@ -1915,9 +2193,10 @@ void draw_text_box(word x, word y, byte w, byte h, byte mode, char *string){
 		}
 		if (LT_VIDEO_MODE == 3) LT_TGA_MapPage(0);
 		LT_Print(x+1+LT_Text_i,LT_Text_y2,2,up);
-		if (LT_VIDEO_MODE == 3) LT_TGA_MapPage(1);
-		LT_Print(x+1+LT_Text_i,LT_Text_y3,2,up);
-		
+		if (LT_VIDEO_MODE != 2){
+			if (LT_VIDEO_MODE == 3) LT_TGA_MapPage(1);
+			LT_Print(x+1+LT_Text_i,LT_Text_y3,2,up);
+		}
 		//Update
 		if (LT_Text_i < w-1) {LT_Text_i++;LT_Text_Speak_Pos++;}
 		else {
@@ -1943,7 +2222,7 @@ void delete_text_box(word x, word y, byte w, byte h){
 	byte tilesize;
 	if (LT_VIDEO_MODE==0) tilesize = 5;
 	else tilesize = 6;
-	if (LT_VIDEO_MODE == 3){
+	if (LT_VIDEO_MODE > 1){
 		x += (TGA_SCR_X>>3);
 		y += (TGA_SCR_Y>>3);
 	} 
@@ -1960,8 +2239,8 @@ void delete_text_box(word x, word y, byte w, byte h){
 	//Draw map tiles
 	for (yy = y;yy<y+h;yy++){
 		for (xx = x;xx<x+w;xx++){
-			if (LT_VIDEO_MODE <  2) ntile = (LT_map_data[(yy<<8)+   xx] - TILE_VRAM) >> tilesize;
-			if (LT_VIDEO_MODE == 3) ntile = (LT_map_data[(yy<<9)+xx<<1]>>2);
+			if (LT_VIDEO_MODE < 2) ntile = (LT_map_data[(yy<<8)+   xx] - TILE_VRAM) >> tilesize;
+			if (LT_VIDEO_MODE > 1) ntile = (LT_map_data[(yy<<9)+xx<<1]>>2);
 			LT_Edit_MapTile(xx,yy,ntile,0);
 		}
 	}
@@ -1989,17 +2268,22 @@ byte LT_Draw_Text_Box(word x, word y, byte w, byte h, word mode, byte key1, byte
 	if (mode != 6){
 	if (mode > 1) while (LT_Keys[key1]) LT_Read_Joystick();
 	if (mode&1){//Talking
+		if (LT_VIDEO_MODE == 2) LT_Reset_TimeINT();
 		LT_Text_Speak_End = 0;
 		while (!LT_Text_Speak_End){
 			draw_text_box(x,y,w,h,1,text);
+			PC_Speaker_SFX_Player();
 			LT_Play_Music();
 			LT_Vsync();
 		}
+		if (LT_VIDEO_MODE == 2) LT_Set_CGASPR_TimeINT();
 		LT_Text_Speak_End = 0;
 	} else draw_text_box(x,y,w,h,0,text);
 	if (mode > 1){
+		if (LT_VIDEO_MODE == 2) LT_Reset_TimeINT();
 		asm in al, 61h; asm and al, 252; asm out 61h, al //Disable speaker
 		while (loop){
+			PC_Speaker_SFX_Player();
 			LT_Play_Music();
 			LT_Read_Joystick();
 			if (LT_Keys[key1]) {loop = 0; val = 0;}
@@ -2007,6 +2291,7 @@ byte LT_Draw_Text_Box(word x, word y, byte w, byte h, word mode, byte key1, byte
 			LT_vsync();
 		}
 		while (LT_Keys[key1]) {LT_Play_Music();LT_Read_Joystick();LT_vsync();}
+		if (LT_VIDEO_MODE == 2) LT_Set_CGASPR_TimeINT();
 	}
 	}
 	if (mode > 1) delete_text_Box(x,y,w,h);
@@ -2027,7 +2312,7 @@ void LT_Load_Image(char *file,char* dat_string){
 	
 	asm CLI
 	if (!loading_logo)LT_Draw_Text_Box(11,18,16,1,0,0,0,       "LOADING:  IMAGE ");
-	else {LT_Draw_Text_Box(11,12,16,1,0,0,0,"LOADING/CARGANDO");loading_logo = 0;}
+	else {LT_Draw_Text_Box(11,12,16,1,0,0,0,"LOADING/CARGANDO");}
 	asm STI
 	
 	LT_Filename = file;
@@ -2100,18 +2385,58 @@ void LT_Load_Image(char *file,char* dat_string){
 	if (LT_VIDEO_MODE == 3){
 		LT_TGA_MapPage(1);
 		i = 0;
+		offset = 199*320;
 		for (y = 0; y < 200; y++){
-			offset = (200-y)*320;
 			for(x = 0; x < 160; x++){
 				CGA[VGA_index++] = (LT_tile_tempdata[offset]<<4)+LT_tile_tempdata[offset+1];
 				offset+=2;
 			}
+			offset -= 640;
 			i++;
 			if (i < 4) VGA_index += 8192-160;
 			else {VGA_index += 8192;VGA_index &= (8192*4)-1; i = 0;}
 		}
 	}	
-	
+	if (LT_VIDEO_MODE == 2){
+		/*VGA_index = (16*3*1024)-1;
+		offset = 199*320;
+		for (y = 0; y < 200; y++){
+			for(x = 0; x < 80; x++){
+				LT_sprite_data[VGA_index++] = 
+				(LT_tile_tempdata[offset]<<6)+(LT_tile_tempdata[offset+1]<<4)+
+				(LT_tile_tempdata[offset+2]<<2)+LT_tile_tempdata[offset+3];
+				offset+=4;
+			}
+			offset -= 640;
+		}*/
+		asm push ds; asm push di; asm push si;
+		
+		asm les di,[LT_sprite_data]; asm add di,(16*3*1024)-1; //es:di = LT_sprite_data ((16*3*1024)-1)
+		asm lds si,[LT_tile_tempdata]; asm add si,199*320; //ds:si = LT_tile_tempdata[199*320]
+		asm mov ax,0; asm mov cx,200;
+		//Load bytes and convert to 2 bit CGA colors
+		_Line_Loop:
+			asm mov bh,80
+			_X_Loop:
+				asm lodsb
+				asm shl al,1; asm shl al,1; asm shl al,1;
+				asm shl al,1; asm shl al,1; asm shl al,1; asm mov ah,al;
+				asm lodsb; 
+				asm shl al,1; asm shl al,1; asm shl al,1; asm shl al,1; asm add ah,al; 
+				asm lodsb; asm shl al,1;asm shl al,1; asm add ah,al;
+				asm lodsb; asm add al,ah; 
+				asm stosb
+				asm dec bh
+				asm jnz _X_Loop
+				
+			asm sub si,640;		//Go to next image line
+			asm loop _Line_Loop
+		
+		asm pop si; asm pop di; asm pop ds;
+		
+		if (loading_logo) LT_Draw_CGA_Image();
+	}
+	loading_logo = 0;
 	LT_Loaded_Image = 1;
 }
 
@@ -2266,6 +2591,49 @@ void LT_Load_Tiles(char *file,char* dat_string){
 			asm STI //Re enable interrupts so that loading animation is played again
 		}
 	}
+	if (LT_VIDEO_MODE == 2){
+		VGA_index = 0;
+		for (tileY = h; tileY > 0 ; tileY--){
+			asm CLI //disable interrupts so that loading animation does not interfere
+			ty = (tileY<<4)-1;
+			for (tileX = 0; tileX < w; tileX++){
+				offset = (ty*LT_tileset_width) + (tileX<<4);
+				//LOAD TILE
+				for(y = 0; y < 16; y++){
+					int j;
+					for (j = 0; j < 2; j++){
+						byte pl0 = LT_tile_tempdata[offset++];
+						byte pl1 = LT_tile_tempdata[offset++];
+						byte pl2 = LT_tile_tempdata[offset++];
+						byte pl3 = LT_tile_tempdata[offset++];
+						byte pixel = (pl0<<6) | (pl1<<4) | (pl2<<2) | pl3;
+						LT_tile_tempdata2[VGA_index] = pixel;
+						VGA_index++;
+					}
+					offset += 8;
+					offset -= jx;
+				}
+				offset = (ty*LT_tileset_width) + (tileX<<4) + 8;
+				//LOAD TILE
+				for(y = 0; y < 16; y++){
+					int j;
+					for (j = 0; j < 2; j++){
+						byte pl0 = LT_tile_tempdata[offset++];
+						byte pl1 = LT_tile_tempdata[offset++];
+						byte pl2 = LT_tile_tempdata[offset++];
+						byte pl3 = LT_tile_tempdata[offset++];
+						byte pixel = (pl0<<6) | (pl1<<4) | (pl2<<2) | pl3;
+						LT_tile_tempdata2[VGA_index] = pixel;
+						VGA_index++;
+					}
+					offset += 8;
+					offset -= jx;
+				}
+			}
+			asm STI //Re enable interrupts so that loading animation is played again
+		}
+	}
+
 }
 
 
@@ -2352,7 +2720,7 @@ void LT_Load_Map(char *file, char* dat_string){
 			LT_map_data[index  ] = TILE_VRAM + ((tile -1)<<6);
 		}
 	}
-	if (LT_VIDEO_MODE == 3){
+	if (LT_VIDEO_MODE > 1){
 		word a = 0;word w = 0;
 		for (index = 0; index < LT_map_ntiles-1; index++){
 			if (!dat_string) tile = _sscanf(f,0x2C);
@@ -2419,7 +2787,7 @@ void LT_Set_Map(int x){
 		LT_VGA_Return_4Planes();
 		
 	} 
-	if (LT_VIDEO_MODE > 2) {
+	if (LT_VIDEO_MODE == 3) {
 		LT_Update(0,0);
 		tiles = 25; 
 		LT_flipscroll = 0;
@@ -2434,7 +2802,18 @@ void LT_Set_Map(int x){
 		LT_flipscroll = 0;
 		LT_Setting_Map = 0;	
 	} 
+	if (LT_VIDEO_MODE == 2) {
+		LT_Update(0,0);
+		tiles = 25;
+		j = 0;
+		//LT_flipscroll = 0;
+		//LT_Setting_Map = 1;
+		for (i = 0;i<320;i+=8){draw_map_column(SCR_X+i,0,(LT_map_offset<<1)+j,tiles);j++;}
+		LT_flipscroll = 0;
+		LT_Setting_Map = 0;	
+	} 
 	LT_Fade_in();
+	if(LT_VIDEO_MODE == 2) LT_Set_CGASPR_TimeINT();
 }
 
 void LT_Sprite_Edit_Map(int sprite_number, byte ntile, byte col){
@@ -2442,6 +2821,7 @@ void LT_Sprite_Edit_Map(int sprite_number, byte ntile, byte col){
 	s->get_item = 1;
 	s->ntile_item = ntile;
 	s->col_item = col;
+	if (LT_VIDEO_MODE == 2)LT_Edit_MapTile(s->tile_x,s->tile_y,s->ntile_item, s->col_item);
 }
 
 void (*LT_Edit_MapTile)(word,word,byte,byte);
@@ -2898,6 +3278,74 @@ void LT_Edit_MapTile_TGA(word x, word y, byte ntile, byte col){
 	LT_map_data[tiled+512] = ntile1+1;LT_map_data[tiled+513] = ntile1+3;
 }
 
+void Edit_MapTile_CGA(word x, word y, word ntile){
+	word *TILE_ADDRESS = (word*)&LT_tile_tempdata2[0];
+	word screen_offset;
+	word tile = ntile;
+	word lwidth = 8192-2;
+	//asm cli; // maybe
+	x = x<<3;y = y<<3;
+	x = x>>2;
+	y = y>>3;
+	screen_offset = (320*y)+x;
+
+	asm{
+		push ds
+		push di
+		push si
+		
+		mov		ax,tile				//ax Tile number
+		mov		cl,4
+		shl		ax,cl				//tile number*32 = tile data offset
+		
+		lds		si,[TILE_ADDRESS]	//ds:si Tile data
+		add		si,ax
+		mov 	ax,0B800h
+		mov 	es,ax
+		mov		di,screen_offset			//es:di SCREEN
+		
+		mov 	ax,8191
+		mov		bx,lwidth
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		
+		pop si
+		pop di
+		pop ds
+	}
+	//asm sti
+}
+
+void LT_Edit_MapTile_CGA(word x, word y, byte ntile, byte col){
+	word ntile1  = (word)(ntile)<<2;
+	word tiled   = (y<<10) + (x<<1);
+	word tilecol = (y<<8) + x;
+	x = x<<1; y = y<<1;
+	Edit_MapTile_CGA(x,y,ntile1);Edit_MapTile_CGA(x+1,y,ntile1+2);
+	Edit_MapTile_CGA(x,y+1,ntile1+1);Edit_MapTile_CGA(x+1,y+1,ntile1+3);
+	
+	if (!LT_deleting_text)LT_map_collision[tilecol] = col;
+	LT_map_data[tiled    ] = ntile1;  LT_map_data[tiled  +1] = ntile1+2;
+	LT_map_data[tiled+512] = ntile1+1;LT_map_data[tiled+513] = ntile1+3;
+}
+
 void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int sy, word id);
 extern byte LT_flipscroll;
 extern int LT_scroll_side;
@@ -3242,9 +3690,9 @@ void draw_map_column_tga(word x, word y, word map_offset, word ntiles){
 	word m_offset = x>>4;
 	word *mapdata = LT_map_data;
 	word *tiles = (word*)&LT_tile_tempdata2[0];
-	x = x>>1;
+	//x = x>>1;
 	y = y>>3;
-	s_offset = (320*y)+x;
+	s_offset = (320*y)+(x>>1);
 	map_offset = map_offset<<1;
 	asm{
 		push es
@@ -3327,7 +3775,7 @@ void draw_map_column_tga(word x, word y, word map_offset, word ntiles){
 	}	
 	
 
-	if (LT_flipscroll==1){
+	//if (LT_flipscroll==1){
 		//if (!LT_Setting_Map) m_offset -= 2560;
 		if (LT_Sprite_Stack < 8){
 			int i,j;
@@ -3338,13 +3786,13 @@ void draw_map_column_tga(word x, word y, word map_offset, word ntiles){
 					case 16:
 					for (j = 0; j < 3; j++){
 						if (LT_Active_AI_Sprites[j]){
-							word pos_id_table = (i<<8) + (x>>3);
+							word pos_id_table = (i<<8) + (x>>4);
 							if (sprite_id_table[pos_id_table] == 1) break;
 							nsprite = LT_Active_AI_Sprites[j];
 							LT_Active_AI_Sprites[j] = 0;
 							LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
 							if (sprite[nsprite].init == 0)
-								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>3,i,LT_scroll_side,0,pos_id_table);//also increase sprite range
+								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>4,i,LT_scroll_side,0,pos_id_table);//also increase sprite range
 							LT_Sprite_Stack++;
 							sprite_id_table[pos_id_table] = 1;
 							break;
@@ -3354,13 +3802,13 @@ void draw_map_column_tga(word x, word y, word map_offset, word ntiles){
 					case 17:
 					for (j = 4; j < 7; j++){
 						if (LT_Active_AI_Sprites[j]){
-							word pos_id_table = (i<<8) + (x>>3);
+							word pos_id_table = (i<<8) + (x>>4);
 							if (sprite_id_table[pos_id_table] == 1) break;
 							nsprite = LT_Active_AI_Sprites[j];
 							LT_Active_AI_Sprites[j] = 0;
 							LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
 							if (sprite[nsprite].init == 0)
-								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>3,i,LT_scroll_side,0,pos_id_table);
+								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>4,i,LT_scroll_side,0,pos_id_table);
 							LT_Sprite_Stack++;
 							sprite_id_table[pos_id_table] = 1;
 							break;
@@ -3371,7 +3819,7 @@ void draw_map_column_tga(word x, word y, word map_offset, word ntiles){
 				m_offset+= LT_map_width;
 			}
 		}
-	}
+	//}
 }
 
 void draw_map_row_tga(word x, word y, word map_offset, word ntiles){
@@ -3463,6 +3911,222 @@ void draw_map_row_tga(word x, word y, word map_offset, word ntiles){
 	}		
 }
 
+void draw_map_column_cga(word x, word y, word map_offset, word ntiles){
+	word s_offset = 0;
+	word m_offset = x>>4;
+	word *mapdata = LT_map_data;
+	word *tiles = (word*)&LT_tile_tempdata2[0];
+	//x = x>>2;
+	y = y>>3;
+	s_offset = (320*y)+(x>>2);
+	map_offset = map_offset<<1;
+	asm{
+		push es
+		push ds
+		push si
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		ax,word ptr es:[bx]			//ax Tile number
+		mov		cl,4
+		shl		ax,cl				//tile number*16 = tile data offset
+		
+		lds		si,[tiles]			//ds:si Tile bkg data
+		add		si,ax
+		mov 	ax,0B800h
+		mov 	es,ax
+		mov		di,s_offset			//es:di SCREEN
+		mov		cx,ntiles
+	}
+	
+	loop_tile:
+	asm{
+		mov		bx,8192-2
+		mov 	ax,8191
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		
+		dec 	cx
+		mov		ax,cx
+		jz 		end_tile
+		
+		add		map_offset,1024
+		
+		push es
+		push cx
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		ax,word ptr es:[bx]			//al Tile number
+		mov		cl,4
+		shl		ax,cl				//tile number*16 = tile data offset
+		
+		lds		si,[tiles]			//ds:si Tile bkg data
+		add		si,ax
+		pop cx
+		pop es
+		
+		jmp		loop_tile
+	}	
+	end_tile:
+
+
+	asm{
+		pop es
+		pop ds
+		pop si
+	}	
+
+
+		//if (!LT_Setting_Map) m_offset -= 2560;
+		if (LT_Sprite_Stack < 8){
+			int i,j;
+			int nsprite;
+			for (i = 0; i <19;i++){
+				int sprite0 = LT_map_collision[m_offset]; //sprite0-16 for sprite type
+				switch (sprite0){
+					case 16:
+					for (j = 0; j < 3; j++){
+						if (LT_Active_AI_Sprites[j]){
+							word pos_id_table = (i<<8) + (x>>4);
+							if (sprite_id_table[pos_id_table] == 1) break;
+							nsprite = LT_Active_AI_Sprites[j];
+							LT_Active_AI_Sprites[j] = 0;
+							LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
+							if (sprite[nsprite].init == 0)
+								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>4,i,LT_scroll_side,0,pos_id_table);//also increase sprite range
+							LT_Sprite_Stack++;
+							sprite_id_table[pos_id_table] = 1;
+							break;
+						}
+					}
+					break;
+					case 17:
+					for (j = 4; j < 7; j++){
+						if (LT_Active_AI_Sprites[j]){
+							word pos_id_table = (i<<8) + (x>>4);
+							if (sprite_id_table[pos_id_table] == 1) break;
+							nsprite = LT_Active_AI_Sprites[j];
+							LT_Active_AI_Sprites[j] = 0;
+							LT_Sprite_Stack_Table[LT_Sprite_Stack] = nsprite;
+							if (sprite[nsprite].init == 0)
+								LT_Set_AI_Sprite(nsprite,sprite[nsprite].mode,x>>4,i,LT_scroll_side,0,pos_id_table);
+							LT_Sprite_Stack++;
+							sprite_id_table[pos_id_table] = 1;
+							break;
+						}
+					}
+					break;
+				}
+				m_offset+= LT_map_width;
+			}
+		}
+
+}
+
+void draw_map_row_cga(word x, word y, word map_offset, word ntiles){
+	word s_offset = 0;
+	word *mapdata = LT_map_data;
+	word *tiles = (word*)&LT_tile_tempdata2[0];
+	word lwidth = 8192-2;
+	word lwidth2 = (8192*3)+(80*3);
+	x = x>>2;
+	y = y>>3;
+	s_offset = (320*y)+x;
+	map_offset = map_offset<<1;
+	asm{
+		push es
+		push ds
+		push si
+		
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		ax,word ptr es:[bx]			//ax Tile number
+		mov		cl,4
+		shl		ax,cl				//tile number*16 = tile data offset
+		
+		lds		si,[tiles]			//ds:si Tile bkg data
+		add		si,ax
+		mov 	ax,0B800h
+		mov 	es,ax
+		mov		di,s_offset			//es:di SCREEN
+		mov		cx,ntiles
+	}
+	
+	loop_tile:
+	asm{
+		mov 	ax,8191
+		mov		bx,lwidth
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		sub		di,8192-78
+		and		di,ax
+		movsw
+		add		di,bx
+		movsw
+		//END LOOP
+		sub		di,lwidth2
+		
+		dec 	cx
+		mov		ax,cx
+		jz 		end_tile
+		
+		add		map_offset,2
+		
+		push es
+		push cx
+		les		bx,[mapdata]
+		add		bx,map_offset
+		mov		ax,word ptr es:[bx]			//al Tile number
+		mov		cl,4
+		shl		ax,cl				//tile number*16 = tile data offset
+		
+		lds		si,[tiles]			//ds:si Tile bkg data
+		add		si,ax
+		pop cx
+		pop es
+		
+		jmp		loop_tile
+	}	
+	end_tile:
+
+
+	asm{
+		pop es
+		pop ds
+		pop si
+	}		
+}
+
 
 void (*LT_Scroll_Map)(void);
 
@@ -3521,25 +4185,118 @@ void LT_Scroll_Map_GFX(void){
 }
 
 void LT_Scroll_Map_TGA(void){
-	if (!TANDY_SCROLL_X){
-		if ((SCR_X-TGA_SCR_X) > 104) TANDY_SCROLL_X = 1;
-		if ((SCR_X-TGA_SCR_X) < -104) TANDY_SCROLL_X = -1;
-	}
-	if (!TANDY_SCROLL_Y){
+	if(LT_CGA_TANDY_SCROLLMODE == 1){
+	if (!TANDY_SCROLL_X && !TANDY_SCROLL_Y){
+		if ((SCR_X-TGA_SCR_X) > 90) TANDY_SCROLL_X = 1;
+		if ((SCR_X-TGA_SCR_X) < -96) TANDY_SCROLL_X = -1;
+		if (SCR_X == 0 && TGA_SCR_X > SCR_X) TANDY_SCROLL_X = -1;
 		if ((SCR_Y > 30)&&(TGA_SCR_Y ==   0)) TANDY_SCROLL_Y = 1;
 		if ((SCR_Y < 30)&&(TGA_SCR_Y == 104)) TANDY_SCROLL_Y = -1;
 	}
+	
+	if (LT_MODE == 1){
+		SPRITE *s = &sprite[LT_SPRITE_PLAYER];//get sprite used as player with global variable
+		if (!s->ground && TANDY_SCROLL_Y == -1) TANDY_SCROLL_Y = 0;
+	}
 
-	while (TANDY_SCROLL_X){
+	if (TANDY_SCROLL_X != 0){
+		SCR_X = (SCR_X>>3)<<3;
 		if (TANDY_SCROLL_X == 1) {
 			TGA_SCR_X+=4;
-			if (TGA_SCR_X > SCR_X) {TGA_SCR_X = SCR_X;TANDY_SCROLL_X = 0;}
+			if (TGA_SCR_X > SCR_X) {TGA_SCR_X = (SCR_X>>3)<<3; TANDY_SCROLL_X = 0;}
 		}
 		if (TANDY_SCROLL_X ==-1) {
 			TGA_SCR_X-=4;
-			if (TGA_SCR_X < SCR_X) {TGA_SCR_X = SCR_X;TANDY_SCROLL_X = 0;}
+			if (TGA_SCR_X < SCR_X) {TGA_SCR_X = (SCR_X>>3)<<3; TANDY_SCROLL_X = 0;}
 		}
 		
+		//SECOND FRAME
+		if (LT_flipscroll == 1){
+			LT_map_offset+=(13*512);
+			if (LT_scroll_side == 1){
+				if (LT_current_x>-4) {
+					LT_TGA_MapPage(0); draw_map_column(LT_current_x,TGA_SCR_Y+(13*8),LT_map_offset,12);
+					LT_TGA_MapPage(1); draw_map_column(LT_current_x,TGA_SCR_Y+(13*8),LT_map_offset,12);
+				}
+			} else {
+				LT_TGA_MapPage(0); draw_map_column(LT_current_x+312,TGA_SCR_Y+(13*8),LT_map_offset+39,12);
+				LT_TGA_MapPage(1); draw_map_column(LT_current_x+312,TGA_SCR_Y+(13*8),LT_map_offset+39,12);
+			}
+			LT_flipscroll = 0;
+		}
+
+		LT_current_x = ((TGA_SCR_X)>>3)<<3;
+		LT_current_y = ((TGA_SCR_Y)>>3)<<3;
+		
+		if (LT_current_x != LT_last_x){
+			LT_map_offset = (LT_current_y<<6)+(LT_current_x>>3);
+			//FIRST FRAME
+			if (LT_current_x < LT_last_x){
+				LT_scroll_side = 1;
+				if (LT_current_x>-4) {
+					LT_TGA_MapPage(0); draw_map_column(LT_current_x,TGA_SCR_Y,LT_map_offset,13);
+					LT_TGA_MapPage(1); draw_map_column(LT_current_x,TGA_SCR_Y,LT_map_offset,13);
+				}
+			} else { 
+				LT_scroll_side = -1;
+				LT_TGA_MapPage(0); draw_map_column(LT_current_x+312,TGA_SCR_Y,LT_map_offset+39,13);
+				LT_TGA_MapPage(1); draw_map_column(LT_current_x+312,TGA_SCR_Y,LT_map_offset+39,13);
+			}
+			LT_flipscroll = 1;
+		}
+		LT_last_x = LT_current_x;
+	}
+
+	if (TANDY_SCROLL_Y && !TANDY_SCROLL_X){
+		if (TANDY_SCROLL_Y == 1) {
+			TGA_SCR_Y+=4;
+			if (TGA_SCR_Y > 104) {TGA_SCR_Y = 104;TANDY_SCROLL_Y = 0;}
+		}
+		if (TANDY_SCROLL_Y ==-1) {
+			TGA_SCR_Y-=4;
+			if (TGA_SCR_Y < 0) {TGA_SCR_Y = 0;TANDY_SCROLL_Y = 0;}
+		}
+		
+		//SECOND FRAME
+		if (LT_flipscrollv == 1){
+			LT_map_offset_y+=20;
+			if (LT_scroll_top == 1){
+				if (LT_current_y>-4) {
+					LT_TGA_MapPage(0); draw_map_row_tga(LT_current_x+160,TGA_SCR_Y,LT_map_offset_y,20);
+					LT_TGA_MapPage(1); draw_map_row_tga(LT_current_x+160,TGA_SCR_Y,LT_map_offset_y,20);
+				}
+			} else {
+				LT_TGA_MapPage(0); draw_map_row_tga(LT_current_x+160,TGA_SCR_Y+192,LT_map_offset_y+(512*24),20);
+				LT_TGA_MapPage(1); draw_map_row_tga(LT_current_x+160,TGA_SCR_Y+192,LT_map_offset_y+(512*24),20);
+			}
+			LT_flipscrollv = 0;
+		}
+
+		LT_current_x = ((TGA_SCR_X)>>3)<<3;
+		LT_current_y = ((TGA_SCR_Y)>>3)<<3;
+		
+		if (LT_current_y != LT_last_y){
+			//FIRST FRAME
+			LT_map_offset_y = (LT_current_y<<6)+(LT_current_x>>3);
+			if (LT_current_y < LT_last_y){
+				LT_scroll_top = 1;
+				if (LT_current_y>-4){
+					LT_TGA_MapPage(0); draw_map_row_tga(LT_current_x,TGA_SCR_Y,LT_map_offset_y,20);
+					LT_TGA_MapPage(1); draw_map_row_tga(LT_current_x,TGA_SCR_Y,LT_map_offset_y,20);
+				}
+			} else { 
+				LT_scroll_top = -1;
+				LT_TGA_MapPage(0); draw_map_row_tga(LT_current_x,TGA_SCR_Y+192,LT_map_offset_y+(512*24),20);
+				LT_TGA_MapPage(1); draw_map_row_tga(LT_current_x,TGA_SCR_Y+192,LT_map_offset_y+(512*24),20);
+			}
+			LT_flipscrollv = 1;
+		}
+		LT_last_y = LT_current_y;
+	}
+	}
+	if (LT_CGA_TANDY_SCROLLMODE == 0){
+		TGA_SCR_X = SCR_X;
+		TGA_SCR_Y = SCR_Y;
 		LT_current_x = ((TGA_SCR_X)>>3)<<3;
 		LT_current_y = ((TGA_SCR_Y)>>3)<<3;
 		
@@ -3564,22 +4321,7 @@ void LT_Scroll_Map_TGA(void){
 			}
 		}
 		LT_last_x = LT_current_x;
-		LT_Play_Music();
-		LT_Update_Scroll_TGA();
-	}
 
-	while (TANDY_SCROLL_Y && !TANDY_SCROLL_X){
-		if (TANDY_SCROLL_Y == 1) {
-			TGA_SCR_Y+=4;
-			if (TGA_SCR_Y > 104) {TGA_SCR_Y = 104;TANDY_SCROLL_Y = 0;}
-		}
-		if (TANDY_SCROLL_Y ==-1) {
-			TGA_SCR_Y-=4;
-			if (TGA_SCR_Y < 0) {TGA_SCR_Y = 0;TANDY_SCROLL_Y = 0;}
-		}
-		
-		LT_current_x = ((TGA_SCR_X)>>3)<<3;
-		LT_current_y = ((TGA_SCR_Y)>>3)<<3;
 		LT_map_offset_y = (LT_current_y<<6)+(LT_current_x>>3);
 		if (LT_current_y < LT_last_y){
 			LT_scroll_top = 1;
@@ -3596,9 +4338,139 @@ void LT_Scroll_Map_TGA(void){
 			LT_TGA_MapPage(1);
 			draw_map_row_tga(LT_current_x,TGA_SCR_Y+192,LT_map_offset_y+(512*24),40);
 		}
+		LT_last_y = LT_current_y;	
+	}
+}
+
+void LT_Scroll_Map_CGA(void){
+	if (LT_CGA_TANDY_SCROLLMODE == 1){
+	if (!TANDY_SCROLL_X && !TANDY_SCROLL_Y){
+		if ((SCR_X-TGA_SCR_X) > 90) TANDY_SCROLL_X = 1;
+		if ((SCR_X-TGA_SCR_X) < -96) TANDY_SCROLL_X = -1;
+		if (SCR_X == 0 && TGA_SCR_X > SCR_X) TANDY_SCROLL_X = -1;
+		if ((SCR_Y > 30)&&(TGA_SCR_Y ==   0)) TANDY_SCROLL_Y = 1;
+		if ((SCR_Y < 30)&&(TGA_SCR_Y == 104)) TANDY_SCROLL_Y = -1;
+	}
+	
+	if (LT_MODE == 1){
+		SPRITE *s = &sprite[LT_SPRITE_PLAYER];//get sprite used as player with global variable
+		if (!s->ground && TANDY_SCROLL_Y == -1) TANDY_SCROLL_Y = 0;
+	}
+
+	if (TANDY_SCROLL_X){
+		SCR_X = (SCR_X>>3)<<3;
+		if (TANDY_SCROLL_X == 1) {
+			TGA_SCR_X+=4;
+			if (TGA_SCR_X > SCR_X) {TGA_SCR_X = (SCR_X>>3)<<3; TANDY_SCROLL_X = 0;}
+		}
+		if (TANDY_SCROLL_X ==-1) {
+			TGA_SCR_X-=4;
+			if (TGA_SCR_X < SCR_X) {TGA_SCR_X = (SCR_X>>3)<<3; TANDY_SCROLL_X = 0;}
+		}
+		
+		//SECOND FRAME
+		if (LT_flipscroll == 1){
+			LT_map_offset+=(13*512);
+			if (LT_scroll_side == 1){
+				if (LT_current_x>-4) draw_map_column(LT_current_x,TGA_SCR_Y+(13*8),LT_map_offset,12);
+			} else 
+				draw_map_column(LT_current_x+312,TGA_SCR_Y+(13*8),LT_map_offset+39,12);
+			LT_flipscroll = 0;
+		}
+		
+		LT_current_x = ((TGA_SCR_X)>>3)<<3;
+		LT_current_y = ((TGA_SCR_Y)>>3)<<3;
+		
+		if (LT_current_x != LT_last_x){
+			LT_map_offset = (LT_current_y<<6)+(LT_current_x>>3);
+			//FIRST FRAME
+			if (LT_current_x < LT_last_x){
+				LT_scroll_side = 1;
+				if (LT_current_x>-4) draw_map_column(LT_current_x,TGA_SCR_Y,LT_map_offset,13);
+			} else { 
+				LT_scroll_side = -1;
+				draw_map_column(LT_current_x+312,TGA_SCR_Y,LT_map_offset+39,13);
+			}
+			LT_flipscroll = 1;
+		}
+		LT_last_x = LT_current_x;
+	}
+
+	if (TANDY_SCROLL_Y && !TANDY_SCROLL_X){
+		if (TANDY_SCROLL_Y == 1) {
+			TGA_SCR_Y+=4;
+			if (TGA_SCR_Y > 104) {TGA_SCR_Y = 104;TANDY_SCROLL_Y = 0;}
+		}
+		if (TANDY_SCROLL_Y ==-1) {
+			TGA_SCR_Y-=4;
+			if (TGA_SCR_Y < 0) {TGA_SCR_Y = 0;TANDY_SCROLL_Y = 0;}
+		}
+		
+		//SECOND FRAME
+		if (LT_flipscrollv == 1){
+			LT_map_offset_y+=20;
+			if (LT_scroll_top == 1){
+				if (LT_current_y>-4) draw_map_row_cga(LT_current_x+160,TGA_SCR_Y,LT_map_offset_y,20);
+			} else  draw_map_row_cga(LT_current_x+160,TGA_SCR_Y+192,LT_map_offset_y+(512*24),20);
+			LT_flipscrollv = 0;
+		}
+		
+		LT_current_x = ((TGA_SCR_X)>>3)<<3;
+		LT_current_y = ((TGA_SCR_Y)>>3)<<3;
+		
+		if (LT_current_y != LT_last_y){
+			LT_map_offset_y = (LT_current_y<<6)+(LT_current_x>>3);
+			//FIRST FRAME
+			if (LT_current_y < LT_last_y){
+				LT_scroll_top = 1;
+				if (LT_current_y>-4) draw_map_row_cga(LT_current_x,TGA_SCR_Y,LT_map_offset_y,20);
+			} else { 
+				LT_scroll_top = -1;
+				draw_map_row_cga(LT_current_x,TGA_SCR_Y+192,LT_map_offset_y+(512*24),20);
+			}
+			LT_flipscrollv = 1;
+		}
+		
 		LT_last_y = LT_current_y;
-		LT_Play_Music();
-		LT_Update_Scroll_TGA();
+		//LT_Play_Music();
+		//LT_Update_Scroll_TGA();
+	}	
+	}
+	
+	
+	if (LT_CGA_TANDY_SCROLLMODE == 0) {
+		TGA_SCR_X = SCR_X;
+		TGA_SCR_Y = SCR_Y;
+		LT_current_x = ((TGA_SCR_X)>>3)<<3;
+		LT_current_y = ((TGA_SCR_Y)>>3)<<3;
+		
+		if (LT_current_x != LT_last_x){
+			LT_map_offset = (LT_current_y<<6)+(LT_current_x>>3);
+			if (LT_current_x < LT_last_x){
+				LT_scroll_side = 1;
+				if (LT_current_x>-4) {
+					draw_map_column(LT_current_x,TGA_SCR_Y,LT_map_offset,25);
+					LT_flipscroll = 0;
+				}
+			} else { 
+				LT_scroll_side = -1;
+				draw_map_column(LT_current_x+312,TGA_SCR_Y,LT_map_offset+39,25);
+				LT_flipscroll = 0;
+			}
+		}
+		LT_last_x = LT_current_x;
+	
+		LT_map_offset_y = (LT_current_y<<6)+(LT_current_x>>3);
+		if (LT_current_y < LT_last_y){
+			LT_scroll_top = 1;
+			if (LT_current_y>-4){
+				draw_map_row_cga(LT_current_x,TGA_SCR_Y,LT_map_offset_y,40);
+			}
+		} else { 
+			LT_scroll_top = -1;
+			draw_map_row_cga(LT_current_x,TGA_SCR_Y+192,LT_map_offset_y+(512*24),40);
+		}
+		LT_last_y = LT_current_y;
 	}
 }
 
@@ -3622,8 +4494,21 @@ void LT_Screen_Shake(byte mode){
 	word px = SCR_X;//Get position
 	word py = SCR_Y;//Get position
 	byte p = 0;
-	if (mode)while (p !=22){SCR_X = px+LT_shake[p];LT_Update(0,0);p++;}
-	else while (p !=22){SCR_Y = py+LT_shake[p];LT_Update(0,0);p++;}
+	if (mode){
+		while (p !=22){
+			SCR_X = px+LT_shake[p];
+			TGA_SCR_X = px+(LT_shake[p]*4);
+			LT_Update(0,0);
+			p++;
+		}
+	} else {
+		while (p !=22){
+			SCR_Y = py+LT_shake[p];
+			TGA_SCR_Y = py+(LT_shake[p]*4);
+			LT_Update(0,0);
+			p++;
+		}
+	}
 }
 
 
@@ -3704,10 +4589,12 @@ void LT_Fade_in_VGA(){
 	i = 0;
 	
 	//Fade in
-	asm mov	dx,003c8h
-	asm mov al,0
-	asm out	dx,al
 	while (i < 14){//SVGA FAILED with 15
+		asm push ds; asm push di; asm push si
+	
+		asm mov	dx,003c8h
+		asm mov al,0
+		asm out	dx,al
 		asm lds si,pal		//Get palette address in ds:si
 		asm les di,pal		//Get palette address in es:di
 		asm mov dx,003c9h //Palete register
@@ -3724,16 +4611,11 @@ void LT_Fade_in_VGA(){
 			asm inc bx
 			asm loop fade_in_loop
 		
+		asm pop si; asm pop di; asm pop ds
+		
 		i ++;
-		asm mov		dx,INPUT_STATUS_0
-		WaitNotVsync:
-		asm in      al,dx
-		asm test    al,08h
-		asm jnz		WaitNotVsync
-		WaitVsync:
-		asm in      al,dx
-		asm test    al,08h
-		asm jz		WaitVsync
+		LT_vsync();
+		LT_Play_Music();
 	}
 	set_palette(LT_tileset_palette);
 }
@@ -3742,15 +4624,14 @@ void LT_Fade_out_VGA(){
 	int i,j;
 	unsigned char *pal = LT_Temp_palette;
 	i = 0;
-	//asm push ds
-	//asm push di
-	//asm push si
 	
 	//Fade to black
-	asm mov	dx,003c8h
-	asm mov ax,0
-	asm out	dx,al
 	while (i < 15){
+		asm push ds; asm push di; asm push si
+		
+		asm mov	dx,003c8h
+		asm mov ax,0
+		asm out	dx,al
 		asm lds si,pal		//Get palette address in ds:si
 		asm les di,pal		//Get palette address in es:di
 		asm mov dx,003c9h //Palete register
@@ -3765,22 +4646,13 @@ void LT_Fade_out_VGA(){
 			asm STOSB //Store byte in AL to ES:DI, then advance DI
 			asm out dx,al
 			asm loop fade_out_loop
+			
+		asm pop si; asm pop di; asm pop ds
+		
 		i ++;
-		//Wait Vsync
-		asm mov		dx,INPUT_STATUS_0
-		WaitNotVsync:
-		asm in      al,dx
-		asm test    al,08h
-		asm jnz		WaitNotVsync
-		WaitVsync:
-		asm in      al,dx
-		asm test    al,08h
-		asm jz		WaitVsync
+		LT_vsync();
+		LT_Play_Music();
 	}
-	
-	//asm pop ds
-	//asm pop di
-	//asm pop si
 }
 
 //Cycle palette 
@@ -3904,7 +4776,7 @@ void LT_Fade_in_EGA(){
 		}
 		fade-=16;
 		i++;
-		LT_vsync();LT_vsync();
+		LT_vsync();LT_Play_Music();LT_vsync();LT_Play_Music();
 	}
 	LT_EGA_FADE_STATE = 1;
 	//LT_64COL_EGA();
@@ -3929,7 +4801,7 @@ void LT_Fade_out_EGA (){
 			asm mov al,0x20; asm out dx,al;
 		}
 		
-		LT_vsync();LT_vsync();
+		LT_vsync();LT_Play_Music();LT_vsync();LT_Play_Music();
 	}
 	LT_EGA_FADE_STATE = 0;
 }
@@ -3984,7 +4856,7 @@ void LT_Fade_in_TGA(){
 		}
 		fade-=16;
 		i++;
-		LT_vsync();LT_vsync();
+		LT_vsync();LT_Play_Music();LT_vsync();LT_Play_Music();
 	}
 	LT_EGA_FADE_STATE = 1;
 }
@@ -4005,7 +4877,38 @@ void LT_Fade_out_TGA(){
 			asm out dx,al;//Color (0-15)
 		}
 		
-		LT_vsync();LT_vsync();
+		LT_vsync();LT_Play_Music();LT_vsync();LT_Play_Music();
 	}
+	LT_EGA_FADE_STATE = 0;
+}
+
+void LT_Fade_in_CGA(){
+	int i = 0;
+	if (LT_EGA_FADE_STATE == 1) return;
+
+	while (i < 6){i++;LT_vsync();LT_vsync();}
+
+	LT_EGA_FADE_STATE = 1;
+	asm cli
+	asm push dx
+	asm mov dx,0x03D8;asm mov al,0x0A;//bit 3: enable video; bit 1: 320x200 graphics mode
+	asm out dx,al;
+	asm pop dx
+	asm sti
+}
+
+void LT_Fade_out_CGA(){
+	int i = 0;
+	if (LT_EGA_FADE_STATE == 0) return;
+	
+	asm cli
+	asm push dx
+	asm mov dx,0x03D8;asm mov al,0x00;//disable video
+	asm out dx,al;
+	asm pop dx
+	asm sti
+	
+	while (i < 6){i++;LT_vsync();LT_vsync();}
+	
 	LT_EGA_FADE_STATE = 0;
 }

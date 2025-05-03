@@ -27,6 +27,7 @@ void interrupt Key_Handler(void){
 	if (keyhit & 0x80){ keyhit &= 0x7F; LT_Keys[keyhit] = 0;} //KEY_RELEASED;
 	else LT_Keys[keyhit] = 1; //KEY_PRESSED;		
 	//LT_old_key_handler();
+	//maybe c compiler adds this
 	asm mov   al, 020h      //Send 0x20 to 0x20 port (end of interrupt)
     asm out   020h, al
 	asm sti

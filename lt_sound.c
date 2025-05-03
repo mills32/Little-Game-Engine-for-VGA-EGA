@@ -6,7 +6,7 @@
 *******************************************************************************/
 
 #include "lt__eng.h"
-#define ADLIB_PORT 			0x388
+
 extern void interrupt (*LT_old_time_handler)(void);
 void DAT_Seek2(word fp,char *dat_string); 
 void LT_fread(word file_handle,word bytes,void *buffer);
@@ -14,120 +14,62 @@ unsigned long LT_fseek(word file_handle,unsigned long bytes,byte origin);
 void LT_Error(char *error, char *file);
 extern unsigned char far *LT_tile_tempdata; 
 //ADLIB
-typedef struct tagIMFsong{				// structure for adlib IMF song, or MOD pattern data
-	word size;
-	word offset;
-	byte filetype; //0 1 - imf0 imf1
-	byte far *sdata;
-} IMFsong;
-IMFsong LT_music;	// One song in ram stored at "LT_music"
+word LT_music_size;
+word LT_music_offset;
+byte LT_music_filetype; //0 1 - imf0 imf1
+byte far *LT_music_sdata;
 
+extern byte LT_MUSIC_ENABLE;
 extern byte LT_MUSIC_MODE;
-const int opl2_base = 0x388;
+int ADLIB_PORT = 0x0388;
+int ADLIB_LPTPORT = 0;
 int TANDY_PORT = 0x00C0;
 int vgm_loop = 0;
 int vgm_loop_size = 0;
 int vgm_ok = 0;
 long next_event;
-long LT_imfwait;
+word LT_imfwait;
+byte *LT_music_data;
 
 void (*LT_Load_Music)(char*,char*);
 void (*LT_Play_Music)(void);
 
-//Converts VGM to a more friendly format for slow 8088/86/286
-//Stores it at dest, the final address to play it
-void Process_VGM(unsigned char *dest, unsigned char *src, unsigned char *file){
-
-	word delay = 0;
-	byte skip = 0;
-	dword vgm_p = 0,vgm_p2 = 0;
-	while (vgm_p < LT_music.size){
-		byte a,b;
-		byte dat = src[vgm_p];
-		
-		if (LT_MUSIC_MODE) {
-			//0x5A: YM3812 - 0x5B: YM3526 - 0x5C: Y8950
-			if ((dat == 0x5A)||(dat == 0x5B)||(dat == 0x5C)) dat = 0xFF;
-			a = 3; b = 2;
-		} else {//SN76489
-			if (dat == 0x50) dat = 0xFF;
-			a = 2; b = 1;
-		}
-		switch(dat){
-			case 0xFF:
-				if ((skip == 1)&&(vgm_p>1)){
-					dest[vgm_p2] = 0;
-					dest[vgm_p2+1] = 0;
-					vgm_p2+=2;
-				} 
-				if ((skip == 0)&&(vgm_p>1)){
-					dest[vgm_p2] = delay&0x00FF;
-					dest[vgm_p2+1] = delay>>8;
-					vgm_p2+=2;
-				}
-				dest[vgm_p2] = src[vgm_p+1]; //reg
-				dest[vgm_p2+1] = src[vgm_p+2]; //val
-				vgm_p+=a; vgm_p2+=b;
-				skip = 1;delay = 0;
-			break;
-			case 0x61:
-				delay += (src[vgm_p+1] | src[vgm_p+2]<<8)/735;
-				vgm_p+=3;
-				skip = 0;
-			break;
-			case 0x62:
-				delay += 1;
-				vgm_p++;
-				skip = 0;
-			break;
-			case 0x63:
-				delay += 2;
-				vgm_p++;
-				skip = 0; 
-			break;
-			case 0x66://end
-				if (skip == 1){
-					dest[vgm_p2] = 0;
-					dest[vgm_p2+1] = 0;
-					vgm_p2+=2;
-				} 
-				if (skip == 0){
-					dest[vgm_p2] = delay&0x00FF;
-					dest[vgm_p2+1] = delay>>8;
-					vgm_p2+=2;
-				}
-				vgm_p = LT_music.size +1;
-			break;
-			default: 
-				vgm_p++;
-			break;
-		}
-		if (vgm_p2 > 0xFFFE) LT_Error("Processed VGM is too big $",file);
-	}
-	
-	LT_music.size = (word)vgm_p2;
-	LT_music.offset = 0;
-	LT_imfwait = 0;
-}
-
 
 void opl2_out(unsigned char reg, unsigned char data){
-	asm mov dx, 00388h
+	asm mov dx, ADLIB_PORT
 	asm mov al, reg
 	asm out dx, al
-	
-	//Wait at least 3.3 microseconds
-	asm mov cx,6
-	wait:
-		asm in ax,dx
-		asm loop wait	//for (i = 0; i < 6; i++) inp(lpt_ctrl);
-	
+	asm mov cx,52; asm rep nop;//Wait at least 3.3 microseconds
 	asm inc dx
 	asm mov al, data
 	asm out dx, al
+	//delay 2
+	//asm mov cx,304; asm rep nop; // Wait at least 23 microseconds
 	
-	//for( i = 35; i ; i-- )inport(0x388);
+	//mov cx, 35
+	//.delay_2:
+	//	in al, dx
+	//	loop .delay_2
 }
+
+void opl2LPT_out(unsigned char reg,unsigned char data){
+	// Select OPL2 register
+	asm mov dx,ADLIB_LPTPORT; asm mov al, reg; asm out dx, al;
+	asm add dx,2;	//LPT_CTRL
+	asm mov al,13; asm out dx, al;
+	asm mov al,9; asm out dx, al;
+	asm mov al,13; asm out dx, al;
+	asm mov cx,52; asm rep nop; //Wait at least 3.3 microseconds
+	// Set value
+	asm sub dx,2;	//LPT_DATA
+	asm mov al,data; asm out dx, al;
+	asm add dx,2;	//LPT_CTRL
+	asm mov al,12; asm out dx, al;
+	asm mov al,8; asm out dx, al;
+	asm mov al,12; asm out dx, al;
+	asm mov cx,304; asm rep nop; // Wait at least 23 microseconds
+}
+
 
 void opl2_clear(void){
 	int i;
@@ -174,8 +116,8 @@ void LT_Adlib_Detect(){
 void Load_Music_Adlib(char *filename, char *dat_string){
 	//Read tags
 	word file;
-	unsigned char *vgm_dat = &LT_tile_tempdata[0];
-	unsigned char *vgm_dat2 = &LT_music.sdata[0];
+	//unsigned char *vgm_dat = &LT_tile_tempdata[0];
+	unsigned char *vgm_dat2 = &LT_music_sdata[0];
 
 	char header[5];
 	dword tag_offset = 0,data_offset = 0, opl_clock = 0;
@@ -217,7 +159,7 @@ void Load_Music_Adlib(char *filename, char *dat_string){
 	size -= data_offset;
 	if (tag_offset != 0) size -= (size - tag_offset);
 	if (size > 0xFFFF) {LT_fclose(file); LT_Error("VGM bigger than 64kB $",dat_string);}
-	LT_music.size = size;
+	LT_music_size = size;
 	//What chip is it? vgm_chip 1 ym3812; 2 ym3526; 3 y8950; 4 SN76489
 	file_pos -= 0x2C;
 	LT_fseek(file,file_pos, SEEK_SET);//0x0C
@@ -228,22 +170,13 @@ void Load_Music_Adlib(char *filename, char *dat_string){
 	//Read data to music_data
 	data_offset-=0x10;
 	LT_fseek(file,data_offset, SEEK_CUR);
-	LT_fread(file, LT_music.size,vgm_dat);
+	LT_fread(file, LT_music_size,&LT_music_sdata[0]);
 	LT_fclose(file);
 	
-	Process_VGM(vgm_dat2,vgm_dat,filename);
-}
-
-void Play_Music_Adlib(){
-	if (!LT_MUSIC_ENABLE) return;
-	//byte *ost = music_sdata + music_offset;
-	while (!LT_imfwait){
-		opl2_out(LT_music.sdata[LT_music.offset], LT_music.sdata[LT_music.offset+1]);
-        LT_imfwait = (word) LT_music.sdata[LT_music.offset+2];
-		LT_music.offset+=4;
-		if (LT_music.offset > LT_music.size) {LT_music.offset = 0;}
-	}
-	LT_imfwait--;
+	//Process_VGM(vgm_dat2,vgm_dat,filename);
+	LT_music_offset = 0;
+	LT_imfwait = 0;
+	LT_music_data = &LT_music_sdata[0];
 }
 
 
@@ -282,7 +215,6 @@ void LT_Play_AdLib_SFX(unsigned char *ins, byte chan, byte octave, byte note){
 	
 }
 
-
 //TANDY
 void tandy_clear(){
 	byte frequency = 0;
@@ -298,8 +230,8 @@ void tandy_clear(){
 void Load_Music_Tandy(char *filename, char *dat_string){
 	//Read tags
 	word file;
-	unsigned char *vgm_dat = &LT_music.sdata[32768];
-	unsigned char *vgm_dat2 = &LT_music.sdata[0];
+	unsigned char *vgm_dat = &LT_music_sdata[0];
+	//unsigned char *vgm_dat2 = &LT_music_sdata[0];
 	char header[5];
 	long tag_offset = 0,data_offset = 0, opl_clock = 0;
 	dword size = 0;
@@ -345,8 +277,8 @@ void Load_Music_Tandy(char *filename, char *dat_string){
 	//calculate data size
 	size -= data_offset;
 	if (tag_offset != 0) size -= (size - tag_offset);
-	LT_music.size = size;
-	if (LT_music.size > 32767) {vgm_ok = 0; LT_Error("VGM bigger than 32kB $",dat_string);}
+	LT_music_size = size;
+	if (LT_music_size > 32767) {vgm_ok = 0; LT_Error("VGM bigger than 32kB $",dat_string);}
 	//What chip is it? vgm_chip 1 ym3812; 2 ym3526; 3 y8950; 4 SN76489
 	file_pos -= 0x2C;
 	LT_fseek(file,file_pos, SEEK_SET);//0x0C
@@ -356,38 +288,119 @@ void Load_Music_Tandy(char *filename, char *dat_string){
 	//Read data to music_data
 	data_offset-=0x10;
 	LT_fseek(file,data_offset, SEEK_CUR);
-	LT_fread(file,LT_music.size,vgm_dat);
+	LT_fread(file,LT_music_size,vgm_dat);
 	LT_fclose(file);
 	
-	Process_VGM(vgm_dat2,vgm_dat,filename);
+	//Process_VGM(vgm_dat2,vgm_dat,filename);
+	LT_music_offset = 0;
+	LT_imfwait = 0;
+	LT_music_data = &LT_music_sdata[0];
+	
 	/*file = LT_fopen("test.mus","wb");
 	LT_fwrite(vgm_dat2, 1, vgm_data_size, file);
 	LT_fclose(file);*/
 }
 
-//VGM Player
-void Play_Music_Tandy(){
+//Simplified VGM play function
+//	Only plays 50/60/70 Hz VGMs
+//	Delays are 1 byte, because they are never > 255 in 60 Hz ADLIB/TANDY VGMs
+//	VGM commands 0x70 to 0x7F are very small delays, not used here 
+void Play_Music_VGM(){
+	//word ds_;
+	//unsigned char val = 0, reg = 0;
+	/*byte dat = 0;
+
 	if (!LT_MUSIC_ENABLE) return;
-	if (!vgm_ok) return;
 	while (!LT_imfwait){
-		byte val = LT_music.sdata[LT_music.offset];
-		LT_imfwait = (word) LT_music.sdata[LT_music.offset+1];
-		LT_music.offset+=3;
-		asm mov dx, TANDY_PORT//Port 0x00C0
-		asm mov al, val
-		asm out dx, al
-		if (LT_music.offset > LT_music.size) {tandy_clear();LT_music.offset = 0;}
+		byte dat = LT_music_data[LT_music_offset]; 
+		switch(dat){
+			case 0x50: //write val+reg SN76489
+				LT_music_offset++;
+				reg = LT_music_data[LT_music_offset++];
+				asm mov dx, TANDY_PORT//0x00C0
+				asm mov al, reg; asm out dx, al;
+				LT_imfwait = 0;
+			break;
+			case 0x5A: //write (YM3812, YM3526, Y8950)
+			case 0x5B:
+			case 0x5C:
+				LT_music_offset++;
+				reg = LT_music_data[LT_music_offset++];
+				val = LT_music_data[LT_music_offset++];
+				asm mov dx, ADLIB_PORT; asm mov al, reg; asm out dx, al;
+				asm mov cx,6
+				wait: asm in ax,dx; asm loop wait;
+				asm inc dx; asm mov al, val; asm out dx, al;
+				LT_imfwait = 0;
+			break;
+			case 0x61:
+				LT_imfwait += LT_music_data[LT_music_offset+1];
+				LT_music_offset+=3;
+			break;
+			case 0x62: LT_imfwait++; LT_music_offset++; break;
+			case 0x63: LT_imfwait += 2; LT_music_offset++; break;
+			case 0x66:LT_music_offset = 0; break;//end 
+			default: LT_music_offset++; break;
+		}
 	}
-	LT_imfwait--;
+	LT_imfwait--;*/
+
+	if (!LT_MUSIC_ENABLE) return;
+	
+	asm push ds; asm push si;
+	asm les si,LT_music_data;
+	asm mov si,LT_music_offset;
+	asm mov bx,0
+	
+	_READ:
+		asm cmp LT_imfwait,0; asm je _START; asm jmp _DEC;
+		_START:
+		asm mov bl,byte ptr es:[si]; asm inc si;
+		_TANDY:
+		asm cmp bl,0x50; asm jne _OPL2;
+			asm mov al,byte ptr es:[si]; asm inc si;
+			asm mov dx, TANDY_PORT; asm out dx, al;
+			asm mov LT_imfwait,0
+			asm jmp _NEXT
+		_OPL2:
+		asm sub bl,0x5A;
+		asm cmp bl,0x02; asm jg _DELAY;	// 5A YM3812, 5B YM3526, 5C Y8950
+			asm mov ax,es:[si]; asm add si,2;
+			asm mov dx, ADLIB_PORT; asm out dx,al;
+			asm mov cx,52; asm rep nop;//wait at least 3.3 microseconds
+			asm inc dx; asm xchg ah,al; asm out dx, al;
+			asm mov LT_imfwait,0
+			asm jmp _NEXT
+		_DELAY:
+		asm cmp bl,0x61-0x5A; asm jne _DELAY1;
+			asm mov ax,es:[si]; asm add si,2; asm add byte ptr LT_imfwait,al;
+			asm jmp _NEXT 
+		_DELAY1:
+		asm sub bl,0x61-0x5A;
+		asm cmp bl,0x02; asm jg _END;//delay command => 62 or 63 
+			asm add LT_imfwait,bx;
+			asm jmp _NEXT
+		_END:
+		asm cmp bl,0x05; asm jne _NEXT;//end command = 66 - 61;
+			asm mov si,0 //reset pointer
+		_NEXT:
+		asm cmp LT_imfwait,0; asm jne _DEC; 
+		asm jmp _READ;
+	_DEC:
+	asm dec LT_imfwait;
+	asm mov LT_music_offset,si
+	asm pop si; asm pop ds;
 }
 
 
+void LT_Start_Music(){
+	LT_MUSIC_ENABLE = 1;
+	opl2_clear();
+	tandy_clear();
+}
+
 void LT_Stop_Music(){
-	//reset interrupt
-	//outportb(0x43, 0x36);
-	//outportb(0x40, 0xFF);	//lo-byte
-	//outportb(0x40, 0xFF);	//hi-byte*/
-	//setvect(0x1C, LT_old_time_handler);
+	LT_MUSIC_ENABLE = 0;
 	opl2_clear();
 	tandy_clear();
 }
@@ -427,11 +440,12 @@ int LT_PC_Speaker_Note[96] = {
 
 void LT_setvect(byte intr, void interrupt (far *func)());
 void LT_Disable_Speaker(){
-	asm cli
+	
 	asm in al, 61h        //Disable speaker
 	asm and al, 252       
 	asm out 61h, al
 	
+	/*asm cli
 	//reset timer
 	asm mov al,0x36
 	asm out 0x43,al
@@ -442,17 +456,17 @@ void LT_Disable_Speaker(){
 	//outportb(0x40, 0xFF);	//lo-byte
 	//outportb(0x40, 0xFF);	//hi-byte
 	LT_setvect(0x1C, LT_old_time_handler);
-	asm sti
+	asm sti*/
 }
 
 int LT_PC_Speaker_Playing = 0;
 int LT_PC_Speaker_Offset = 0;
 byte *LT_PC_Speaker_SFX;
 byte LT_PC_Speaker_Size = 16;
-void interrupt PC_Speaker_SFX_Player(void){
+void /*interrupt*/ PC_Speaker_SFX_Player(void){
 	byte counter;
 	int note;
-	asm cli
+	//asm cli
 	if (LT_PC_Speaker_Playing == 1){
 		if (LT_PC_Speaker_Offset != LT_PC_Speaker_Size){
 			counter = LT_PC_Speaker_SFX[LT_PC_Speaker_Offset];
@@ -470,15 +484,15 @@ void interrupt PC_Speaker_SFX_Player(void){
 			LT_Disable_Speaker();
 		}
 	}
-	asm mov al, 020h      
-    asm out 020h, al    //Send 0x20 to 0x20 port (end of interrupt)
-	asm sti
+	//asm mov al, 020h      
+    //asm out 020h, al    //Send 0x20 to 0x20 port (end of interrupt)
+	//asm sti
 }
 
 void LT_Play_PC_Speaker_SFX(byte *note_array){//77.556
 	//unsigned long spd = 1193182/60;= 19886;
 	//if (LT_PC_Speaker_Playing == 0) {
-	LT_PC_Speaker_Playing = 0;
+		//LT_PC_Speaker_Playing = 0;
 		asm in al, 61h			//Enable speaker
 		asm or al, 3
 		asm out 61h, al
@@ -489,7 +503,7 @@ void LT_Play_PC_Speaker_SFX(byte *note_array){//77.556
 		LT_PC_Speaker_SFX = &note_array[0];
 		
 		//set timer
-		asm mov al,0x36
+		/*asm mov al,0x36
 		asm out 0x43,al
 		asm mov al,174	//spd % 0x100 lo-byte
 		asm out 0x40,al
@@ -497,6 +511,7 @@ void LT_Play_PC_Speaker_SFX(byte *note_array){//77.556
 		asm out 0x40,al
 		//set interrupt
 		LT_setvect(0x1C, PC_Speaker_SFX_Player);		//interrupt 1C not available on NEC 9800-series PCs.
+		*/
 	//}
 }
 

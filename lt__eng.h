@@ -49,15 +49,14 @@ void Clearkb();
 extern byte LT_MODE;
 extern byte LT_EGA_SPRITES_TRANSLUCENT;
 extern byte LT_EGA_TEXT_TRANSLUCENT;
-extern byte LT_MUSIC_ENABLE;
 extern byte LT_ENEMY_DIST_X;
 extern byte LT_ENEMY_DIST_Y;
 extern byte LT_SFX_MODE;
 extern byte LT_LANGUAGE;
 extern byte LT_ENDLESS_SIDESCROLL;
+extern byte LT_CGA_TANDY_SCROLLMODE;
 extern byte LT_IMAGE_MODE;	//0 map; 1 image
 extern byte LT_SPRITE_MODE; //0 fast, no delete; 1 slow, delete
-
 
 typedef struct tagSPRITEFRAME{			// structure for a sprite frame
 	char far *compiled_code;
@@ -90,6 +89,8 @@ typedef struct tagSPRITE{				// structure for a sprite
 	word last_y;
 	word last_last_x;
 	word last_last_y;
+	word last_offset;
+	word Last_Change_Page;
 	int mspeed_x;
 	int mspeed_y;
 	int speed_x;
@@ -150,7 +151,7 @@ byte LT_GET_VIDEO();
 void LT_Load_Image(char *file, char *dat_string);
 void LT_Load_Animation(char *file, char *dat_string);
 void LT_Set_Animation(byte speed);
-void LT_Load_Font(char *file, char *dat_string);
+void LT_Load_Font(char *file, char *dat_string,int c0, int c1, int c2, int c3);
 extern void (*LT_Print_Variable)(byte,byte,word);
 byte LT_Draw_Text_Box(word x, word y, byte w, byte h, word mode, byte key1, byte key2, char* text);
 void LT_Load_Tiles(char *file, char *dat_string);
@@ -193,6 +194,7 @@ void LT_scroll_follow(int sprite_number);
 //ADLIB / Tandy
 extern void (*LT_Load_Music)(char*,char*);
 extern void (*LT_Play_Music)(void);
+void LT_Start_Music();
 void LT_Stop_Music();
 void LT_Play_AdLib_SFX(unsigned char *ins, byte chan, byte octave, byte note);
 byte LT_GET_MUSIC();

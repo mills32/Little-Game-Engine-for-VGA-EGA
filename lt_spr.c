@@ -37,11 +37,12 @@ byte LT_AI_Enabled = 0;
 byte LT_Active_AI_Sprites[] = {0,0,0,0,0,0,0};
 byte Lt_AI_Sprite[] = {0,0,0,0,0,0,0,0};
 byte LT_Sprite_Size_Table[] = {8,8,8,8,8,8,8,8,16,16,16,16,16,16,16,16,32,32,32,32,64};
-//positions in ram of 8 copies of sprite for smooth panning
+//positions in ram of 8 copies of EGA sprites, for smooth panning
 word LT_Sprite_Size_Table_EGA_8[] = {0,32,64,96,128,160,192,224};	
 word LT_Sprite_Size_Table_EGA_16[] = {0,96,192,288,384,480,576,672};	
 word LT_Sprite_Size_Table_EGA_32[] = {0,320,640,960,1280,1600,1920,2240};
 word LT_Sprite_Size_Table_EGA_64[] = {0,576,1152,1728,2304,2880,3456,4032};
+
 
 //Positions of sprite bkg in array, for cga and tandy
 word tandy_sprite_bkg_table[20] = {0,48,96,144,192,240,288,336, 384,544,704,864,1024,1184,1344,1504, 1664,2240,2816,3392};
@@ -49,6 +50,7 @@ word tandy_sprite_bkg_table[20] = {0,48,96,144,192,240,288,336, 384,544,704,864,
 byte far *sprite_id_table;
 byte sprite_size = 2;
 
+int LT_SPRITE_PLAYER = 0;
 byte selected_AI_sprite;
 int LT_number_of_ai = 0;
 unsigned char far *LT_sprite_data;
@@ -175,21 +177,22 @@ void LT_scroll_follow(int sprite_number){
 	int y1 = _abs(y);
 	int speed_x = 0;
 	int speed_y = 0;
-
+	LT_SPRITE_PLAYER = sprite_number;
 	if ((s->state == 3) && (x_adjust != 190))x_adjust++; //FACING LEFT
 	if ((s->state == 4) && (x_adjust != 130))x_adjust--; //FACING RIGHT
 
 	//Show more screen in the direction the sprite is facing
 	x = (s->pos_x-SCR_X) - x_adjust;
 	x1 = _abs(x);
-	
+
 	if ((SCR_X > -1) && ((SCR_X+319)<LT_wmap) && (SCR_Y > -1) && ((SCR_Y+200)<(LT_hmap))){
 		if (LT_Scroll_Camera_float == 8) LT_Scroll_Camera_float = 0;
 		speed_x = LT_Scroll_Camera_speed[(LT_Scroll_Camera_array[x1]<<3)+LT_Scroll_Camera_float];
 		speed_y = LT_Scroll_Camera_speed[(LT_Scroll_Camera_array[y1]<<3)+LT_Scroll_Camera_float];
 		if (x < 0) SCR_X-=speed_x;
 		if (x > 0) SCR_X+=speed_x;
-		if (y < 0) SCR_Y-=speed_y;
+		if (LT_MODE == 1 && LT_VIDEO_MODE > 1) {if (s->ground && y < 0) SCR_Y-=speed_y;}
+		else if (y < 0) SCR_Y-=speed_y;
 		if (y > 0) SCR_Y+=speed_y;
 		
 		LT_Scroll_Camera_float++;
@@ -327,7 +330,7 @@ _Advance:
 	asm inc word ptr [column]
 	asm mov cx, [column]
 	asm cmp cx, 4
-	asm je _Exit           // Column 4: there is no column 4.
+	asm je _Exit			// Column 4: there is no column 4.
 	asm xor cx, cx          // scany and outputy are 0 again for
 	asm mov dx, cx          // the new column
 _NoNewColumn:
@@ -344,7 +347,8 @@ _Exit:
 	asm inc di
 	asm mov ax,di
 	asm sub ax,word ptr [output] // size of generated code
-	asm mov [code_size],ax
+	asm mov code_size,ax
+
 	asm pop ds
 	asm pop di
 	asm pop si
@@ -382,7 +386,7 @@ void write_word(word pixels){
 	LT_sprite_data[c_offset1++] = 0xB8;
 	LT_sprite_data[c_offset1++] = pixels&0x00FF;
 	LT_sprite_data[c_offset1++] = pixels>>8;
-	//write: mov ax to es:[di]: stosw
+	//write: stosw (mov es:[di],ax) 
 	LT_sprite_data[c_offset1++] = 0xAB;
 	c_code_size+=4;
 }
@@ -390,7 +394,7 @@ void write_pixel(byte pixel){
 	//write: mov al,byte
 	LT_sprite_data[c_offset1++] = 0xB0;
 	LT_sprite_data[c_offset1++] = pixel;
-	//write: mov al to es:[di]: stosb
+	//write: stosb (mov byte ptr es:[di],al)
 	LT_sprite_data[c_offset1++] = 0xAA;
 	c_code_size+=3;
 }
@@ -451,6 +455,118 @@ word compile_tga_sprite(int width, unsigned char* source_data, word sprite_data_
 	return c_code_size;
 }
 
+char SPR[] = {
+	0x81, 0xE7, 0xFF, 0x1F, //AND DI
+	0x81, 0xC7, 0x00, 0x20,	//ADD DI 
+	0x47, //INC DI
+	0xB8, 0x00, 0x00,//MOV AX
+	0xAB, //STOSW
+	0x47, 
+	0x81, 0xEF, 0xB4, 0x1F, //SUB DI
+	
+	0x81, 0xE7, 0xFF, 0x1F, 
+	0xB8, 0x80, 0x1F, 
+	0xAB, 
+	0xB8, 0x14, 0x02, 
+	0xAB, 
+	0x81, 0xC7, 0xFC, 0x1F,
+	0xB8, 0x0A, 0x9F, 
+	0xAB, 
+	0xB8, 0x15, 0x50, 
+	0xAB, 
+
+
+	0xCB
+
+};
+
+word compile_cga_sprite(int width, unsigned char* source_data, word sprite_data_offset){
+	int x,y;
+	//FILE *f = fopen("sprite.c","wb");
+	byte pbyte0 = 0;
+	byte pbyte1 = 0;
+	//byte pbyte2 = 0;
+	//byte pbyte3 = 0;
+	byte transparent = 0x04;//color 4
+	byte _2_lines = 0;
+	//word of_debug = sprite_data_offset;
+	//word line_jump = 8192-(width/4);
+	//fwrite(SPR,32,1,f);
+	//fprintf(f,"\n\n\n");
+	c_offset = 0;
+	c_offset1 = sprite_data_offset;
+	c_code_size = 0;
+
+	for (y = 0; y<width;y++){
+		byte color_bytes = 0;
+		c_skipped_bytes = 0;
+		//Start 2 lines
+		if (_2_lines == 0) {
+			//and di,8191; Fix new offset
+			LT_sprite_data[c_offset1++] = 0x81;
+			LT_sprite_data[c_offset1++] = 0xE7;// and di
+			LT_sprite_data[c_offset1++] = 0xFF;//
+			LT_sprite_data[c_offset1++] = 0x1F;// 8191;
+			//fprintf(f,"and di,8191\n");
+			c_code_size+=4;
+		}
+	
+		//LINE/////
+		for (x = 0; x<width/4;x++){
+			byte pixels = 0;
+			byte b0 = source_data[c_offset++];
+			byte b1 = source_data[c_offset++];
+			byte b2 = source_data[c_offset++];
+			byte b3 = source_data[c_offset++];
+			if (b0 != transparent) pixels = 1;if (b2 != transparent) pixels = 1;
+
+			if (pixels) {
+				color_bytes++;
+				pbyte1 = pbyte0;
+				pbyte0 = (b0<<6)+(b1<<4)+(b2<<2)+b3;
+				if (c_skipped_bytes) {write_skip();/*fprintf(f,"add di,%i\n",c_skipped_bytes);*/}
+				if (color_bytes == 2) {write_word((pbyte0<<8)+pbyte1);color_bytes = 0;/*fprintf(f,"mov ax,word; stosw\n");*/}
+				else        {write_pixel(pbyte0);/*fprintf(f,"mov al,byte; stosb\n");*/}
+			} else {
+				//if (color_bytes == 1){write_pixel(pbyte0);fprintf(f,"mov al,byte; stosb\n");}
+				c_skipped_bytes++;
+				color_bytes = 0;
+			}
+		}
+		////////
+		
+		if (c_skipped_bytes) {write_skip();/*fprintf(f,"add di,%i\n",c_skipped_bytes);*/}
+		//Write end line code
+		if (y<(width-1)){
+			_2_lines++;
+			if (_2_lines == 1) {
+				word b = 8192-(width/4);	// 8192 -bytes: next line
+				LT_sprite_data[c_offset1++] = 0x81;
+				LT_sprite_data[c_offset1++] = 0xC7;//add di
+				LT_sprite_data[c_offset1++] = b&0x00FF;
+				LT_sprite_data[c_offset1++] = b>>8;
+				c_code_size+=4;
+				//fprintf(f,"add di,%i\n",b);
+			} if (_2_lines == 2) {
+				word b = 8192-(80-(width/4));	//8192 -bytes -line: next bank line
+				LT_sprite_data[c_offset1++] = 0x81;
+				LT_sprite_data[c_offset1++] = 0xEF;//sub di
+				LT_sprite_data[c_offset1++] = b&0x00FF;
+				LT_sprite_data[c_offset1++] = b>>8;
+				//fprintf(f,"sub di,%i\n",b);
+				_2_lines = 0;
+				c_code_size+=4; 
+			}
+		}
+	}
+	
+	//write far ret
+	LT_sprite_data[c_offset1++] = 0xCB;
+	c_code_size++;
+	//fprintf(f,"ret\n");
+	//fclose(f);
+	return c_code_size;
+}
 
 //load sprites with transparency (size = 8,16,32)
 byte spr_line[8+64+8] = {0};
@@ -479,9 +595,9 @@ void LT_Load_Sprite(char *file, char *dat_string, int sprite_number, byte *anima
 	if (size == 16) s->ega_size = &LT_Sprite_Size_Table_EGA_16[0];
 	if (size == 32) s->ega_size = &LT_Sprite_Size_Table_EGA_32[0];
 	if (size == 64) s->ega_size = &LT_Sprite_Size_Table_EGA_64[0];
-	
+
 	index = 0; //use a chunk of temp allocated RAM to rearrange the sprite frames
-	//Rearrange sprite frames one after another in temp memory 80.974
+	//Rearrange sprite frames one after another in temp memory
 	for (tileY=(s->height-1);tileY>0;tileY-=size){
 		for (tileX=0;tileX<s->width;tileX+=size){
 			offset = (tileY*s->width)+tileX;
@@ -496,8 +612,7 @@ void LT_Load_Sprite(char *file, char *dat_string, int sprite_number, byte *anima
 			}
 		}
 	}
-	
-	
+		
 	s->nframes = (s->width/size) * (s->height/size);
 	
 	//Estimated size
@@ -505,33 +620,38 @@ void LT_Load_Sprite(char *file, char *dat_string, int sprite_number, byte *anima
 	s->code_size = 0;
 	for (frame = 0; frame < s->nframes; frame++){
 		if (LT_VIDEO_MODE == 1){
-			//if ((s->frames[frame].compiled_code = farcalloc(fsize,sizeof(unsigned char))) == NULL){
-			//	LT_Error("Not enough RAM to allocate frames ",file);
-			//}
-			//COMPILE SPRITE FRAME TO X86 MACHINE CODE
-			//& Store the compiled data at it's final destination	
-			code_size = Compile_Bitmap(LT_VRAM_Logical_Width, &LT_tile_tempdata2[(frame*2)+(frame*(size*size))],&LT_sprite_data[LT_sprite_data_offset]);
+			dword check_size = 0;
+			//Compile and store the compiled frame at LT_tile_tempdata
+			code_size = Compile_Bitmap(LT_VRAM_Logical_Width, &LT_tile_tempdata2[(frame*2)+(frame*(size*size))],LT_tile_tempdata);
+			//Check code size
+			check_size = LT_sprite_data_offset + code_size;
+			if (check_size > 0x0000FFFF) LT_Error("Not enough RAM to allocate frames $",file);
+			if (!code_size) LT_Error("ERROR $",file);
+			if (code_size > 28000) LT_Error("Sprite too complex $",file);
+			//Store compiled sprite at final location
+			memcpy(&LT_sprite_data[LT_sprite_data_offset],LT_tile_tempdata,code_size);
 			s->frames[frame].compiled_code = &LT_sprite_data[LT_sprite_data_offset];
 			LT_sprite_data_offset += code_size;
 			s->code_size += code_size;
-			if (LT_sprite_data_offset > 65536-8192) LT_Error("Not enough RAM to allocate frames $",file);
-			//if (code_size == NULL) LT_Error("Not enough RAM to allocate frames ",file);
-			//s->frames[frame].compiled_code = farrealloc(s->frames[frame].compiled_code, code_size);
-			//Store the compiled data at it's final destination
 		} 
 		if (LT_VIDEO_MODE == 0){
+			byte *colors = (byte*) &s->tga_sprite_data_offset[0];
 			byte linepos = 0;
 			byte *pixels = &LT_tile_tempdata2[frame*size*size];
+			byte bg_color = pixels[0];
 			byte block = (size>>3)+1;
+			if (bg_color) bg_color = 16;
 			s->frames[frame].compiled_code = &LT_sprite_data[LT_sprite_data_offset];
-			
+			if(frame == 0) LT_memset(colors,0,32);//Scanline colors
 			//read 8 shifted tiles
 			//if (size ==32) LT_sprite_data_offset = 16*1024;
 			for (i = 0; i < 8; i++){//Read copies
 				//Read 16x16 tile
 				offset = 0;
 				for (y = 0; y < size; y++){//Read lines
-					LT_memset(spr_line,0,64+8+8);
+					byte col = 0;
+					if (LT_SPRITE_MODE) LT_memset(spr_line,16,64+8+8);
+					else LT_memset(spr_line,bg_color,64+8+8);
 					_memcpy(&spr_line[8],&pixels[offset],size);
 					offset+=size;
 					linepos = 8-i;//Shift tile
@@ -541,20 +661,34 @@ void LT_Load_Sprite(char *file, char *dat_string, int sprite_number, byte *anima
 						byte mask = 0;
 						for (x = 0; x < 8; x++){
 							byte bit = spr_line[linepos++];//colors 1,2
-							if (bit     ) mask += cmask;
-							if (bit == 2) color += cmask;
+							if (bit != 16) mask += cmask;
+							if (bit != 0){
+								color += cmask;
+								if (bit < 16) col = bit;
+							}
 							cmask = cmask >> 1;
 						}
-						if (size != 64)LT_sprite_data[LT_sprite_data_offset++] = mask;
+						
+						if (LT_SPRITE_MODE)LT_sprite_data[LT_sprite_data_offset++] = mask;
 						LT_sprite_data[LT_sprite_data_offset++] = color;
 					}
+					if(!frame) {
+						if(colors[(size-1-y)>>1] == 0) colors[(size-1-y)>>1] = col;
+					}
 				}
-				if (LT_sprite_data_offset > 65536-8192) LT_Error("Not enough RAM to allocate frames $",file);
-			}			
+				if (LT_sprite_data_offset > 65536-2048) LT_Error("Not enough RAM to allocate frames $",file);
+			}
 		}
 		if (LT_VIDEO_MODE == 3){
 			code_size = compile_tga_sprite(size,&LT_tile_tempdata2[frame*size*size],LT_sprite_data_offset);
 			//s->frames[frame].compiled_code = &LT_sprite_data[LT_sprite_data_offset];
+			s->tga_sprite_data_offset[frame] = LT_sprite_data_offset;//leave space for sprites bkg
+			LT_sprite_data_offset += code_size;
+			s->code_size += code_size;
+			if ((LT_sprite_data_offset) > 65536-8192) LT_Error("Not enough RAM to allocate frames $",file);
+		}
+		if (LT_VIDEO_MODE == 2){
+			code_size = compile_cga_sprite(size,&LT_tile_tempdata2[frame*size*size],LT_sprite_data_offset);
 			s->tga_sprite_data_offset[frame] = LT_sprite_data_offset;//leave space for sprites bkg
 			LT_sprite_data_offset += code_size;
 			s->code_size += code_size;
@@ -594,8 +728,11 @@ void LT_Load_Sprite(char *file, char *dat_string, int sprite_number, byte *anima
 	s->mspeed_x = 1;
 	s->mspeed_y = 1;
 	s->size = s->height>>3;
-	if (!LT_VIDEO_MODE) s->siz = s->size + 1;
-	else s->siz = (s->height>>2) + 1;
+	s->siz = s->height>>2;
+	if (LT_VIDEO_MODE == 0) s->siz = s->size + 1;
+	if (LT_VIDEO_MODE == 1) s->siz = (s->height>>2) + 1;
+	if (LT_VIDEO_MODE == 2){
+	}
 	if (LT_VIDEO_MODE == 3){
 		if (size == 8) {s->size = 12>>2;s->siz = 8>>2;}
 		if (size == 16) {s->size = 20>>2;s->siz = 16>>2;}
@@ -631,7 +768,7 @@ void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
 	c->climb = 0;
 	c->animate = 0;
 	c->anim_speed = 0;
-	c->speed = 4;
+	c->speed = s->speed;
 	c->anim_counter = 0;
 	c->mspeed_x = 1;
 	c->mspeed_y = 1;
@@ -645,10 +782,13 @@ void LT_Clone_Sprite(int sprite_number_c,int sprite_number){
 	c->size = s->size;
 	c->siz = s->siz;
 	c->next_scanline = LT_VRAM_Logical_Width - c->siz;
-	if (LT_VIDEO_MODE == 3) {
+	if (LT_VIDEO_MODE > 1) {
 		int frame = 0;
 		for (frame = 0; frame < s->nframes; frame++)
 			c->tga_sprite_data_offset[frame] = s->tga_sprite_data_offset[frame];
+	}
+	if (LT_VIDEO_MODE == 0) {
+		memcpy(c->tga_sprite_data_offset,s->tga_sprite_data_offset,32);
 	}
 	c->get_item = 0;
 	c->mode = 0;
@@ -663,7 +803,7 @@ void LT_Init_Sprite(int sprite_number,int x,int y){
 	s->ai_stack = LT_Sprite_Stack;
 	s->init = 0;
 	LT_Sprite_Stack++;
-	LT_Player_Dir = 2;
+	LT_Player_Dir = 3;
 	s->jump = 1;
 	s->jump_frame = 35;
 }
@@ -693,6 +833,7 @@ void LT_Set_Sprite_Animation(int sprite_number, byte anim){
 
 void LT_Set_Sprite_Animation_Speed(int sprite_number, byte speed){
 	SPRITE *s = &sprite[sprite_number];
+	if(LT_VIDEO_MODE == 2) speed = speed>>1;//If CGA, sprites are updates at 30 fps, not 60
 	s->speed = speed;
 }
 
@@ -735,10 +876,14 @@ void run_compiled_sprite(word XPos, word YPos, char *Sprite){
 	}
 }
 
-void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset){
+//colors are odd, but this runs very fast
+void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset, char *colors){
 	//draw EGA sprite and destroy bkg
 	char *bitmap = Sprite;
 	word screen_offset = (YPos<<5)+(YPos<<3)+(YPos<<2)+(XPos>>3);
+	byte *col = colors;
+	
+	size /= 2;
 	offset+=0;
 	asm{
 		push ds
@@ -754,26 +899,70 @@ void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset)
 		mov dx,0x03CE
 		mov ax,0x0005	//write mode 0
 		out dx,ax
-		mov	dx,0x03CE	  //Set mask register
+		
+		/*
+		mov dx,0x03C4	//dx = indexregister
+		mov ax,0x0F02	//write planes
+		out dx,ax*/
+		
+		//Set logical op
+		/*mov dx,03CEh
+		mov ax,0803h	//AND op, no rotation
+		out dx,ax*/
+		
+		//Prepare mask register to receive commands from al
+		mov	dx,0x03CE	  
 		mov al,0x08
 		out	dx,al
 		inc dx
-		
-		cmp cx,8
-		jz _drawsprit_8
-		cmp cx,16
-		jz _drawsprit_16
-		cmp cx,32
-		jz _drawsprit_32
-
-		jmp _end_sprite
 	}
+	
+	asm cmp cx,4
+	asm jz _drawsprit_8
+	asm cmp cx,8
+	asm jz _drawsprit_16
+	asm cmp cx,16
+	asm jnz _skip
+	asm jmp _drawsprit_32
+	_skip:
+	asm jmp _end_sprite
+	
 	_drawsprit_8:
 	asm{
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
 		mov	al,es:[di]	//Get 8 pixels latch from vram position
 		lodsb			//al <- ds:[si]	//Get sprite mask; inc si     		
 		out	dx,al		//Set mask
 		movsb			//Paste sprite data DS:SI to ES:DI; inc di
+		
+		mov	al,es:[di]
+		lodsb
+		out	dx,al
+		movsb
+		
+		add di,44-2		//Next scanline
+		
+		
+		mov	al,es:[di]
+		lodsb		
+		out	dx,al
+		movsb
 		
 		mov	al,es:[di]
 		lodsb
@@ -789,19 +978,55 @@ void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset)
 	
 	_drawsprit_16:
 	asm{
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
+		//Copy sprite
 		mov	al,es:[di]	//Get 8 pixels latch from vram position
-		lodsb			//al <- ds:[si]	//Get sprite mask; inc si     		
-		out	dx,al		//Set mask
-		movsb			//Paste sprite data DS:SI to ES:DI; inc di
+		lodsb			//al <- ds:[si]	//Get sprite mask; inc si
+		out dx,al		//Set mask
+		movsb			//combine mask with latch, and write sprite data, from ram DS:SI to vram ES:DI; inc si; inc di
 		
 		mov	al,es:[di]
 		lodsb
-		out	dx,al
+		out dx,al
 		movsb
 		
 		mov	al,es:[di]
 		lodsb
-		out	dx,al
+		out dx,al
+		movsb
+		
+		add di,44-3				//Next scanline
+		
+		
+		mov	al,es:[di]
+		lodsb
+		out dx,al
+		movsb
+		
+		mov	al,es:[di]
+		lodsb
+		out dx,al
+		movsb
+		
+		mov	al,es:[di]
+		lodsb
+		out dx,al
 		movsb
 		
 		add di,44-3				//Next scanline
@@ -813,6 +1038,23 @@ void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset)
 	
 	_drawsprit_32:
 	asm{
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
 		mov	al,es:[di]	//Get 8 pixels latch from vram position
 		lodsb			//al <- ds:[si]	//Get sprite mask; inc si     		
 		out	dx,al		//Set mask
@@ -840,9 +1082,37 @@ void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset)
 		
 		add di,44-5				//Next scanline
 		
-		loop	_drawsprit_32
 		
-		jmp _end_sprite
+		mov	al,es:[di]
+		lodsb				
+		out	dx,al	
+		movsb		
+		
+		mov	al,es:[di]
+		lodsb
+		out	dx,al
+		movsb
+		
+		mov	al,es:[di]
+		lodsb
+		out	dx,al
+		movsb
+		
+		mov	al,es:[di]
+		lodsb
+		out	dx,al
+		movsb
+		
+		mov	al,es:[di]
+		lodsb
+		out	dx,al
+		movsb
+		
+		add di,44-5				//Next scanline
+		
+		dec cx
+		jz 	_end_sprite
+		jmp _drawsprit_32
 	}
 	
 	_end_sprite:
@@ -850,13 +1120,22 @@ void draw_ega_sprite(word XPos, word YPos, char *Sprite, word size, word offset)
 		pop si
 		pop di
 		pop ds
+		
+		
+		//reset logical op
+		/*mov dx,03CEh
+		mov ax,0003h	//NONE
+		out dx,ax*/
 	}
 }
 
-void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size){
+void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size, char *colors){
 	//draw EGA sprite and destroy bkg
 	char *bitmap = Sprite;
 	word screen_offset = (YPos<<5)+(YPos<<3)+(YPos<<2)+(XPos>>3);
+	byte *col = colors;
+	
+	size /= 2;
 	asm{
 		push ds
 		push di
@@ -875,26 +1154,51 @@ void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size){
 		mov al,0x08
 		out	dx,al
 		inc dx
-		
-		cmp cx,8
-		jz _drawsprit_8
-		cmp cx,16
-		jz _drawsprit_16
-		cmp cx,32
-		jz _drawsprit_32
-		cmp cx,64
-		jz _drawsprit_64
-
-		jmp _end_sprite
 	}
-
+	
+	asm cmp cx,4
+	asm jz _drawsprit_8
+	
+	asm cmp cx,8
+	asm jnz _skip0
+	asm jmp _drawsprit_16
+	
+	_skip0:
+	asm cmp cx,16
+	asm jnz _skip1
+	asm jmp _drawsprit_32
+	
+	_skip1:
+	asm cmp cx,32
+	asm jnz _skip2
+	asm jmp _drawsprit_64
+	
+	_skip2:
+	asm jmp _end_sprite
+	
 	_drawsprit_8:
 	asm{
-		inc si
-		movsb			//Paste sprite data DS:SI to ES:DI; inc di
-		inc si
-		movsb
-
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
+		movsb; movsb	//Paste sprite data DS:SI to ES:DI; inc di
+		add di,44-2		//Next scanline
+		
+		movsb; movsb			//Paste sprite data DS:SI to ES:DI; inc di
 		add di,44-2				//Next scanline
 		
 		loop	_drawsprit_8
@@ -904,13 +1208,48 @@ void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size){
 	
 	_drawsprit_16:
 	asm{
-		inc si
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
 		movsb			//Paste sprite data DS:SI to ES:DI; inc di
-		inc si
 		movsb
-		inc si
 		movsb
-
+		add di,44-3				//Next scanline
+		
+		movsb			//Paste sprite data DS:SI to ES:DI; inc di
+		movsb
+		movsb
 		add di,44-3				//Next scanline
 		
 		loop	_drawsprit_16
@@ -919,15 +1258,35 @@ void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size){
 	
 	_drawsprit_32:
 	asm{
-		inc si
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
 		movsb			//Paste sprite data DS:SI to ES:DI; inc di
-		inc si
 		movsb
-		inc si
 		movsb
-		inc si
 		movsb
-		inc si
+		movsb
+
+		add di,44-5				//Next scanline
+		
+		movsb			//Paste sprite data DS:SI to ES:DI; inc di
+		movsb
+		movsb
+		movsb
 		movsb
 
 		add di,44-5				//Next scanline
@@ -937,7 +1296,50 @@ void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size){
 	}
 	
 	_drawsprit_64:
-	asm mov ax,16
+	asm {
+		//get color
+		les	bx,col
+		add	bx,cx
+		mov ah,es:[bx-1]
+		//Set/reset register
+		dec dx
+		xor al,al
+		out dx,ax		//color + 00: set reset reg
+		inc al; not ah
+		out dx,ax		//color inv + 01: enable set reset
+		//set regs for vram write
+		mov al,0x08
+		out	dx,al
+		inc dx
+		mov	ax,0A000h
+		mov	es,ax
+		
+		movsb			//Paste sprite data DS:SI to ES:DI; inc di
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		add di,44-9				//Next scanline
+		
+		movsb			//Paste sprite data DS:SI to ES:DI; inc di
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		movsb
+		add di,44-9				//Next scanline
+		
+		loop	_drawsprit_64
+	}
+	
+	/*asm mov ax,16
 	_loop64:
 	asm{
 		mov cx,9
@@ -955,7 +1357,7 @@ void draw_ega_sprite_fast(word XPos, word YPos, char *Sprite, word size){
 		
 		dec ax
 		jnz _loop64
-	}
+	}*/
 	
 	_end_sprite:
 	asm{
@@ -969,9 +1371,8 @@ void run_compiled_tga_sprite(word XPos, word YPos, char *Sprite){
 	word y = (YPos>>2);
 	word screen_offset = (y<<7)+(y<<5)+(XPos>>1);
 	asm{
-		push ds
-		push di
 		push si
+		push ds
 
 		mov 	ax,0B800h
 		mov 	es,ax						
@@ -983,12 +1384,73 @@ void run_compiled_tga_sprite(word XPos, word YPos, char *Sprite){
 		mov		bx,YPos
 		call dword ptr [Sprite] //the business end of the routine
 		
-		pop si
-		pop di
 		pop ds
+		pop si
 	}
 
 }
+
+void run_compiled_cga_sprite(word XPos, word YPos, char *Sprite){
+	word s_offset;
+	XPos = XPos>>2; YPos = YPos>>1;
+	YPos = (YPos<<6) + (YPos<<4);
+	s_offset = YPos+XPos;
+	//Sprite = &SPR[0];
+	asm{
+		push si
+		push ds
+		
+		
+		mov 	ax,0B800h
+		mov 	es,ax
+		mov		di,s_offset			//es:di SCREEN
+		
+		mov		bx,YPos
+		call dword ptr [Sprite]		//the business end of the routine
+		/*
+		
+		and	di,8191; //fix offset
+		add	di,8192-0//draw line (empty, jump line)
+		inc	di; mov ax,0x0000; stosw; inc di; //Draw line
+		sub di,8192-76;//jump line
+		
+		and		di,8191;//Fix offset
+		mov ax,0x1F80; stosw; mov ax,0x0214; stosw;  //Draw line
+		add	di,8192-4;		//jump bank-bytes
+		mov ax,0x9F0A; stosw; mov ax,0x5015; stosw;  //Draw line
+		sub di,8192-(80-4);	//jump bank-bytes-line
+		
+		and		di,8191;
+		mov ax,0x5F22; stosw; mov ax,0x5415; stosw; add di,8192-4;
+		mov ax,0x9F0A; stosw; mov ax,0x54C5; stosw; sub di,8192-76;
+		
+		and		di,8191;
+		mov ax,0x5F22; stosw; mov ax,0x54A1; stosw; add di,8192-4;
+		mov ax,0x9F0A; stosw; mov ax,0x00E8; stosw; sub di,8192-76;
+		
+		and		di,8191;
+		mov ax,0x5F22; stosw; mov ax,0x80AA; stosw; add di,8192-4;
+		mov ax,0x9F0A; stosw; mov ax,0xD8EA; stosw; sub di,8192-76;
+		
+		and		di,8191;
+		mov ax,0x5F22; stosw; mov ax,0xA0AA; stosw; add di,8192-4;
+		mov ax,0x9F0A; stosw; mov ax,0x88EA; stosw; sub di,8192-76;
+		
+		and		di,8191;
+		mov ax,0x0080; stosw; mov ax,0x0200; stosw; add di,8192-4;
+		mov ax,0x5401; stosw; mov ax,0x5005; stosw; sub di,8192-76;
+		
+		and		di,8191;
+		mov ax,0x5505; stosw; mov ax,0x5415; stosw; add di,8192-4;
+		mov ax,0x0000; stosw; mov ax,0x0000; stosw;
+		*/
+		
+		pop ds
+		pop si
+		
+	}
+}
+
 
 int LT_Sprite_Stack_Table_Pos0 = 0;
 extern word pageflip[];
@@ -1140,7 +1602,7 @@ void LT_Draw_Sprites_EGA_VGA(){
 	if (LT_EGA_SPRITES_TRANSLUCENT){
 		asm mov dx,03C4h	//dx = indexregister
 		asm mov ax,0702h	//INDEX = MASK MAP, 
-		asm out dx,ax 		//write plane 1.
+		asm out dx,ax 		//write planes 1, 2, 3.
 	}
 	//AT LEAST, DRAW SPRITES
 	for (sprite_number = 0; sprite_number < LT_Sprite_Stack; sprite_number++){	
@@ -1169,7 +1631,7 @@ void LT_Draw_Sprites_EGA_VGA(){
 			if (s->s_delete != 2){
 				if (LT_VIDEO_MODE == 0){
 					word panning = s->ega_size[x&7];
-					draw_ega_sprite(x,y+page_y,s->frames[s->frame].compiled_code+panning,s->width,screen_offset1);
+					draw_ega_sprite(x,y+page_y,s->frames[s->frame].compiled_code+panning,s->width,screen_offset1,(byte*)s->tga_sprite_data_offset);
 				} 
 				if (LT_VIDEO_MODE == 1){
 					run_compiled_sprite(x,y+page_y,s->frames[s->frame].compiled_code);
@@ -1221,7 +1683,7 @@ void LT_Draw_Sprites_Fast_EGA_VGA(){
 		int x = s->pos_x;
 		int y = s->pos_y+pageflip[gfx_draw_page&1];
 		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((x > SCR_X)&&(x < (SCR_X+304))&&(s->pos_y > SCR_Y)&&(s->pos_y < (SCR_Y+224))){
+		if ((x+8 > SCR_X)&&(x-8 < (SCR_X+320-s->width))&&(s->pos_y+8 >= SCR_Y)&&(s->pos_y-8 < (SCR_Y+200-s->width))){
 			
 			//animation
 			if (s->animate == 1){
@@ -1236,8 +1698,10 @@ void LT_Draw_Sprites_Fast_EGA_VGA(){
 			
 			//draw sprite and destroy bkg
 			if (LT_VIDEO_MODE == 0){
-				word panning = s->ega_size[x&7];
-				draw_ega_sprite_fast(x,y,s->frames[s->frame].compiled_code+panning,s->width);
+				word panning = 0;
+				if(s->width == 64) panning = s->ega_size[x&7];
+				else panning = s->ega_size[x&7]>>1;//Sprite size is half, no mask used
+				draw_ega_sprite_fast(x,y,s->frames[s->frame].compiled_code+panning,s->width,(byte*)s->tga_sprite_data_offset);
 			}
 			if (LT_VIDEO_MODE == 1){
 				run_compiled_sprite(x,y,s->frames[s->frame].compiled_code);
@@ -1273,8 +1737,11 @@ void LT_Draw_Sprites_Fast_EGA_VGA(){
 
 extern int TGA_SCR_X;
 extern int TGA_SCR_Y;
+extern int TANDY_SCROLL_X;
+extern int TANDY_SCROLL_Y;
 void LT_Draw_Sprites_Tandy(){
 	int sprite_number;
+	
 	LT_TGA_MapPage(tga_page+1);
 	//RESTORE SPRITE BKG
 	for (sprite_number = 0; sprite_number < LT_Sprite_Stack; sprite_number++){	
@@ -1284,7 +1751,7 @@ void LT_Draw_Sprites_Tandy(){
 		int lx = s->last_last_x>>1;
 		int ly = s->last_last_y>>2;
 		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((x > TGA_SCR_X)&&(x < (TGA_SCR_X+304))&&(y>TGA_SCR_Y)&&(y<(TGA_SCR_Y+180))){
+		if ((x > TGA_SCR_X)&&(x < (TGA_SCR_X+304))&&(y>TGA_SCR_Y)&&(y<(TGA_SCR_Y+174))){
 		if (s->init == 2){
 		word boffset = tandy_sprite_bkg_table[LT_Sprite_Stack_Table[sprite_number]];
 		byte *bkg_data = &tandy_bkg_data[boffset];
@@ -1339,6 +1806,7 @@ void LT_Draw_Sprites_Tandy(){
 	for (sprite_number = 0; sprite_number < LT_Sprite_Stack; sprite_number++){	
 		SPRITE *s = &sprite[LT_Sprite_Stack_Table[sprite_number]];
 		int x = s->pos_x;
+		int y = s->pos_y;
 		int lx = s->last_x>>1;
 		int ly = s->last_y>>2;
 		
@@ -1348,7 +1816,7 @@ void LT_Draw_Sprites_Tandy(){
 			s->get_item = 0;
 		}
 		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((x > TGA_SCR_X+4)&&(x < (TGA_SCR_X+304-4))){
+		if ((x > TGA_SCR_X)&&(x < (TGA_SCR_X+304))&&(y>TGA_SCR_Y)&&(y<(TGA_SCR_Y+174))){
 			word boffset = tandy_sprite_bkg_table[LT_Sprite_Stack_Table[sprite_number]];
 			byte *bkg_data = &tandy_bkg_data[boffset];
 			word screen_offset1;
@@ -1411,7 +1879,7 @@ void LT_Draw_Sprites_Tandy(){
 			s->get_item = 0;
 		}
 		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
-		if ((x > TGA_SCR_X+12)&&(x < (TGA_SCR_X+290))){
+		if ((x > TGA_SCR_X+12)&&(x < (TGA_SCR_X+290))&&(y>TGA_SCR_Y+16)&&(y<(TGA_SCR_Y+168))){
 			//animation
 			if (s->animate == 1){
 				s->frame = s->animations[s->anim_counter];
@@ -1424,7 +1892,7 @@ void LT_Draw_Sprites_Tandy(){
 			}
 			//draw sprite and destroy bkg
 			if (s->s_delete != 2){
-				if((y>(TGA_SCR_Y+8))&&(y<(TGA_SCR_Y+184)))run_compiled_tga_sprite(x,y,&LT_sprite_data[s->tga_sprite_data_offset[s->frame]]);
+				run_compiled_tga_sprite(x,y,&LT_sprite_data[s->tga_sprite_data_offset[s->frame]]);
 			} else s->s_delete = 0;
 			s->last_x = x;
 			s->last_y = y;
@@ -1436,13 +1904,14 @@ void LT_Draw_Sprites_Tandy(){
 			}
 		}
 		if (sprite_number){//remove from stack
-			if ((x < (TGA_SCR_X-60))||(x > TGA_SCR_X+370)){
+			if ((x < (TGA_SCR_X-60))||(x > (TGA_SCR_X+370))){
 				int spr = LT_Sprite_Stack_Table[sprite_number];
 				LT_Active_AI_Sprites[s->fixed_sprite_number] = spr; 
 				if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
 				_memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
 				sprite_id_table[s->id_pos] = 0;
 				s->id_pos = 0;
+				s->init = 0;
 			}
 		}
 		s->last_x = x;
@@ -1454,23 +1923,341 @@ void LT_Draw_Sprites_Tandy(){
 void LT_Draw_Sprites_Fast_Tandy(){
 	int sprite_number;
 	LT_TGA_MapPage(tga_page+1);
-	for (sprite_number = LT_Sprite_Stack; sprite_number > -1; sprite_number--){	
+	for (sprite_number = 0; sprite_number < LT_Sprite_Stack; sprite_number++){	
 		SPRITE *s = &sprite[LT_Sprite_Stack_Table[sprite_number]];
 		int x = s->pos_x;
 		int y = s->pos_y;
-		//animation
-		if (s->animate == 1){
-			s->frame = s->animations[s->anim_counter];
-			if (s->anim_speed > s->speed){
-				s->anim_speed = 0;
-				s->anim_counter++;
-				if (s->anim_counter == s->baseframe+8) s->anim_counter = s->baseframe;
+		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
+		if ((x+8 > TGA_SCR_X)&&(x-8 < (TGA_SCR_X+320-s->width))&&(s->pos_y+8 >= TGA_SCR_Y)&&(s->pos_y-8 < (TGA_SCR_Y+200-s->width))){
+			//animation
+			if (s->animate == 1){
+				s->frame = s->animations[s->anim_counter];
+				if (s->anim_speed > s->speed){
+					s->anim_speed = 0;
+					s->anim_counter++;
+					if (s->anim_counter == s->baseframe+8) s->anim_counter = s->baseframe;
+				}
+				s->anim_speed++;
 			}
-			s->anim_speed++;
+			//draw sprite and destroy bkg
+			if (s->s_delete != 2){
+				run_compiled_tga_sprite(x,y,&LT_sprite_data[s->tga_sprite_data_offset[s->frame]]);
+			} else s->s_delete = 0;
+			s->last_x = x;
+			s->last_y = y;
+			s->s_delete = 1;
+		} else {
+			if (s->s_delete == 1) {
+				s->s_delete = 2;
+			}
 		}
-		run_compiled_tga_sprite(x,y,&LT_sprite_data[s->tga_sprite_data_offset[s->frame]]);
+		if (sprite_number){//remove from stack
+			if ((x < (TGA_SCR_X-60))||(x > (TGA_SCR_X+370))){
+				int spr = LT_Sprite_Stack_Table[sprite_number];
+				LT_Active_AI_Sprites[s->fixed_sprite_number] = spr; 
+				if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
+				_memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
+				sprite_id_table[s->id_pos] = 0;
+				s->id_pos = 0;
+				s->init = 0;
+			}
+		}
+		s->last_x = x;
+		s->last_y = y;
 	}
 }
+
+void LT_Draw_Sprites_CGA(){
+	int sprite_number;
+	//RESTORE SPRITE BKG
+	for (sprite_number = 0; sprite_number < LT_Sprite_Stack; sprite_number++){	
+		SPRITE *s = &sprite[LT_Sprite_Stack_Table[sprite_number]];
+		int x = s->pos_x;
+		int y = s->pos_y;
+		int lx = s->last_x;
+		int ly = s->last_y;
+		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
+		if ((x > TGA_SCR_X+8)&&(x < (TGA_SCR_X+312))&&(y>TGA_SCR_Y+8)&&(y<(TGA_SCR_Y+192))){
+		if (s->init){
+		word boffset = tandy_sprite_bkg_table[LT_Sprite_Stack_Table[sprite_number]];
+		byte *bkg_data = &tandy_bkg_data[boffset];
+		word screen_offset;
+		word next_bank = 8192 - (80 - s->siz);
+		word next_scanline = 8192 - s->siz;
+		word size = s->size;
+		
+		//Clean BKG
+		lx = lx>>2; ly = ly>>1;
+		ly = (ly<<6) + (ly<<4);
+		screen_offset = ly+lx; 
+		asm{//Paste BKG
+			push ax
+			push ds
+			push si
+			
+			mov 	ax,0B800h
+			mov 	es,ax
+			mov		di,screen_offset	//es:di SCREEN
+			lds		si,[bkg_data]		//ds:si Sprite bkg
+			
+			mov		cx,size
+			mov 	ax,8191
+			mov 	bx,next_scanline
+		}
+		
+		asm cmp cx,1
+		asm jz paste_bkg_8
+		
+		asm cmp cx,2
+		asm jnz _skip0
+		asm jmp paste_bkg_16
+		
+		_skip0:
+		asm cmp cx,4
+		asm jnz _skip1
+		asm jmp paste_bkg_32
+		
+		_skip1:
+		asm jmp _end_sprite_CGA0
+		
+		paste_bkg_8:
+		asm{
+			mov cx,next_bank
+			and	di,ax; movsw; add di,bx; movsw; sub di,cx;
+			and	di,ax; movsw; add di,bx; movsw; sub di,cx;
+			and	di,ax; movsw; add di,bx; movsw; sub di,cx;
+			and	di,ax; movsw; add di,bx; movsw; sub di,cx;
+			
+			jmp	_end_sprite_CGA0
+		}
+		
+		paste_bkg_16:
+		asm{	
+			mov cx,next_bank
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			and	di,ax; movsw; movsw; add di,bx; movsw; movsw; sub di,cx;
+			
+			jmp _end_sprite_CGA0
+		}
+		
+		paste_bkg_32:
+		asm{	
+			mov cx,next_bank
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+			and	di,ax; movsw;movsw;movsw;movsw; add	di,bx; movsw;movsw;movsw;movsw; sub di,cx;
+		}
+		
+		_end_sprite_CGA0:
+		asm{
+			pop es
+			pop ds
+			pop si
+		}	
+		
+		}
+		}
+
+		//GOT ITEM? REPLACE BKG BEFORE DRAWING NEXT SPRITE FRAME
+		if (s->get_item == 1){
+			LT_Edit_MapTile(s->tile_x,s->tile_y,s->ntile_item, s->col_item);
+			s->get_item = 0;
+		}
+		if ((x > TGA_SCR_X+8)&&(x < (TGA_SCR_X+312))&&(y>TGA_SCR_Y+8)&&(y<(TGA_SCR_Y+192))){
+			word boffset = tandy_sprite_bkg_table[LT_Sprite_Stack_Table[sprite_number]];
+			byte *bkg_data = &tandy_bkg_data[boffset];
+			word next_bank = 8192 - (80 - s->siz);
+			word next_scanline = 8192 - s->siz;
+			word size = s->size;
+			word screen_offset;
+			//Copy BKG
+			x = x>>2; y = y>>1;
+			y = (y<<6) + (y<<4);
+			screen_offset = y+x; 
+			//Copy bkg chunk to a reserved VRAM part, before destroying it
+			asm{//Copy BKG
+				push ax
+				push ds
+				push si
+				
+				mov 	ax,0B800h
+				mov 	ds,ax
+				mov		si,screen_offset			//ds:si SCREEN
+				les		di,[bkg_data]		//es:di Sprite bkg
+				
+				mov		cx,size
+				mov 	ax,8191
+				mov		bx,next_scanline
+			}
+			asm cmp cx,1
+			asm jz copy_bkg_8
+			
+			asm cmp cx,2
+			asm jnz _skip2
+			asm jmp copy_bkg_16
+			
+			_skip2:
+			asm cmp cx,4
+			asm jnz _skip3
+			asm jmp copy_bkg_32
+			
+			_skip3:
+			asm jmp _end_sprite_CGA1
+			
+			copy_bkg_8:
+			asm{	
+				mov cx,next_bank
+				and	si,ax; movsw; add si,bx; movsw; sub si,cx;
+				and	si,ax; movsw; add si,bx; movsw; sub si,cx;
+				and	si,ax; movsw; add si,bx; movsw; sub si,cx;
+				and	si,ax; movsw; add si,bx; movsw; sub si,cx;
+				
+				jmp	_end_sprite_CGA1
+			}
+			
+			copy_bkg_16:
+			asm{
+				mov cx,next_bank
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				and	si,ax; movsw; movsw; add si,bx; movsw; movsw; sub si,cx;
+				
+				jmp _end_sprite_CGA1
+			}
+			
+			copy_bkg_32:
+			asm{
+				mov cx,next_bank
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+				and	si,ax; movsw;movsw;movsw;movsw; add	si,bx; movsw;movsw;movsw;movsw; sub si,cx;
+			}
+			_end_sprite_CGA1:
+			asm{
+				pop es
+				pop ds
+				pop si
+			}
+		}
+		
+		//DRAW
+		x = s->pos_x;
+		y = s->pos_y;
+		
+		
+		//GOT ITEM? REPLACE BKG BEFORE DRAWING NEXT SPRITE FRAME
+		/*if (s->get_item == 1){
+			LT_Edit_MapTile(s->tile_x,s->tile_y,s->ntile_item, s->col_item);
+			s->get_item = 0;
+		}*/
+		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
+		if ((x > TGA_SCR_X+16)&&(x < (TGA_SCR_X+303))&&(y>TGA_SCR_Y+16)&&(y<(TGA_SCR_Y+183))){
+			//animation
+			if (s->animate == 1){
+				s->frame = s->animations[s->anim_counter];
+				if (s->anim_speed > s->speed){
+					s->anim_speed = 0;
+					s->anim_counter++;
+					if (s->anim_counter == s->baseframe+8) s->anim_counter = s->baseframe;
+				}
+				s->anim_speed++;
+			}
+			//draw sprite and destroy bkg
+			run_compiled_cga_sprite(x,y,&LT_sprite_data[s->tga_sprite_data_offset[s->frame]]);
+			s->last_x = x;
+			s->last_y = y;
+			s->init = 1;
+		} else {
+			s->init = 0;
+		}
+		if (sprite_number){//remove from stack
+			if ((x < (TGA_SCR_X-60))||(x > (TGA_SCR_X+370))){
+				int spr = LT_Sprite_Stack_Table[sprite_number];
+				LT_Active_AI_Sprites[s->fixed_sprite_number] = spr; 
+				if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
+				_memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
+				sprite_id_table[s->id_pos] = 0;
+				s->id_pos = 0;
+				s->init = 0;
+			}
+		}
+		s->last_x = x;
+		s->last_y = y;
+	}
+}
+
+void LT_Draw_Sprites_Fast_CGA(){
+	int sprite_number;
+	for (sprite_number = 0; sprite_number < LT_Sprite_Stack; sprite_number++){
+		SPRITE *s = &sprite[LT_Sprite_Stack_Table[sprite_number]];
+		int x = s->pos_x;
+		int y = s->pos_y;
+		//DRAW THE SPRITE ONLY IF IT IS INSIDE THE ACTIVE MAP
+		if ((x+8 > TGA_SCR_X)&&(x-8 < (TGA_SCR_X+320-s->width))&&(s->pos_y+8 >= TGA_SCR_Y)&&(s->pos_y-8 < (TGA_SCR_Y+200-s->width))){
+			//animation
+			if (s->animate == 1){
+				s->frame = s->animations[s->anim_counter];
+				if (s->anim_speed > s->speed){
+					s->anim_speed = 0;
+					s->anim_counter++;
+					if (s->anim_counter == s->baseframe+8) s->anim_counter = s->baseframe;
+				}
+				s->anim_speed++;
+			}
+			//draw sprite and destroy bkg
+			run_compiled_cga_sprite(x,y,&LT_sprite_data[s->tga_sprite_data_offset[s->frame]]);
+		} 
+		if (sprite_number){//remove from stack
+			if ((x < (TGA_SCR_X-60))||(x > (TGA_SCR_X+370))){
+				int spr = LT_Sprite_Stack_Table[sprite_number];
+				LT_Active_AI_Sprites[s->fixed_sprite_number] = spr; 
+				if (LT_Sprite_Stack>1) LT_Sprite_Stack--;
+				_memcpy(&LT_Sprite_Stack_Table[sprite_number],&LT_Sprite_Stack_Table[sprite_number+1],8);
+				sprite_id_table[s->id_pos] = 0;
+				s->id_pos = 0;
+				s->init = 0;
+			}
+		}
+	}
+}
+
 
 void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int sy, word id_pos){
 	//int i = 0;
@@ -1484,6 +2271,7 @@ void LT_Set_AI_Sprite(byte sprite_number, byte mode, word x, word y, int sx, int
 	s->mode = mode;
 	s->ai_stack = LT_Sprite_Stack;
 	s->id_pos = id_pos;
+	s->init = 0;
 }
 
 void LT_Set_AI_Sprites(byte first_type, byte second_type, byte mode_0, byte mode_1){
@@ -1520,26 +2308,26 @@ void LT_move_player(int sprite_number){
 	byte size = s->width;
 	byte siz = s->width -1;
 	byte si = s->width>>1;
-/*
-#define SPR_TILP_NUM 0;	
-#define SPR_TILC_NUM 1;	
-#define SPR_COL_X	 2;
-#define SPR_COL_Y	 3;
-#define SPR_HIT		 4;
-#define SPR_JUMP	 5;
-#define SPR_ACT		 6;
-#define SPR_MOVE	 7;	//0 1 2 3 4 => Stop U D L R 
-#define SPR_GND		 8;
-*/
-
+	/*
+	#define SPR_TILP_NUM 0;	
+	#define SPR_TILC_NUM 1;	
+	#define SPR_COL_X	 2;
+	#define SPR_COL_Y	 3;
+	#define SPR_HIT		 4;
+	#define SPR_JUMP	 5;
+	#define SPR_ACT		 6;
+	#define SPR_MOVE	 7;	//0 1 2 3 4 => Stop U D L R 
+	#define SPR_GND		 8;
+	*/
 
 	int last_dir;
+	if (TANDY_SCROLL_X || TANDY_SCROLL_Y) return;
 	//GET TILE POS
 	if (LT_VIDEO_MODE == 0) tilememsize = 5;
 	if (LT_VIDEO_MODE == 1) tilememsize = 6;
 	s->tile_x = (s->pos_x+si)>>tsize;
 	s->tile_y = (s->pos_y+si)>>tsize;
-	if (LT_VIDEO_MODE == 3) tile_number = (LT_map_data[(s->tile_y << 10) + (s->tile_x<<1)])>>2;
+	if (LT_VIDEO_MODE > 1) tile_number = (LT_map_data[(s->tile_y << 10) + (s->tile_x<<1)])>>2;
 	else tile_number = (LT_map_data[(s->tile_y << 8) + s->tile_x]-TILE_VRAM)>>tilememsize;
 	tilecol_number = LT_map_collision[(((s->pos_y+si)>>tsize) <<8) + ((s->pos_x+si)>>tsize)];
 	tilecol_number_down = LT_map_collision[(((s->pos_y+size+1)>>tsize) <<8) + ((s->pos_x+si)>>tsize)];
@@ -1563,7 +2351,7 @@ void LT_move_player(int sprite_number){
 			if (col_y == 0) s->pos_y--;
 		} else if (LT_Keys[LT_DOWN]){//DOWN
 			LT_Player_State[SPR_MOVE] = 2;
-			LT_Player_Dir = 0;
+			LT_Player_Dir = 1;
 			col_y = 0;
 			y = (s->pos_y+size-2)>>tsize;
 			tile_number_VR = LT_map_collision[( y <<8) + ((s->pos_x+siz-2)>>tsize)];
@@ -1575,7 +2363,7 @@ void LT_move_player(int sprite_number){
 		
 		if (LT_Keys[LT_LEFT]){	//LEFT
 			LT_Player_State[SPR_MOVE] = 3;
-			LT_Player_Dir = 1;
+			LT_Player_Dir = 2;
 			s->state = 3;
 			col_x = 0;
 			x = (s->pos_x+1)>>tsize;
@@ -1586,7 +2374,7 @@ void LT_move_player(int sprite_number){
 			if (col_x == 0) s->pos_x--;
 		} else if (LT_Keys[LT_RIGHT]){	//RIGHT
 			LT_Player_State[SPR_MOVE] = 4;
-			LT_Player_Dir = 2;
+			LT_Player_Dir = 3;
 			s->state = 4;
 			col_x = 0;
 			x = (s->pos_x+size-2)>>tsize;
@@ -1655,6 +2443,7 @@ void LT_move_player(int sprite_number){
 				s->jump = 2;
 				s->climb = 1;
 				col_y = 0;
+				s->pos_x = ((s->pos_x+si)>>tsize)<<tsize;
 				y = (s->pos_y-1)>>tsize;
 				tile_number_VR = LT_map_collision[( y <<8) + ((s->pos_x+siz-2)>>tsize)];
 				tile_number_VL = LT_map_collision[( y <<8) + ((s->pos_x+2)>>tsize)];
@@ -1666,12 +2455,13 @@ void LT_move_player(int sprite_number){
 			}
 		}else if(LT_Keys[LT_DOWN]){//CLIMB DOWN
 			if ((tilecol_number == 3) || (tilecol_number == 4) || (tilecol_number_down == 3)){
-				LT_Player_Dir = 0;
+				LT_Player_Dir = 1;
 				LT_Player_State[SPR_MOVE] = 1;
 				s->jump = 2;
 				s->ground = 1;
 				s->climb = 1;
 				col_y = 0;
+				s->pos_x = ((s->pos_x+si)>>tsize)<<tsize;
 				y = (s->pos_y+size)>>tsize;
 				tile_number_VR = LT_map_collision[( y <<8) + ((s->pos_x+siz-2)>>tsize)];
 				tile_number_VL = LT_map_collision[( y <<8) + ((s->pos_x+2)>>tsize)];
@@ -1693,11 +2483,11 @@ void LT_move_player(int sprite_number){
 				//LT_Player_Dir = 0;
 				//LT_Player_State[SPR_MOVE] = 2;
 			}
-			if (!LT_Keys[LT_JUMP]) LT_Jump_Release = 1;
+			//if (!LT_Keys[LT_JUMP]) LT_Jump_Release = 1;//THIS WAS OK but failed sometimes
 		}
-		
+		if (!LT_Keys[LT_JUMP] && s->ground) LT_Jump_Release = 1;
 		if (LT_Keys[LT_LEFT]){	//LEFT
-			LT_Player_Dir = 1;
+			LT_Player_Dir = 2;
 			if (s->ground) LT_Player_State[SPR_MOVE] = 3;
 			if (s->climb) {LT_Player_State[SPR_MOVE] = 1; LT_Player_Dir = 0;}
 			s->state = 3;
@@ -1709,7 +2499,7 @@ void LT_move_player(int sprite_number){
 			if ((tile_number_HD == 1) || (tile_number_HD == 5)) col_x = tile_number_HD;
 			if (col_x == 0) s->pos_x--;
 		} else if (LT_Keys[LT_RIGHT]){	//RIGHT
-			LT_Player_Dir = 2;
+			LT_Player_Dir = 3;
 			if (s->ground) LT_Player_State[SPR_MOVE] = 4;
 			if (s->climb) {LT_Player_State[SPR_MOVE] = 1; LT_Player_Dir = 0;}
 			s->state = 4;
@@ -1868,19 +2658,20 @@ void LT_move_player(int sprite_number){
 			case LT_SPR_LEFT: LT_Set_Sprite_Animation(sprite_number,2); break;
 			case LT_SPR_RIGHT: LT_Set_Sprite_Animation(sprite_number,3); break;
 			case LT_SPR_STOP:
-				if (LT_Player_Dir == 0) {
-					if (s->frame > 17 ) s->frame = s->animations[ 8];
-					else                s->frame = s->animations[ 0];
+				if (LT_Player_Dir == 0) s->frame = s->animations[ 0];
+				if (LT_Player_Dir == 1) {
+					if (!s->climb) s->frame = s->animations[ 8];
+					else s->frame = s->animations[ 0];
 				}
-				if (LT_Player_Dir == 1) s->frame = s->animations[16];
-				if (LT_Player_Dir == 2) s->frame = s->animations[24];
+				if (LT_Player_Dir == 2) s->frame = s->animations[16];
+				if (LT_Player_Dir == 3) s->frame = s->animations[24];
 				LT_Sprite_Stop_Animation(sprite_number);
 			break;
 		}
 	} else {
 		switch (LT_Player_Dir){
-			case 1: LT_Set_Sprite_Animation(sprite_number,4); break;
-			case 2: LT_Set_Sprite_Animation(sprite_number,5); break;
+			case 2: LT_Set_Sprite_Animation(sprite_number,4); break;
+			case 3: LT_Set_Sprite_Animation(sprite_number,5); break;
 		}
 	}
 }
@@ -1891,7 +2682,7 @@ void LT_Update_AI_Sprites(){
 	int motion = 0;
 	int SCX = SCR_X;
 	if (LT_AI_Enabled){
-	if (LT_VIDEO_MODE == 3) SCX = TGA_SCR_X;
+	if (LT_VIDEO_MODE > 1) SCX = TGA_SCR_X;
 	//for (sprite_number = LT_Sprite_Stack; sprite_number > 1; sprite_number--){
 	for (i = 1; i < LT_Sprite_Stack; i++){
 		SPRITE *s = &sprite[LT_Sprite_Stack_Table[i]];
@@ -2033,7 +2824,7 @@ void LT_Unload_Sprites(){
 	LT_AI_Enabled = 0;
 	if (LT_VIDEO_MODE==1)LT_sprite_data_offset = 16*1024; //just after loading animation
 	if (LT_VIDEO_MODE==0)LT_sprite_data_offset = 512;
-	if (LT_VIDEO_MODE==3){
+	if (LT_VIDEO_MODE >1){
 		LT_sprite_data_offset = 2048;
 		LT_memset(&LT_sprite_data[LT_sprite_data_offset],0,62*1024);
 	}
