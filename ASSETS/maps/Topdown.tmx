@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.10.1" orientation="orthogonal" renderorder="right-down" compressionlevel="0" width="256" height="19" tilewidth="16" tileheight="16" infinite="0" nextlayerid="3" nextobjectid="37">
  <tileset firstgid="1" name="outdoor" tilewidth="16" tileheight="16" tilecount="117" columns="13">
-  <image source="../tilesets/Top_EGA.bmp" width="208" height="144"/>
+  <image source="../tilesets/Top_CGA.bmp" width="208" height="144"/>
  </tileset>
  <tileset firstgid="118" name="Collision_Tiles" tilewidth="16" tileheight="16" tilecount="32" columns="16">
   <image source="Col.png" width="256" height="32"/>
