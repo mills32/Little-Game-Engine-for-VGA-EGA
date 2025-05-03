@@ -467,7 +467,7 @@ void /*interrupt*/ PC_Speaker_SFX_Player(void){
 	byte counter;
 	int note;
 	//asm cli
-	if (LT_PC_Speaker_Playing == 1){
+	//if (LT_PC_Speaker_Playing == 1){
 		if (LT_PC_Speaker_Offset != LT_PC_Speaker_Size){
 			counter = LT_PC_Speaker_SFX[LT_PC_Speaker_Offset];
 			note = LT_PC_Speaker_Note[counter]; // calculated frequency (1193180/Value)
@@ -483,7 +483,7 @@ void /*interrupt*/ PC_Speaker_SFX_Player(void){
 			LT_PC_Speaker_Playing = 0;
 			LT_Disable_Speaker();
 		}
-	}
+	//}
 	//asm mov al, 020h      
     //asm out 020h, al    //Send 0x20 to 0x20 port (end of interrupt)
 	//asm sti
