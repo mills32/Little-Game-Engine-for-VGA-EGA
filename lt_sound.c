@@ -25,7 +25,7 @@ int ADLIB_PORT = 0x0388;
 int ADLIB_LPTPORT = 0;
 int TANDY_PORT = 0x00C0;
 int vgm_loop = 0;
-int vgm_loop_size = 0;
+// int vgm_loop_size = 0;
 int vgm_ok = 0;
 long next_event;
 word LT_imfwait;
@@ -146,15 +146,22 @@ void Load_Music_Adlib(char *filename, char *dat_string){
 	if (tag_offset != 0) tag_offset += 0x14;
 	//get loop start loop length.
 	LT_fseek(file,0x04, SEEK_CUR);//0x1C
-	LT_fread(file,2,&vgm_loop);//0x1E
-	LT_fseek(file,2,SEEK_CUR);//0x20
-	LT_fread(file,2,&vgm_loop_size);//0x22
+	LT_fread(file,2,&vgm_loop);// 0x1E
+	LT_fseek(file,4,SEEK_CUR);//0x20
+	//LT_fread(file,2,&vgm_loop_size);//0x22
+	
 	//get absolute data offset.
 	file_pos = LT_fseek(file,0x12, SEEK_CUR);//0x34
 	LT_fread(file,4,&data_offset);//0x38
 	file_pos+=4;
 	if (!data_offset) data_offset = 0x42;
 	else data_offset+=0x34;
+	
+	if (vgm_loop != 0) {
+		vgm_loop = vgm_loop + 0x1C; // adjust to absolute position (file start based)
+		vgm_loop -= data_offset; // convert to relative position (data block based)
+	}
+	
 	//calculate data size
 	size -= data_offset;
 	if (tag_offset != 0) size -= (size - tag_offset);
@@ -263,9 +270,9 @@ void Load_Music_Tandy(char *filename, char *dat_string){
 	
 	//get loop start loop length.
 	LT_fseek(file,0x04, SEEK_CUR);//0x1C
-	LT_fread(file, 2, &vgm_loop);//0x1E
-	LT_fseek(file, 2, SEEK_CUR);//0x20
-	LT_fread(file, 2, &vgm_loop_size);//0x22
+	LT_fread(file,2,&vgm_loop);   // 
+	LT_fseek(file,4,SEEK_CUR);//0x20
+	// LT_fread(file,2,&vgm_loop_size);//0x24
 	
 	//get absolute data offset.
 	file_pos = LT_fseek(file,0x12, SEEK_CUR);//0x34
@@ -273,6 +280,11 @@ void Load_Music_Tandy(char *filename, char *dat_string){
 	file_pos +=4; 
 	if (!data_offset) data_offset = 0x42;
 	else data_offset+=0x34;
+	
+	if (vgm_loop != 0) {
+		vgm_loop = vgm_loop + 0x1C; // adjust to absolute position (file start based)
+		vgm_loop -= data_offset; // convert to relative position (data block based)
+	}
 	
 	//calculate data size
 	size -= data_offset;
@@ -381,11 +393,19 @@ void Play_Music_VGM(){
 			asm add LT_imfwait,bx;
 			asm jmp _NEXT
 		_END:
-		asm cmp bl,0x05; asm jne _NEXT;//end command = 66 - 61;
+			asm cmp bl,0x05; asm jne _NEXT; //end command = 66 - 61;
+			asm cmp vgm_loop,0; asm je _RESET_START //
+			asm mov si, vgm_loop;//jump to loop offset
+			asm jmp _NEXT
+
+		_RESET_START:
 			asm mov si,0 //reset pointer
+			asm jmp _NEXT
+			
 		_NEXT:
 		asm cmp LT_imfwait,0; asm jne _DEC; 
 		asm jmp _READ;
+		
 	_DEC:
 	asm dec LT_imfwait;
 	asm mov LT_music_offset,si
