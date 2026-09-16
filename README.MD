@@ -293,6 +293,6 @@ NOTAS
 
 IA
 --
-Algunos de los últimos cambios has sido realizados ya en la "era de la IA". La he usado igual que mucha gente (como yo), usabamos cualquier foro (como stack overflow) o libro de ejemplos: para buscar ejemplos como "quiero usar esta funcion de DOS/bios", o "como funciona una VGA", eso es todo.
+Algunos de los últimos cambios has sido realizados ya en la "era de la IA". La he usado igual que mucha gente (como yo), usábamos cualquier foro (como stack overflow) o libro de ejemplos: para buscar ejemplos como "quiero usar esta función de DOS/bios", o "cómo funciona una VGA", eso es todo.
 
-La IA puede ser una herramienta, un@ compañer@, o incluso una persona en un futuro no muy lejano, pero si quieres hacer un juego, no le pedirias a otra persona qu lo hiciera por ti, verdad?. 
+La IA puede ser una herramienta, un@ compañer@, o incluso una persona en un futuro no muy lejano, pero si quieres hacer un juego, no le pedirías a otra persona que lo hiciera por ti, verdad?. 
