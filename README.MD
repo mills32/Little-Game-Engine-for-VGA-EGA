@@ -142,7 +142,7 @@ AI
 --
 Some of the latest changes were made after "AI age" started. I used AI the same way people (like me) used any forum (like stack overflow) or any sample book: to ask for samples like "I want a sample using this DOS/bios function" or "how does VGA work?", that's all. 
 
-AI can be just a tool, a partner, or even a person in a not so distant future, but if you want to create a game, you wouldn't ask someone else to do it for you... would you?.
+AI can be just a tool, a partner, or even a person the future, but if you want to create a game, you wouldn't ask someone else to do it for you... would you?.
 
 -----
 -----
@@ -295,4 +295,4 @@ IA
 --
 Algunos de los últimos cambios has sido realizados ya en la "era de la IA". La he usado igual que mucha gente (como yo), usábamos cualquier foro (como stack overflow) o libro de ejemplos: para buscar ejemplos como "quiero usar esta función de DOS/bios", o "cómo funciona una VGA", eso es todo.
 
-La IA puede ser una herramienta, un@ compañer@, o incluso una persona en un futuro no muy lejano, pero si quieres hacer un juego, no le pedirías a otra persona que lo hiciera por ti, verdad?. 
+La IA puede ser una herramienta, un@ compañer@, o incluso una persona en un futuro, pero si quieres hacer un juego, no le pedirías a otra persona que lo hiciera por ti, verdad?. 
